@@ -35,20 +35,21 @@ public class SystemFundRepository : ISystemFundRepository
         };
 
         await _unitOfWork.GetRepository<SystemFund>().AddAsync(newFund);
-        await _unitOfWork.SaveAsync();
-
         return SystemFundMapper.ToModel(newFund);
     }
 
     public async Task UpdateAsync(SystemFundModel model, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.SetTracked<SystemFund>()
-            .FirstOrDefaultAsync(x => x.Id == model.Id, cancellationToken);
-
-        if (entity != null)
+        var entity = new SystemFund
         {
-            SystemFundMapper.UpdateEntity(entity, model);
-        }
+            Id = model.Id,
+            Name = model.Name,
+            Balance = model.Balance,
+            LastUpdatedAt = model.LastUpdatedAt,
+            RowVersion = model.RowVersion
+        };
+
+        await _unitOfWork.GetRepository<SystemFund>().UpdateAsync(entity);
     }
 
     public async Task CreateTransactionAsync(SystemFundTransactionModel transaction, CancellationToken cancellationToken = default)

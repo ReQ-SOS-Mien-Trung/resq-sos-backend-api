@@ -36,7 +36,7 @@ public class SyncMissionActivitiesCommandValidator : AbstractValidator<SyncMissi
                     .NotEqual(default(DateTimeOffset)).WithMessage("QueuedAt không hợp lệ");
 
                 item.RuleFor(x => x.ImageUrl)
-                    .Must(url => string.IsNullOrWhiteSpace(url) || Uri.TryCreate(url.Trim(), UriKind.Absolute, out _))
+                    .Must(url => string.IsNullOrWhiteSpace(url) || (Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)))
                     .WithMessage("ImageUrl phải là một URL tuyệt đối hợp lệ.");
             });
 

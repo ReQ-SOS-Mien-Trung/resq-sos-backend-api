@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
@@ -11,6 +12,7 @@ public class CancelDepotClosureTransferCommandHandler(
     IDepotClosureTransferRepository transferRepository,
     IDepotClosureRepository closureRepository,
     IDepotRepository depotRepository,
+    IDepotInventoryRepository inventoryRepository,
     IOperationalHubService operationalHubService,
     IUnitOfWork unitOfWork,
     ILogger<CancelDepotClosureTransferCommandHandler> logger)
@@ -40,6 +42,16 @@ public class CancelDepotClosureTransferCommandHandler(
 
         transfer.Cancel(request.CancelledBy, request.Reason);
 
+        var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+        var moveDtos = transferItems
+            .Select(item => new DepotClosureTransferItemMoveDto
+            {
+                ItemModelId = item.ItemModelId,
+                ItemType = item.ItemType,
+                Quantity = item.Quantity
+            })
+            .ToList();
+
         var closure = await closureRepository.GetByIdAsync(transfer.ClosureId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi đóng kho #{transfer.ClosureId}.");
 
@@ -51,6 +63,17 @@ public class CancelDepotClosureTransferCommandHandler(
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await transferRepository.UpdateAsync(transfer, cancellationToken);
+
+            if (moveDtos.Count > 0)
+            {
+                await inventoryRepository.ReleaseClosureReservationAsync(
+                    transfer.SourceDepotId,
+                    transfer.Id,
+                    transfer.ClosureId,
+                    request.CancelledBy,
+                    moveDtos,
+                    cancellationToken);
+            }
 
             var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(closure.Id, cancellationToken);
             if (!hasOpenTransfers)
@@ -84,7 +107,7 @@ public class CancelDepotClosureTransferCommandHandler(
             closure.Status);
 
         await operationalHubService.PushDepotClosureUpdateAsync(
-            new Common.Models.DepotClosureRealtimeUpdate
+            new DepotClosureRealtimeUpdate
             {
                 SourceDepotId = request.DepotId,
                 TargetDepotId = transfer.TargetDepotId,
@@ -97,7 +120,7 @@ public class CancelDepotClosureTransferCommandHandler(
             cancellationToken);
 
         await operationalHubService.PushDepotClosureUpdateAsync(
-            new Common.Models.DepotClosureRealtimeUpdate
+            new DepotClosureRealtimeUpdate
             {
                 SourceDepotId = request.DepotId,
                 TargetDepotId = transfer.TargetDepotId,

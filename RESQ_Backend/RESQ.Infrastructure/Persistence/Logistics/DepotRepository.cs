@@ -193,6 +193,68 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return total ?? 0m;
     }
 
+    public async Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        // Pending inbound is defined by actual inventory-write semantics:
+        // - Supply request target load is only added to depot utilization in TransferInAsync (Confirm/Received).
+        // - Closure transfer target load is only added to depot utilization in TransferClosureItemsAsync (Receive/Received).
+        // Therefore any inbound record that has not reached target-side "Received" yet must continue to reserve
+        // target depot capacity, including source-side "Completed" states.
+        var activeSourceStatuses = new[]
+        {
+            nameof(SourceDepotStatus.Accepted),
+            nameof(SourceDepotStatus.Preparing),
+            nameof(SourceDepotStatus.Shipping),
+            nameof(SourceDepotStatus.Completed)
+        };
+
+        var activeTransferStatuses = new[]
+        {
+            nameof(DepotClosureTransferStatus.AwaitingPreparation),
+            nameof(DepotClosureTransferStatus.Preparing),
+            nameof(DepotClosureTransferStatus.Shipping),
+            nameof(DepotClosureTransferStatus.Completed)
+        };
+
+        var pendingSupplyRequestLoad = await _unitOfWork.Set<DepotSupplyRequestItem>()
+            .Where(item =>
+                item.DepotSupplyRequest.RequestingDepotId == depotId
+                && activeSourceStatuses.Contains(item.DepotSupplyRequest.SourceStatus)
+                && item.DepotSupplyRequest.RequestingStatus != nameof(RequestingDepotStatus.Received)
+                && item.DepotSupplyRequest.RequestingStatus != nameof(RequestingDepotStatus.Rejected))
+            .Select(item => new
+            {
+                Volume = item.Quantity * (item.ItemModel.VolumePerUnit ?? 0m),
+                Weight = item.Quantity * (item.ItemModel.WeightPerUnit ?? 0m)
+            })
+            .ToListAsync(cancellationToken);
+
+        var pendingClosureTransferLoad = await _unitOfWork.Set<DepotClosureTransferItem>()
+            .Where(item =>
+                item.Transfer != null
+                && item.Transfer.TargetDepotId == depotId
+                && activeTransferStatuses.Contains(item.Transfer.Status))
+            .Join(
+                _unitOfWork.Set<ItemModel>(),
+                item => item.ItemModelId,
+                model => model.Id,
+                (item, model) => new
+                {
+                    Volume = item.Quantity * (model.VolumePerUnit ?? 0m),
+                    Weight = item.Quantity * (model.WeightPerUnit ?? 0m)
+                })
+            .ToListAsync(cancellationToken);
+
+        var pendingInboundVolume = pendingSupplyRequestLoad.Sum(x => x.Volume)
+                                   + pendingClosureTransferLoad.Sum(x => x.Volume);
+        var pendingInboundWeight = pendingSupplyRequestLoad.Sum(x => x.Weight)
+                                   + pendingClosureTransferLoad.Sum(x => x.Weight);
+
+        return (pendingInboundVolume, pendingInboundWeight);
+    }
+
     public async Task<(int AvailableCount, int InUseCount)> GetReusableItemCountsAsync(
         int depotId, CancellationToken cancellationToken = default)
     {
@@ -413,9 +475,9 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             Quantity     = lot.RemainingQuantity
         }).ToList();
 
-        // Reusable items: nhóm theo item_model (không có lot)
+        // Reusable items: trả theo từng unit để giữ serial number khi xử lý bên ngoài
         var reusableItems = await _unitOfWork.Set<ReusableItem>()
-            .Where(ri => ri.DepotId == depotId && ri.Status != "Decommissioned")
+            .Where(ri => ri.DepotId == depotId && ri.Status == "Available")
             .Include(ri => ri.ItemModel!)
                 .ThenInclude(im => im.Category)
             .Include(ri => ri.ItemModel!)
@@ -423,26 +485,24 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             .ToListAsync(cancellationToken);
 
         var reusables = reusableItems
-            .GroupBy(ri => ri.ItemModelId ?? 0)
-            .Select(g =>
+            .Select(item => new ClosureInventoryLotItemDto
             {
-                var first = g.First();
-                return new ClosureInventoryLotItemDto
-                {
-                    ItemModelId  = g.Key,
-                    ItemName     = first.ItemModel?.Name ?? "N/A",
-                    CategoryName = first.ItemModel?.Category?.Name ?? "N/A",
-                    TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(
-                        first.ItemModel?.TargetGroups.Select(tg => tg.Name) ?? []),
-                    ItemType     = "Reusable",
-                    Unit         = first.ItemModel?.Unit ?? "N/A",
-                    LotId        = null,
-                    ReceivedDate = g.Min(item => item.CreatedAt),
-                    ExpiredDate  = null,
-                    Quantity     = g.Count()
-                };
+                ItemModelId = item.ItemModelId ?? 0,
+                ReusableItemId = item.Id,
+                ItemName = item.ItemModel?.Name ?? "N/A",
+                CategoryName = item.ItemModel?.Category?.Name ?? "N/A",
+                TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
+                    item.ItemModel?.TargetGroups.Select(tg => tg.Name) ?? []),
+                ItemType = "Reusable",
+                Unit = item.ItemModel?.Unit ?? "N/A",
+                SerialNumber = item.SerialNumber,
+                LotId = null,
+                ReceivedDate = item.CreatedAt,
+                ExpiredDate = null,
+                Quantity = 1
             })
             .OrderBy(x => x.ItemName)
+            .ThenBy(x => x.SerialNumber)
             .ToList();
 
         return [.. consumables, .. reusables];

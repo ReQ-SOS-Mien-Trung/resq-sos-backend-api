@@ -76,6 +76,8 @@ public class AddSosRequestToClusterCommandHandler(
             .Append(sosRequest)
             .ToList();
 
+        ValidateClusterRequestCount(updatedRequests);
+
         var clusterGroupingConfig = await _sosClusterGroupingConfigRepository.GetAsync(cancellationToken);
         var maxClusterSpreadKm = clusterGroupingConfig?.MaximumDistanceKm > 0
             ? clusterGroupingConfig.MaximumDistanceKm
@@ -84,6 +86,7 @@ public class AddSosRequestToClusterCommandHandler(
         ValidateClusterSpread(updatedRequests, maxClusterSpreadKm);
 
         var aggregate = SosClusterAggregateBuilder.Build(updatedRequests);
+        ValidateClusterPeopleCount(aggregate);
         var now = DateTime.UtcNow;
 
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -109,6 +112,31 @@ public class AddSosRequestToClusterCommandHandler(
             AddedSosRequestId = request.SosRequestId,
             UpdatedCluster = ToDto(cluster)
         };
+    }
+
+    private static void ValidateClusterRequestCount(IReadOnlyCollection<SosRequestModel> sosRequests)
+    {
+        var uniqueRequestCount = sosRequests
+            .Select(sosRequest => sosRequest.Id)
+            .Distinct()
+            .Count();
+
+        if (uniqueRequestCount > SosClusterCapacityLimits.MaxSosRequests)
+        {
+            throw new BadRequestException(
+                $"Một cluster chỉ có thể chứa tối đa {SosClusterCapacityLimits.MaxSosRequests} SOS request. " +
+                $"Tổng số SOS request hiện tại: {uniqueRequestCount}.");
+        }
+    }
+
+    private static void ValidateClusterPeopleCount(SosClusterAggregateSnapshot aggregate)
+    {
+        if (aggregate.VictimEstimated > SosClusterCapacityLimits.MaxVictimEstimated)
+        {
+            throw new BadRequestException(
+                $"Một cluster chỉ có thể chứa tối đa {SosClusterCapacityLimits.MaxVictimEstimated} người. " +
+                $"Tổng số người hiện tại: {aggregate.VictimEstimated}.");
+        }
     }
 
     private static void ValidateClusterSpread(

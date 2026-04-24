@@ -29,6 +29,8 @@ public partial class DepotFund
     [Column("fund_source_id")]
     public int? FundSourceId { get; set; }
 
+    public uint RowVersion { get; set; }
+
     [ForeignKey(nameof(DepotId))]
     [InverseProperty(nameof(Depot.DepotFunds))]
     public virtual Depot Depot { get; set; } = null!;

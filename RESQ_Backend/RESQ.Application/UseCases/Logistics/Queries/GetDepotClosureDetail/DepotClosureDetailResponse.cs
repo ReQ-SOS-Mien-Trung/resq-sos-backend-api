@@ -91,10 +91,14 @@ public class DepotClosureTransferItemDetailDto
 public class DepotClosureExternalItemDetailResponse
 {
     public int Id { get; set; }
+    public int? ItemModelId { get; set; }
+    public int? LotId { get; set; }
+    public int? ReusableItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string? CategoryName { get; set; }
     public string ItemType { get; set; } = string.Empty;
     public string? Unit { get; set; }
+    public string? SerialNumber { get; set; }
     public int Quantity { get; set; }
     public decimal? UnitPrice { get; set; }
     public decimal? TotalPrice { get; set; }

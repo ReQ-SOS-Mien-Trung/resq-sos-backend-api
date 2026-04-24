@@ -41,4 +41,10 @@ public partial class SupplyInventoryLot
 
     [InverseProperty("SupplyInventoryLot")]
     public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
+
+    [InverseProperty(nameof(DepotClosureTransferConsumableReservation.SupplyInventoryLot))]
+    public virtual ICollection<DepotClosureTransferConsumableReservation> ClosureTransferReservations { get; set; } = new List<DepotClosureTransferConsumableReservation>();
+
+    [InverseProperty(nameof(DepotSupplyRequestConsumableReservation.SupplyInventoryLot))]
+    public virtual ICollection<DepotSupplyRequestConsumableReservation> SupplyRequestReservations { get; set; } = new List<DepotSupplyRequestConsumableReservation>();
 }

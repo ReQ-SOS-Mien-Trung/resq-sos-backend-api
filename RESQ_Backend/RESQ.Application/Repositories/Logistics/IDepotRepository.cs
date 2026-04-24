@@ -67,6 +67,15 @@ namespace RESQ.Application.Repositories.Logistics
         Task<decimal> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Tính tổng tải inbound đã được giữ chỗ hoặc đang trên đường về kho đích nhưng chưa hoàn tất nhập kho.
+        /// Bao gồm supply request đã được source accept trở đi và closure transfer chưa Received/Cancelled.
+        /// Dùng để tránh overbook sức chứa kho đích khi tạo thêm phiếu inbound mới.
+        /// </summary>
+        Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(
+            int depotId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Đếm số reusable items còn trong kho (không tính Decommissioned).
         /// Phân biệt Available và InUse để phát hiện items đang ngoài nhiệm vụ.
         /// </summary>

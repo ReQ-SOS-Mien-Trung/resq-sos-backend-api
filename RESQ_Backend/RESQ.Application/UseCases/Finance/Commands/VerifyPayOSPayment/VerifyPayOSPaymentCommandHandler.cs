@@ -1,9 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
@@ -16,27 +14,21 @@ namespace RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
 /// </summary>
 public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPaymentCommand, bool>
 {
-    private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
-    private readonly IFundCampaignRepository _campaignRepository;
-    private readonly IFundTransactionRepository _transactionRepository;
+    private readonly IDonationPaymentProcessingService _donationPaymentProcessingService;
     private readonly IPaymentGatewayFactory _paymentGatewayFactory;
     private readonly IEmailService _emailService;
     private readonly ILogger<VerifyPayOSPaymentCommandHandler> _logger;
 
     public VerifyPayOSPaymentCommandHandler(
-        IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
-        IFundCampaignRepository campaignRepository,
-        IFundTransactionRepository transactionRepository,
+        IDonationPaymentProcessingService donationPaymentProcessingService,
         IPaymentGatewayFactory paymentGatewayFactory,
         IEmailService emailService,
         ILogger<VerifyPayOSPaymentCommandHandler> logger)
     {
-        _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
-        _campaignRepository = campaignRepository;
-        _transactionRepository = transactionRepository;
+        _donationPaymentProcessingService = donationPaymentProcessingService;
         _paymentGatewayFactory = paymentGatewayFactory;
         _emailService = emailService;
         _logger = logger;
@@ -90,42 +82,25 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
         }
 
         // 4. Update donation - deliberately keep existing TransactionId (paymentLinkId)
+        var wasSucceededBefore = donation.Status == Status.Succeed;
+
         try
         {
-            donation.UpdatePaymentStatus(Status.Succeed);
-            // TransactionId already holds paymentLinkId set during CreateDonation - do not overwrite.
-            donation.PaymentAuditInfo = $"[PayOS:status=PAID][Source=QueryAPI][LinkId={donation.TransactionId}]";
-            donation.PaidAt = DateTime.UtcNow;
+            var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
+                donation.Id,
+                $"[PayOS:status=PAID][Source=QueryAPI][LinkId={donation.TransactionId}]",
+                DateTime.UtcNow,
+                donation.TransactionId,
+                preserveExistingTransactionId: true,
+                cancellationToken);
 
-            await _donationRepository.UpdateAsync(donation, cancellationToken);
-
-            // 5. Update fund campaign
-            if (donation.FundCampaignId.HasValue)
+            if (!processed)
             {
-                var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
-                if (campaign != null && !campaign.IsDeleted)
-                {
-                    campaign.ReceiveDonation(donation.Amount?.Amount ?? 0);
-                    await _campaignRepository.UpdateAsync(campaign, cancellationToken);
-
-                    var transaction = new FundTransactionModel
-                    {
-                        FundCampaignId = donation.FundCampaignId,
-                        Type = TransactionType.Donation,
-                        Direction = TransactionDirection.In,
-                        Amount = donation.Amount?.Amount,
-                        ReferenceType = TransactionReferenceType.Donation,
-                        ReferenceId = donation.Id,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.CreateAsync(transaction, cancellationToken);
-                }
+                return false;
             }
 
-            await _unitOfWork.SaveAsync();
-
             // 6. Send confirmation email (fire-and-forget)
-            if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
+            if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
                 _ = _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,

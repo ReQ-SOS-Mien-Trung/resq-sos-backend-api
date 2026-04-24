@@ -1,9 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using System.Globalization;
 
@@ -11,25 +9,19 @@ namespace RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
 
 public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPayosPaymentReturnCommand, bool>
 {
-    private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
-    private readonly IFundCampaignRepository _campaignRepository;
-    private readonly IFundTransactionRepository _transactionRepository;
+    private readonly IDonationPaymentProcessingService _donationPaymentProcessingService;
     private readonly IEmailService _emailService;
     private readonly ILogger<ProcessPayosPaymentReturnCommandHandler> _logger;
 
     public ProcessPayosPaymentReturnCommandHandler(
-        IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
-        IFundCampaignRepository campaignRepository,
-        IFundTransactionRepository transactionRepository,
+        IDonationPaymentProcessingService donationPaymentProcessingService,
         IEmailService emailService,
         ILogger<ProcessPayosPaymentReturnCommandHandler> logger)
     {
-        _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
-        _campaignRepository = campaignRepository;
-        _transactionRepository = transactionRepository;
+        _donationPaymentProcessingService = donationPaymentProcessingService;
         _emailService = emailService;
         _logger = logger;
     }
@@ -62,7 +54,7 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
         if (donation == null)
         {
             _logger.LogError("Donation not found for OrderCode: {OrderCode}", orderCodeStr);
-            return true;
+            return false;
         }
 
         // Idempotency guard - webhook may fire more than once
@@ -72,46 +64,29 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
             return true;
         }
 
+        var wasSucceededBefore = donation.Status == Status.Succeed;
+
         try 
         {
-            // Business Rule: Update Status Check (Enforces Idempotency and State rules)
-            donation.UpdatePaymentStatus(Status.Succeed);
-
-            donation.TransactionId = paymentLinkId;
-            donation.PaymentAuditInfo = $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]";
-            
             if (DateTime.TryParseExact(webhook.Data.TransactionDateTime, new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var paidAt))
-                donation.PaidAt = paidAt.ToUniversalTime();
-            else
-                donation.PaidAt = DateTime.UtcNow;
-            
-            await _donationRepository.UpdateAsync(donation, cancellationToken);
-
-            if (donation.FundCampaignId.HasValue)
             {
-                var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
-                if (campaign != null && !campaign.IsDeleted)
-                {
-                    campaign.ReceiveDonation(donation.Amount?.Amount ?? 0);
-                    await _campaignRepository.UpdateAsync(campaign, cancellationToken);
-                    
-                    var transaction = new FundTransactionModel
-                    {
-                        FundCampaignId = donation.FundCampaignId,
-                        Type = TransactionType.Donation,
-                        Direction = TransactionDirection.In,
-                        Amount = donation.Amount?.Amount,
-                        ReferenceType = TransactionReferenceType.Donation,
-                        ReferenceId = donation.Id,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.CreateAsync(transaction, cancellationToken);
-                }
+                donation.PaidAt = paidAt.ToUniversalTime();
             }
 
-            await _unitOfWork.SaveAsync();
+            var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
+                donation.Id,
+                $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]",
+                donation.PaidAt ?? DateTime.UtcNow,
+                paymentLinkId,
+                preserveExistingTransactionId: true,
+                cancellationToken);
 
-            if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
+            if (!processed)
+            {
+                return false;
+            }
+
+            if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
                 _ = _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,

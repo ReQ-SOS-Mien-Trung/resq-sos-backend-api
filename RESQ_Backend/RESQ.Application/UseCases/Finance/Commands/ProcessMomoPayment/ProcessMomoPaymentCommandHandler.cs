@@ -2,10 +2,8 @@ using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models.Finance.Momo;
-using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,27 +12,21 @@ namespace RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
 
 public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPaymentCommand, bool>
 {
-    private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
-    private readonly IFundCampaignRepository _campaignRepository;
-    private readonly IFundTransactionRepository _transactionRepository;
+    private readonly IDonationPaymentProcessingService _donationPaymentProcessingService;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ProcessMomoPaymentCommandHandler> _logger;
 
     public ProcessMomoPaymentCommandHandler(
-        IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
-        IFundCampaignRepository campaignRepository,
-        IFundTransactionRepository transactionRepository,
+        IDonationPaymentProcessingService donationPaymentProcessingService,
         IEmailService emailService,
         IConfiguration configuration,
         ILogger<ProcessMomoPaymentCommandHandler> logger)
     {
-        _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
-        _campaignRepository = campaignRepository;
-        _transactionRepository = transactionRepository;
+        _donationPaymentProcessingService = donationPaymentProcessingService;
         _emailService = emailService;
         _configuration = configuration;
         _logger = logger;
@@ -59,44 +51,26 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
             return false;
         }
 
+        var wasSucceededBefore = donation.Status == Status.Succeed;
+
         try 
         {
             if (ipn.ResultCode == 0) // Success
             {
-                // Business Rule: Update Status Check
-                donation.UpdatePaymentStatus(Status.Succeed);
+                var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
+                    donation.Id,
+                    $"[MoMo:TransId={ipn.TransId},Type={ipn.PayType}]",
+                    DateTime.UtcNow,
+                    ipn.TransId.ToString(),
+                    preserveExistingTransactionId: false,
+                    cancellationToken);
 
-                donation.TransactionId = ipn.TransId.ToString();
-                donation.PaymentAuditInfo = $"[MoMo:TransId={ipn.TransId},Type={ipn.PayType}]";
-                donation.PaidAt = DateTime.UtcNow;
-
-                await _donationRepository.UpdateAsync(donation, cancellationToken);
-
-                if (donation.FundCampaignId.HasValue)
+                if (!processed)
                 {
-                    var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
-                    if (campaign != null && !campaign.IsDeleted)
-                    {
-                        campaign.ReceiveDonation(donation.Amount?.Amount ?? 0);
-                        await _campaignRepository.UpdateAsync(campaign, cancellationToken);
-
-                        var transaction = new FundTransactionModel
-                        {
-                            FundCampaignId = donation.FundCampaignId,
-                            Type = TransactionType.Donation,
-                            Direction = TransactionDirection.In,
-                            Amount = donation.Amount?.Amount,
-                            ReferenceType = TransactionReferenceType.Donation,
-                            ReferenceId = donation.Id,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        await _transactionRepository.CreateAsync(transaction, cancellationToken);
-                    }
+                    return false;
                 }
 
-                await _unitOfWork.SaveAsync();
-
-                if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
+                if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
                 {
                     _ = _emailService.SendDonationSuccessEmailAsync(
                         donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
@@ -107,18 +81,21 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
             }
             else
             {
-                // Failed
-                donation.UpdatePaymentStatus(Status.Failed);
-                donation.PaymentAuditInfo += $" [MoMo Failed: {ipn.Message}]";
-                await _donationRepository.UpdateAsync(donation, cancellationToken);
-                await _unitOfWork.SaveAsync();
+                var processed = await _donationPaymentProcessingService.TryProcessFailureAsync(
+                    donation.Id,
+                    $"[MoMo Failed: {ipn.Message}]",
+                    cancellationToken);
+
+                if (!processed)
+                {
+                    return false;
+                }
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing MoMo donation logic");
-            // If it's a domain logic exception (like trying to update a success transaction), we treat as processed.
-            return true;
+            return false;
         }
 
         return true;

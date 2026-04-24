@@ -22,10 +22,11 @@ public static class MissionSuggestionWarningHelper
         IEnumerable<SuggestedActivityDto>? activities,
         string? explicitWarning)
     {
-        var recomputedWarning = BuildMixedRescueReliefWarning(activities);
-        return !string.IsNullOrWhiteSpace(recomputedWarning)
-            ? recomputedWarning
-            : NormalizeExplicitWarning(explicitWarning);
+        var activityList = activities?.ToList() ?? [];
+        if (activityList.Count > 0)
+            return BuildMixedRescueReliefWarning(activityList);
+
+        return NormalizeExplicitWarning(explicitWarning);
     }
 
     public static string BuildMixedRescueReliefWarning(IEnumerable<SuggestedActivityDto>? activities)
@@ -206,8 +207,7 @@ public static class MissionSuggestionWarningHelper
         || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsReliefActivity(SuggestedActivityDto activity) =>
-        string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+        string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatSosGroup(IReadOnlyCollection<int> sosIds)
     {

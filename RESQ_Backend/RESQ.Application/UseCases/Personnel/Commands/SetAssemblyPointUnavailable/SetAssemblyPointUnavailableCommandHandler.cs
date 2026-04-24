@@ -33,10 +33,10 @@ public class SetAssemblyPointUnavailableCommandHandler(
         var assemblyPoint = await _repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
 
-var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.Id, cancellationToken);
+        var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.Id, cancellationToken);
         if (activeEvent != null)
         {
-            await _assemblyEventRepository.UpdateEventStatusAsync(activeEvent.Value.EventId, AssemblyEventStatus.Completed.ToString(), cancellationToken);
+            await _assemblyEventRepository.UpdateEventStatusAsync(activeEvent.Value.EventId, AssemblyEventStatus.Cancelled.ToString(), cancellationToken);
             var participants = await _assemblyEventRepository.GetParticipantIdsAsync(activeEvent.Value.EventId, cancellationToken);
             foreach (var userId in participants)
             {
@@ -44,9 +44,9 @@ var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAs
                 {
                     await _firebaseService.SendNotificationToUserAsync(
                         userId, 
-                        "Sự kiện tập hợp đã thay đổi", 
+                        "Sự kiện tập hợp đã bị hủy", 
                         $"Điểm tập kết \"{assemblyPoint.Name}\" đang được bảo trì. Sự kiện tập hợp đã bị hủy.", 
-                        "assembly_event_completed", 
+                        "assembly_event_cancelled", 
                         cancellationToken);
                 }
                 catch (Exception ex)

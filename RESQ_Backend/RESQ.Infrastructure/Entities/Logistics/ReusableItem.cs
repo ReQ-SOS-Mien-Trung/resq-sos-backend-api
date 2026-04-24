@@ -55,4 +55,10 @@ public partial class ReusableItem
     [ForeignKey("ItemModelId")]
     [InverseProperty("ReusableItems")]
     public virtual ItemModel? ItemModel { get; set; }
+
+    [InverseProperty(nameof(DepotClosureTransferReusableItem.ReusableItem))]
+    public virtual ICollection<DepotClosureTransferReusableItem> DepotClosureTransferItems { get; set; } = new List<DepotClosureTransferReusableItem>();
+
+    [InverseProperty(nameof(DepotSupplyRequestReusableItem.ReusableItem))]
+    public virtual ICollection<DepotSupplyRequestReusableItem> SupplyRequestItems { get; set; } = new List<DepotSupplyRequestReusableItem>();
 }

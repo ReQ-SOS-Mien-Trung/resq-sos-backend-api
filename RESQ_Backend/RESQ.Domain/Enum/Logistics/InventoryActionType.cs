@@ -7,5 +7,9 @@ public enum InventoryActionType
     Adjust,
     TransferIn,
     TransferOut,
-    Return
+    Return,
+    Reserve,
+    MissionPickup,
+    DepotClosureExternalDisposal,
+    DepotClosureReusableDecommissioned
 }

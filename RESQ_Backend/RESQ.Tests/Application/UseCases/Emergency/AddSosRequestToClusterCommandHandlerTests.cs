@@ -115,6 +115,75 @@ public class AddSosRequestToClusterCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenCombinedRequestsExceedClusterLimit()
+    {
+        var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201, 202, 203, 204, 205] };
+        var existingRequests = Enumerable.Range(201, 5)
+            .Select((id, index) => BuildSosRequest(id, clusterId: 7, lat: 10.0 + (index * 0.001), lon: 106.0))
+            .ToArray();
+        var incoming = BuildSosRequest(101, clusterId: null, lat: 10.005, lon: 106.0);
+        var handler = BuildHandler(
+            clusterRepository: new StubSosClusterRepository(cluster),
+            sosRequestRepository: new StubSosRequestRepository([.. existingRequests, incoming]));
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+
+        Assert.Contains("5 SOS request", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenCombinedPeopleCountExceedsClusterLimit()
+    {
+        var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201] };
+        var existing = BuildSosRequest(201, clusterId: 7, structuredData: PeopleCountJson(adult: 60));
+        var incoming = BuildSosRequest(101, clusterId: null, lat: 10.001, structuredData: PeopleCountJson(adult: 41));
+        var handler = BuildHandler(
+            clusterRepository: new StubSosClusterRepository(cluster),
+            sosRequestRepository: new StubSosRequestRepository(existing, incoming));
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+
+        Assert.Contains("100", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Handle_Succeeds_WhenCombinedRequestsAndPeopleAreAtClusterLimits()
+    {
+        var cluster = new SosClusterModel
+        {
+            Id = 7,
+            Status = SosClusterStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            SosRequestIds = [201, 202, 203, 204]
+        };
+        var existingRequests = Enumerable.Range(201, 4)
+            .Select((id, index) => BuildSosRequest(
+                id,
+                clusterId: 7,
+                lat: 10.0 + (index * 0.001),
+                lon: 106.0,
+                structuredData: PeopleCountJson(adult: 20)))
+            .ToArray();
+        var incoming = BuildSosRequest(
+            101,
+            clusterId: null,
+            lat: 10.004,
+            lon: 106.0,
+            structuredData: PeopleCountJson(adult: 20));
+        var handler = BuildHandler(
+            clusterRepository: new StubSosClusterRepository(cluster),
+            sosRequestRepository: new StubSosRequestRepository([.. existingRequests, incoming]));
+
+        var response = await handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None);
+
+        Assert.Equal(5, response.UpdatedCluster!.SosRequestCount);
+        Assert.Equal(100, response.UpdatedCluster.VictimEstimated);
+        Assert.Equal([201, 202, 203, 204, 101], response.UpdatedCluster.SosRequestIds);
+    }
+
+    [Fact]
     public async Task Handle_AddsPendingSosToPendingCluster_AndRecomputesAggregate()
     {
         var cluster = new SosClusterModel
@@ -225,6 +294,17 @@ public class AddSosRequestToClusterCommandHandlerTests
         sos.Status = status;
         sos.StructuredData = structuredData;
         return sos;
+    }
+
+    private static string PeopleCountJson(int adult = 0, int child = 0, int elderly = 0)
+    {
+        return "{\"incident\":{\"people_count\":{\"adult\":"
+            + adult
+            + ",\"child\":"
+            + child
+            + ",\"elderly\":"
+            + elderly
+            + "}}}";
     }
 
     private sealed class StubSosClusterRepository(SosClusterModel? cluster) : ISosClusterRepository

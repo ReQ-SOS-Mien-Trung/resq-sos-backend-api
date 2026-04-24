@@ -1,13 +1,17 @@
-﻿namespace RESQ.Application.Repositories.Logistics;
+namespace RESQ.Application.Repositories.Logistics;
 
 /// <summary>DTO dùng để tạo bản ghi xử lý tồn kho bên ngoài.</summary>
 public record CreateClosureExternalItemDto(
     int DepotId,
     int? ClosureId,
+    int? ItemModelId,
+    int? LotId,
+    int? ReusableItemId,
     string ItemName,
     string? CategoryName,
     string ItemType,
     string? Unit,
+    string? SerialNumber,
     int Quantity,
     decimal? UnitPrice,
     decimal? TotalPrice,
@@ -21,10 +25,14 @@ public record CreateClosureExternalItemDto(
 public class DepotClosureExternalItemDetailDto
 {
     public int Id { get; set; }
+    public int? ItemModelId { get; set; }
+    public int? LotId { get; set; }
+    public int? ReusableItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string? CategoryName { get; set; }
     public string ItemType { get; set; } = string.Empty;
     public string? Unit { get; set; }
+    public string? SerialNumber { get; set; }
     public int Quantity { get; set; }
     public decimal? UnitPrice { get; set; }
     public decimal? TotalPrice { get; set; }

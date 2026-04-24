@@ -126,13 +126,20 @@ public class DonationController : ControllerBase
                 WebhookData = webhook
             };
 
-            await _mediator.Send(command);
+            var processed = await _mediator.Send(command);
+            if (!processed)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { success = false, message = "Xử lý webhook PayOS thất bại. Vui lòng thử lại." });
+            }
+
             return Ok(new { success = true, message = "Đã nhận webhook." });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing PayOS webhook");
-            return Ok(new { success = true, message = "Đã nhận webhook." });
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new { success = false, message = "Xử lý webhook PayOS thất bại. Vui lòng thử lại." });
         }
     }
     /// <summary>Webhook nhận kết quả thanh toán từ MoMo (IPN callback).</summary>
@@ -158,13 +165,18 @@ public class DonationController : ControllerBase
                 IpnData = ipnData
             };
 
-            await _mediator.Send(command);
+            var processed = await _mediator.Send(command);
+            if (!processed)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
+
             return NoContent();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing MoMo IPN");
-            return NoContent();
+            return StatusCode(StatusCodes.Status500InternalServerError);
         }
     }
 

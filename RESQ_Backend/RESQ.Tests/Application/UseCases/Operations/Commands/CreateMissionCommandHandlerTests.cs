@@ -379,7 +379,7 @@ public class CreateMissionCommandHandlerTests
                 [collect, rescue],
                 aiSuggestionId: 44,
                 ignoreMixedMissionWarning: true,
-                overrideReason: "Coordinator accepts mixed mission risk."),
+                overrideReason: "  Coordinator accepts mixed mission risk.  "),
             CancellationToken.None);
 
         Assert.Equal(101, response.MissionId);
@@ -393,6 +393,61 @@ public class CreateMissionCommandHandlerTests
 
         Assert.True(properties["IgnoreMixedMissionWarning"].GetBoolean());
         Assert.Equal("Coordinator accepts mixed mission risk.", properties["OverrideReason"].GetString());
+        Assert.Equal(CoordinatorId.ToString(), properties["OverriddenBy"].GetString());
+        Assert.False(string.IsNullOrWhiteSpace(properties["OverriddenAt"].GetString()));
+    }
+
+    [Fact]
+    public async Task Handle_PersistsOverrideAuditWithNullReason_WhenMixedMissionIsIgnoredWithoutReason()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository(
+            CreateSosRequest(11, "Rescue", SosPriorityLevel.Critical),
+            CreateSosRequest(22, "Relief", SosPriorityLevel.Medium));
+        var sosAiAnalysisRepository = new StubSosAiAnalysisRepository(
+            CreateAiAnalysis(
+                11,
+                priority: "Critical",
+                severity: "Critical",
+                needsImmediateSafeTransfer: true,
+                canWaitForCombinedMission: false,
+                handlingReason: "Victim must be moved to a safe zone immediately."));
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork,
+            sosAiAnalysisRepository: sosAiAnalysisRepository);
+
+        var collect = CreateCollectActivity(quantity: 10);
+        collect.SosRequestId = 22;
+        var rescue = CreateRescueActivity(step: 2);
+        rescue.SosRequestId = 11;
+
+        var response = await handler.Handle(
+            BuildCommandWithOptions(
+                [collect, rescue],
+                ignoreMixedMissionWarning: true),
+            CancellationToken.None);
+
+        Assert.Equal(101, response.MissionId);
+        Assert.NotNull(missionRepository.CreatedMission);
+
+        using var metadata = JsonDocument.Parse(missionRepository.CreatedMission!.ManualOverrideMetadata!);
+        var properties = metadata.RootElement
+            .EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value, StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(properties["IgnoreMixedMissionWarning"].GetBoolean());
+        Assert.Equal(JsonValueKind.Null, properties["OverrideReason"].ValueKind);
         Assert.Equal(CoordinatorId.ToString(), properties["OverriddenBy"].GetString());
         Assert.False(string.IsNullOrWhiteSpace(properties["OverriddenAt"].GetString()));
     }
@@ -955,6 +1010,7 @@ public class CreateMissionCommandHandlerTests
         public Task<decimal> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<(int AvailableCount, int InUseCount)> GetReusableItemCountsAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(int depotId, CancellationToken cancellationToken = default) => Task.FromResult((0m, 0m));
         public Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<System.Collections.Generic.List<RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure.ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<System.Collections.Generic.List<RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure.ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();

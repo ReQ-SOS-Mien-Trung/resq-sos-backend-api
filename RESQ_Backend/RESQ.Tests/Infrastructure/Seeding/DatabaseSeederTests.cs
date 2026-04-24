@@ -32,16 +32,16 @@ public class DatabaseSeederTests
         Assert.Equal(firstCounts, secondCounts);
         Assert.Empty(validationErrors);
         Assert.Equal(296, firstCounts.Users);
-        Assert.Equal(360, firstCounts.SosRequests);
-        Assert.Equal(190, firstCounts.SosClusters);
-        Assert.Equal(100, firstCounts.Missions);
-        Assert.Equal(420, firstCounts.MissionActivities);
+        Assert.Equal(20, firstCounts.SosRequests);
+        Assert.Equal(11, firstCounts.SosClusters);
+        Assert.Equal(11, firstCounts.Missions);
+        Assert.Equal(48, firstCounts.MissionActivities);
         Assert.Equal(140, firstCounts.Conversations);
         Assert.Equal(1900, firstCounts.Messages);
         Assert.Equal(841, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
         Assert.Equal(2001, firstCounts.InventoryLogs);
-        Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v1-2026-04-16"));
+        Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v2-2026-04-24"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
 
@@ -62,7 +62,7 @@ public class DatabaseSeederTests
             Assert.Contains(rescuer.Id, eligibleRescuerIds);
         }
 
-        var recentRescuerCutoff = new DateTime(2026, 3, 16, 0, 0, 0, DateTimeKind.Utc);
+        var recentRescuerCutoff = new DateTime(2026, 3, 24, 0, 0, 0, DateTimeKind.Utc);
         var seedAnchorUtc = SeedAnchorUtc();
         var recentRescuers = await context.Users
             .Where(u => u.RoleId == 3 && u.CreatedAt >= recentRescuerCutoff && u.CreatedAt <= seedAnchorUtc)
@@ -359,21 +359,35 @@ public class DatabaseSeederTests
                 context.DepotFundTransactions.Any(transaction => transaction.DepotFundId == fund.Id),
                 $"Expected depot fund #{fund.Id} to have transactions."));
 
-        var unclusteredHueSos = await context.SosRequests
-            .Where(s => s.ClusterId == null && s.Location != null)
-            .Where(s => s.Location!.Y >= 16.455 && s.Location.Y <= 16.479)
-            .Where(s => s.Location!.X >= 107.586 && s.Location.X <= 107.609)
+        var stadiumSos = await context.SosRequests
+            .Where(s => s.Location != null)
+            .OrderBy(s => s.Id)
             .ToListAsync();
-        var clusteredSosCounts = await context.SosRequests
+        var clusteredSosRows = await context.SosRequests
             .Where(s => s.ClusterId != null)
-            .GroupBy(s => s.ClusterId)
-            .Select(group => group.Count())
             .ToListAsync();
+        var clusterCapacitySnapshots = clusteredSosRows
+            .GroupBy(s => s.ClusterId!.Value)
+            .Select(group =>
+            {
+                var priorities = group.Select(s => s.PriorityLevel).ToList();
+                return new
+                {
+                    ClusterId = group.Key,
+                    Count = group.Count(),
+                    HighestPriority = HighestSosPriority(priorities),
+                    Limit = MaxSosRequestsForCluster(priorities)
+                };
+            })
+            .ToList();
         var priorityCounts = await context.SosRequests
             .GroupBy(s => s.PriorityLevel)
             .Select(group => new { group.Key, Count = group.Count() })
             .ToDictionaryAsync(group => group.Key ?? string.Empty, group => group.Count);
-        var reliefCount = await context.SosRequests.CountAsync(s => s.SosType == "Relief");
+        var sosTypeCounts = await context.SosRequests
+            .GroupBy(s => s.SosType)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.Key ?? string.Empty, group => group.Count);
         var recentOpenSos = await context.SosRequests
             .Where(s => s.Status == "Pending" || s.Status == "Assigned" || s.Status == "InProgress" || s.Status == "Incident")
             .Select(s => new { s.Id, s.Status, s.CreatedAt, s.ReceivedAt, s.ReviewedAt, s.LastUpdatedAt })
@@ -382,50 +396,140 @@ public class DatabaseSeederTests
             .Where(s => s.StructuredData != null)
             .Select(s => new { s.SosType, s.StructuredData })
             .ToListAsync();
-        var sampleClusteredSos = (await context.SosRequests
-                .Where(s => new[] { 12, 95, 158, 221, 305 }.Contains(s.Id) && s.Location != null)
-                .OrderBy(s => s.Id)
-                .Select(s => new { s.Id, Location = s.Location! })
-                .ToListAsync())
-            .Select(s => new SosCoordinateSnapshot(s.Id, null, Math.Round(s.Location.Y, 6), Math.Round(s.Location.X, 6)))
-            .ToList();
+        var mobilePackets = await context.SosRequests
+            .Select(s => new { s.RawMessage, s.NetworkMetadata, s.SenderInfo, s.ReporterInfo, s.VictimInfo, s.OriginId, s.Timestamp, s.CreatedAt })
+            .ToListAsync();
+        var completedClusterIds = await context.SosClusters
+            .Where(cluster => cluster.Status == "Completed")
+            .Select(cluster => cluster.Id)
+            .ToListAsync();
+        var mobilePacketMissingCount = await context.SosRequests.CountAsync(s =>
+            string.IsNullOrWhiteSpace(s.RawMessage)
+            || s.Location == null
+            || string.IsNullOrWhiteSpace(s.StructuredData)
+            || string.IsNullOrWhiteSpace(s.NetworkMetadata)
+            || string.IsNullOrWhiteSpace(s.SenderInfo)
+            || string.IsNullOrWhiteSpace(s.ReporterInfo)
+            || string.IsNullOrWhiteSpace(s.VictimInfo)
+            || string.IsNullOrWhiteSpace(s.OriginId)
+            || s.PacketId == null);
 
-        Assert.Equal(10, unclusteredHueSos.Count);
-        Assert.Equal(190, clusteredSosCounts.Count);
-        Assert.Equal(160, clusteredSosCounts.Count(size => size == 2));
-        Assert.Equal(30, clusteredSosCounts.Count(size => size == 1));
-        Assert.All(clusteredSosCounts, size => Assert.InRange(size, 1, 2));
-        Assert.Equal(5, sampleClusteredSos.Count);
-        Assert.Equal(5, sampleClusteredSos.Select(s => s.Latitude).Distinct().Count());
-        Assert.Equal(5, sampleClusteredSos.Select(s => s.Longitude).Distinct().Count());
-        Assert.True(sampleClusteredSos.Max(s => s.Latitude) - sampleClusteredSos.Min(s => s.Latitude) > 0.0025);
-        Assert.True(sampleClusteredSos.Max(s => s.Longitude) - sampleClusteredSos.Min(s => s.Longitude) > 0.004);
+        Assert.Equal(20, stadiumSos.Count);
+        Assert.DoesNotContain(stadiumSos, s => s.ClusterId == null);
+        Assert.Equal(11, clusterCapacitySnapshots.Count);
+        Assert.All(clusterCapacitySnapshots, cluster =>
+            Assert.True(
+                cluster.Count <= cluster.Limit,
+                $"Cluster #{cluster.ClusterId} contains {cluster.Count} SOS requests; {cluster.HighestPriority} clusters allow at most {cluster.Limit}."));
+        Assert.Contains(clusterCapacitySnapshots, cluster => cluster.HighestPriority == "Critical" && cluster.Count == 1 && cluster.Limit == 1);
+        Assert.Contains(clusterCapacitySnapshots, cluster => cluster.HighestPriority == "High" && cluster.Count == 2 && cluster.Limit == 2);
+        Assert.Contains(clusterCapacitySnapshots, cluster => cluster.HighestPriority == "Medium" && cluster.Count == 3 && cluster.Limit == 3);
+        Assert.Contains(clusterCapacitySnapshots, cluster => cluster.HighestPriority == "Low" && cluster.Count == 2 && cluster.Limit == 5);
+        Assert.Equal(2, completedClusterIds.Count);
+        Assert.False(await context.SosRequests.AnyAsync(s =>
+            s.ClusterId.HasValue
+            && completedClusterIds.Contains(s.ClusterId.Value)
+            && s.Status != "Resolved"));
+        Assert.Equal(0, mobilePacketMissingCount);
+        Assert.All(mobilePackets, packet =>
+        {
+            Assert.StartsWith("[", packet.RawMessage);
+            Assert.Contains("| Tình trạng:", packet.RawMessage);
+            Assert.Contains("| Số người:", packet.RawMessage);
+            Assert.Contains("| Ghi chú:", packet.RawMessage);
+            Assert.True(Guid.TryParse(packet.OriginId, out _));
+            Assert.NotNull(packet.CreatedAt);
+            Assert.Equal(new DateTimeOffset(packet.CreatedAt!.Value).ToUnixTimeSeconds(), packet.Timestamp);
+
+            using var network = JsonDocument.Parse(packet.NetworkMetadata!);
+            Assert.True(network.RootElement.TryGetProperty("hop_count", out _));
+            var path = network.RootElement.GetProperty("path").EnumerateArray().Select(item => item.GetString()).ToList();
+            Assert.Contains(packet.OriginId, path);
+
+            using var sender = JsonDocument.Parse(packet.SenderInfo!);
+            Assert.False(string.IsNullOrWhiteSpace(sender.RootElement.GetProperty("device_id").GetString()));
+            Assert.False(string.IsNullOrWhiteSpace(sender.RootElement.GetProperty("user_name").GetString()));
+            Assert.Matches("^(0|\\+84)[0-9]{9}$", sender.RootElement.GetProperty("user_phone").GetString() ?? "");
+            Assert.True(sender.RootElement.TryGetProperty("is_online", out _));
+
+            using var reporter = JsonDocument.Parse(packet.ReporterInfo!);
+            Assert.False(string.IsNullOrWhiteSpace(reporter.RootElement.GetProperty("device_id").GetString()));
+            Assert.False(string.IsNullOrWhiteSpace(reporter.RootElement.GetProperty("user_name").GetString()));
+            Assert.Matches("^(0|\\+84)[0-9]{9}$", reporter.RootElement.GetProperty("user_phone").GetString() ?? "");
+
+            using var victimInfo = JsonDocument.Parse(packet.VictimInfo!);
+            Assert.False(string.IsNullOrWhiteSpace(victimInfo.RootElement.GetProperty("user_name").GetString()));
+            Assert.Matches("^\\+84[0-9]{9}$", victimInfo.RootElement.GetProperty("user_phone").GetString() ?? "");
+        });
+        Assert.All(stadiumSos, sos =>
+        {
+            Assert.InRange(sos.Location!.Y, 16.457, 16.4675);
+            Assert.InRange(sos.Location!.X, 107.598, 107.6075);
+        });
+        Assert.All(await context.SosClusters.Where(c => c.CenterLocation != null).Select(c => c.CenterLocation!).ToListAsync(), point =>
+        {
+            Assert.InRange(point.Y, 16.457, 16.4675);
+            Assert.InRange(point.X, 107.598, 107.6075);
+        });
         Assert.DoesNotContain(await context.SosRequests.Select(s => s.PriorityLevel).Distinct().ToListAsync(), value => value == "Moderate");
-        Assert.True(
-            priorityCounts.GetValueOrDefault("Medium") + priorityCounts.GetValueOrDefault("Low")
-            > priorityCounts.GetValueOrDefault("High") + priorityCounts.GetValueOrDefault("Critical"));
-        Assert.True(reliefCount >= 150, $"Expected at least 150 relief SOS requests but found {reliefCount}.");
-        Assert.DoesNotContain(await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(), sosType => sosType == "Both");
+        Assert.Equal(3, priorityCounts.GetValueOrDefault("Critical"));
+        Assert.Equal(8, priorityCounts.GetValueOrDefault("High"));
+        Assert.Equal(7, priorityCounts.GetValueOrDefault("Medium"));
+        Assert.Equal(2, priorityCounts.GetValueOrDefault("Low"));
+        Assert.Equal(9, sosTypeCounts.GetValueOrDefault("Rescue"));
+        Assert.Equal(5, sosTypeCounts.GetValueOrDefault("Relief"));
+        Assert.Equal(6, sosTypeCounts.GetValueOrDefault("Both"));
         Assert.Contains(sosPayloads, payload => payload.SosType == "Relief");
         Assert.Contains(sosPayloads, payload => payload.SosType == "Rescue");
+        Assert.Contains(sosPayloads, payload => payload.SosType == "Both");
         Assert.All(sosPayloads, payload =>
         {
             using var payloadDocument = JsonDocument.Parse(payload.StructuredData!);
-            var supplies = payloadDocument.RootElement
-                .GetProperty("supplies")
-                .EnumerateArray()
-                .Select(element => element.GetString())
-                .ToList();
+            var root = payloadDocument.RootElement;
+            var incident = root.GetProperty("incident");
 
-            if (payload.SosType == "Relief")
+            Assert.False(string.IsNullOrWhiteSpace(incident.GetProperty("address").GetString()));
+            var peopleCount = incident.GetProperty("people_count");
+            Assert.True(peopleCount.GetProperty("adult").GetInt32()
+                + peopleCount.GetProperty("child").GetInt32()
+                + peopleCount.GetProperty("elderly").GetInt32() > 0);
+            Assert.True(incident.TryGetProperty("can_move", out _));
+            Assert.True(incident.TryGetProperty("has_injured", out _));
+            Assert.True(incident.TryGetProperty("need_medical", out _));
+            Assert.True(incident.TryGetProperty("others_are_stable", out _));
+            Assert.False(string.IsNullOrWhiteSpace(incident.GetProperty("additional_description").GetString()));
+            Assert.True(IsCapsLockToken(incident.GetProperty("situation").GetString()));
+
+            var victims = root.GetProperty("victims").EnumerateArray().ToList();
+            Assert.NotEmpty(victims);
+            Assert.All(victims, victim =>
             {
-                Assert.NotEmpty(supplies);
-            }
-            else if (payload.SosType == "Rescue")
+                Assert.False(string.IsNullOrWhiteSpace(victim.GetProperty("person_id").GetString()));
+                Assert.True(IsCapsLockToken(victim.GetProperty("person_type").GetString()));
+                Assert.True(victim.GetProperty("index").GetInt32() > 0);
+                Assert.False(string.IsNullOrWhiteSpace(victim.GetProperty("custom_name").GetString()));
+                var incidentStatus = victim.GetProperty("incident_status");
+                Assert.True(incidentStatus.TryGetProperty("is_injured", out _));
+                Assert.True(IsCapsLockToken(incidentStatus.GetProperty("severity").GetString()));
+                Assert.Equal(JsonValueKind.Array, incidentStatus.GetProperty("medical_issues").ValueKind);
+                var personalNeeds = victim.GetProperty("personal_needs");
+                Assert.True(personalNeeds.GetProperty("clothing").TryGetProperty("needed", out _));
+                Assert.True(personalNeeds.GetProperty("diet").TryGetProperty("has_special_diet", out _));
+            });
+
+            if (payload.SosType is "Relief" or "Both")
             {
-                Assert.Empty(supplies);
+                var groupNeeds = root.GetProperty("group_needs");
+                Assert.NotEmpty(groupNeeds.GetProperty("supplies").EnumerateArray());
+                Assert.True(groupNeeds.TryGetProperty("water", out _));
+                Assert.True(groupNeeds.TryGetProperty("food", out _));
+                Assert.True(groupNeeds.TryGetProperty("medicine", out _));
             }
         });
+        Assert.Equal(20, await context.SosRuleEvaluations.Select(evaluation => evaluation.SosRequestId).Distinct().CountAsync());
+        Assert.Equal(20, await context.SosAiAnalyses.Select(analysis => analysis.SosRequestId).Distinct().CountAsync());
+        Assert.Equal(20, await context.SosRequestUpdates.Select(update => update.SosRequestId).Distinct().CountAsync());
+        Assert.Equal(20, await context.SosRequestCompanions.Select(companion => companion.SosRequestId).Distinct().CountAsync());
         Assert.NotEmpty(recentOpenSos);
         Assert.All(recentOpenSos, sos =>
         {
@@ -447,28 +551,16 @@ public class DatabaseSeederTests
                 Assert.InRange(sos.LastUpdatedAt.Value, sos.ReviewedAt.Value, seedAnchorUtc);
             }
         });
-        Assert.True(await context.SosRequests.AnyAsync(s =>
-            (s.Status == "Resolved" || s.Status == "Cancelled")
-            && s.CreatedAt < seedAnchorUtc.AddHours(-24)));
+        Assert.Contains(await context.Missions.Select(m => m.Status).Distinct().ToListAsync(), status => status == "Planned");
+        Assert.Contains(await context.Missions.Select(m => m.Status).Distinct().ToListAsync(), status => status == "OnGoing");
+        Assert.Contains(await context.Missions.Select(m => m.Status).Distinct().ToListAsync(), status => status == "Completed");
+        Assert.Contains(await context.Missions.Select(m => m.Status).Distinct().ToListAsync(), status => status == "Incompleted");
         Assert.All(
             await context.SosRequests.Select(s => s.SosType).Distinct().ToListAsync(),
             sosType => Assert.False(IsCapsLockToken(sosType), $"Expected PascalCase sos_type but found '{sosType}'."));
         Assert.All(
             await context.Missions.Select(m => m.MissionType).Distinct().ToListAsync(),
             missionType => Assert.False(IsCapsLockToken(missionType), $"Expected PascalCase mission_type but found '{missionType}'."));
-        Assert.All(
-            await context.SosRequests.Where(s => s.StructuredData != null).Select(s => s.StructuredData!).Take(40).ToListAsync(),
-            structuredData =>
-            {
-                using var document = JsonDocument.Parse(structuredData);
-                var incidentSituation = document.RootElement.GetProperty("incident").GetProperty("situation").GetString();
-                Assert.False(IsCapsLockToken(incidentSituation), $"Expected PascalCase situation but found '{incidentSituation}'.");
-
-                foreach (var supply in document.RootElement.GetProperty("supplies").EnumerateArray().Select(element => element.GetString()))
-                {
-                    Assert.False(IsCapsLockToken(supply), $"Expected PascalCase supply but found '{supply}'.");
-                }
-            });
         Assert.All(
             await context.Users.Where(u => u.RoleId == 5).Select(u => u.Phone).ToListAsync(),
             phone => Assert.Matches("^\\+84[0-9]{9}$", phone ?? ""));
@@ -500,8 +592,8 @@ public class DatabaseSeederTests
 
         Assert.All(await context.SosRequests.Where(s => s.Location != null).Select(s => s.Location!).Take(40).ToListAsync(), point =>
         {
-            Assert.InRange(point.Y, 14.9, 16.95);
-            Assert.InRange(point.X, 106.9, 108.95);
+            Assert.InRange(point.Y, 16.457, 16.4675);
+            Assert.InRange(point.X, 107.598, 107.6075);
         });
     }
 
@@ -749,7 +841,8 @@ public class DatabaseSeederTests
         context.SosClusters.AddRange(
             new SosCluster { Id = 9001, Status = "Done" },
             new SosCluster { Id = 9002, Status = "Completed" },
-            new SosCluster { Id = 9003, Status = "InProgress" });
+            new SosCluster { Id = 9003, Status = "InProgress" },
+            new SosCluster { Id = 9004, Status = "Pending" });
         context.SosRequests.AddRange(
             new SosRequest
             {
@@ -780,6 +873,26 @@ public class DatabaseSeederTests
                 PriorityLevel = "High",
                 Status = "Resolved",
                 Location = new Point(107.62, 16.42) { SRID = 4326 }
+            },
+            new SosRequest
+            {
+                Id = 9004,
+                ClusterId = 9004,
+                UserId = victimId,
+                SosType = "Rescue",
+                PriorityLevel = "Critical",
+                Status = "Pending",
+                Location = new Point(107.63, 16.43) { SRID = 4326 }
+            },
+            new SosRequest
+            {
+                Id = 9005,
+                ClusterId = 9004,
+                UserId = victimId,
+                SosType = "Rescue",
+                PriorityLevel = "Critical",
+                Status = "Pending",
+                Location = new Point(107.631, 16.431) { SRID = 4326 }
             });
         context.Missions.Add(new Mission { Id = 9001, MissionType = "SUPPLY", Status = "Cancelled" });
         context.MissionActivities.Add(new MissionActivity { Id = 9001, MissionId = 9001, Status = "Done" });
@@ -815,6 +928,7 @@ public class DatabaseSeederTests
         Assert.Contains(errors, error => error.Contains("sos_clusters.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("Completed SOS clusters contain non-resolved SOS requests", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("SOS clusters with only resolved requests must be Completed", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("SOS clusters exceed severity-based request limits", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.mission_type", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missions.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("mission_activities.status", StringComparison.Ordinal));
@@ -829,8 +943,8 @@ public class DatabaseSeederTests
         var options = Options.Create(new SeedDataOptions
         {
             Profile = "Demo",
-            AnchorDate = new DateOnly(2026, 4, 16),
-            RandomSeed = 20260416,
+            AnchorDate = new DateOnly(2026, 4, 24),
+            RandomSeed = 20260424,
             FailOnValidationError = failOnValidationError
         });
 
@@ -842,7 +956,7 @@ public class DatabaseSeederTests
     }
 
     private static DateTime SeedAnchorUtc() =>
-        new DateTime(2026, 4, 16, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
+        new DateTime(2026, 4, 24, 16, 59, 59, DateTimeKind.Utc).AddTicks(TimeSpan.TicksPerSecond - 1);
 
     private static ResQDbContext CreateContext()
     {
@@ -883,6 +997,39 @@ public class DatabaseSeederTests
         !string.IsNullOrWhiteSpace(value)
         && value.Any(char.IsLetter)
         && string.Equals(value, value.ToUpperInvariant(), StringComparison.Ordinal);
+
+    private static string HighestSosPriority(IEnumerable<string?> priorities)
+    {
+        var prioritySet = priorities
+            .Where(priority => !string.IsNullOrWhiteSpace(priority))
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (prioritySet.Contains("Critical"))
+        {
+            return "Critical";
+        }
+
+        if (prioritySet.Contains("High"))
+        {
+            return "High";
+        }
+
+        if (prioritySet.Contains("Medium"))
+        {
+            return "Medium";
+        }
+
+        return "Low";
+    }
+
+    private static int MaxSosRequestsForCluster(IEnumerable<string?> priorities) =>
+        HighestSosPriority(priorities) switch
+        {
+            "Critical" => 1,
+            "High" => 2,
+            "Medium" => 3,
+            _ => 5
+        };
 
     private sealed record SeedCounts(
         int Users,

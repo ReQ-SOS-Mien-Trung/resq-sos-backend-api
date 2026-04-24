@@ -95,6 +95,87 @@ public class AssemblyEventRepositoryTests
     }
 
     [Fact]
+    public async Task GetActiveEventByAssemblyPointAsync_ReturnsOnlyGatheringEvent()
+    {
+        await using var context = CreateContext();
+        var repository = CreateRepository(context);
+
+        context.AssemblyPoints.Add(new AssemblyPoint
+        {
+            Id = 5,
+            Name = "AP 5",
+            Status = AssemblyPointStatus.Available.ToString(),
+            CreatedAt = DateTime.UtcNow
+        });
+        context.AssemblyEvents.AddRange(
+            new AssemblyEvent
+            {
+                Id = 1,
+                AssemblyPointId = 5,
+                AssemblyDate = DateTime.UtcNow.AddHours(-4),
+                Status = AssemblyEventStatus.Completed.ToString(),
+                CreatedAt = DateTime.UtcNow.AddHours(-5)
+            },
+            new AssemblyEvent
+            {
+                Id = 2,
+                AssemblyPointId = 5,
+                AssemblyDate = DateTime.UtcNow.AddHours(-2),
+                Status = AssemblyEventStatus.Cancelled.ToString(),
+                CreatedAt = DateTime.UtcNow.AddHours(-3)
+            },
+            new AssemblyEvent
+            {
+                Id = 3,
+                AssemblyPointId = 5,
+                AssemblyDate = DateTime.UtcNow.AddHours(2),
+                Status = AssemblyEventStatus.Gathering.ToString(),
+                CreatedAt = DateTime.UtcNow.AddHours(-1)
+            });
+        await context.SaveChangesAsync();
+
+        var activeEvent = await repository.GetActiveEventByAssemblyPointAsync(5);
+
+        Assert.NotNull(activeEvent);
+        Assert.Equal(3, activeEvent.Value.EventId);
+        Assert.Equal(AssemblyEventStatus.Gathering.ToString(), activeEvent.Value.Status);
+    }
+
+    [Fact]
+    public async Task CreateEventAsync_AllowsNewGathering_WhenPreviousEventWasCancelled()
+    {
+        await using var context = CreateContext();
+        var repository = CreateRepository(context);
+
+        context.AssemblyPoints.Add(new AssemblyPoint
+        {
+            Id = 5,
+            Name = "AP 5",
+            Status = AssemblyPointStatus.Available.ToString(),
+            CreatedAt = DateTime.UtcNow
+        });
+        context.AssemblyEvents.Add(new AssemblyEvent
+        {
+            Id = 1,
+            AssemblyPointId = 5,
+            AssemblyDate = DateTime.UtcNow.AddHours(-1),
+            Status = AssemblyEventStatus.Cancelled.ToString(),
+            CreatedAt = DateTime.UtcNow.AddHours(-2)
+        });
+        await context.SaveChangesAsync();
+
+        var eventId = await repository.CreateEventAsync(
+            assemblyPointId: 5,
+            assemblyDate: DateTime.UtcNow.AddHours(2),
+            checkInDeadline: DateTime.UtcNow.AddHours(3),
+            createdBy: Guid.NewGuid());
+        await context.SaveChangesAsync();
+
+        var createdEvent = await context.AssemblyEvents.SingleAsync(e => e.Id == eventId);
+        Assert.Equal(AssemblyEventStatus.Gathering.ToString(), createdEvent.Status);
+    }
+
+    [Fact]
     public async Task CheckOutAsync_MarksParticipantCheckedOutAndMirrorsTeamMember()
     {
         var userId = Guid.Parse("cccccccc-1111-1111-1111-111111111111");

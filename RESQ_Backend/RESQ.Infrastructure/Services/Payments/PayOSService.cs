@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.PayOS;
 using RESQ.Application.Common.Models.Finance.ZaloPay;
@@ -60,7 +61,10 @@ public class PayOSService : IPaymentGatewayService
         if (description.Length > 25) description = description.Substring(0, 25);
 
         var amount = (int)(donation.Amount?.Amount ?? 0);
-        var expiredAt = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds();
+        var responseDeadlineUtc = donation.ResponseDeadline
+                                  ?? DonationPaymentConstants.CalculateResponseDeadlineUtc(DateTime.UtcNow);
+        var expiredAt = new DateTimeOffset(DateTime.SpecifyKind(responseDeadlineUtc, DateTimeKind.Utc))
+            .ToUnixTimeSeconds();
 
         var signatureData = $"amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}";
         var signature = CreateSignature(signatureData, checksumKey);

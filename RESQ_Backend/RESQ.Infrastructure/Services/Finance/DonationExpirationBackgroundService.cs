@@ -1,8 +1,11 @@
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Repositories.Base;
+using RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
+using RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Infrastructure.Services.Finance;
@@ -15,9 +18,6 @@ public class DonationExpirationBackgroundService : BackgroundService
     // Check every 1 minute
     private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
     
-    // Expire after 5 minutes + 1 minute buffer (to ensure user truly timed out on PayOS side)
-    private readonly TimeSpan _expirationThreshold = TimeSpan.FromMinutes(6);
-
     public DonationExpirationBackgroundService(
         IServiceScopeFactory scopeFactory,
         ILogger<DonationExpirationBackgroundService> logger)
@@ -54,11 +54,12 @@ public class DonationExpirationBackgroundService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var donationRepository = scope.ServiceProvider.GetRequiredService<IDonationRepository>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var donationPaymentProcessingService = scope.ServiceProvider.GetRequiredService<IDonationPaymentProcessingService>();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var thresholdTime = DateTime.UtcNow.Subtract(_expirationThreshold);
+        var now = DateTime.UtcNow;
 
-        var expiredDonations = await donationRepository.GetPendingDonationsOlderThanAsync(thresholdTime, stoppingToken);
+        var expiredDonations = await donationRepository.GetPendingDonationsPastDeadlineAsync(now, stoppingToken);
 
         if (expiredDonations.Any())
         {
@@ -66,17 +67,39 @@ public class DonationExpirationBackgroundService : BackgroundService
 
             foreach (var donation in expiredDonations)
             {
-                // Use the Domain Method to update status instead of direct property setter
-                donation.UpdatePaymentStatus(Status.Failed);
-                
-                donation.PaymentAuditInfo += " [System: Expired due to timeout]";
-                
-                // Update in DB
-                await donationRepository.UpdateAsync(donation, stoppingToken);
-            }
+                if (await TryReconcilePendingDonationAsync(donation, mediator, stoppingToken))
+                {
+                    continue;
+                }
 
-            await unitOfWork.SaveAsync();
+                await donationPaymentProcessingService.TryProcessFailureAsync(
+                    donation.Id,
+                    "[System: Hết hạn thanh toán sau 15 phút]",
+                    stoppingToken);
+            }
         }
+    }
+
+    private async Task<bool> TryReconcilePendingDonationAsync(
+        RESQ.Domain.Entities.Finance.DonationModel donation,
+        IMediator mediator,
+        CancellationToken cancellationToken)
+    {
+        if (donation.PaymentMethodCode == PaymentMethodCode.ZALOPAY && !string.IsNullOrWhiteSpace(donation.OrderId))
+        {
+            return await mediator.Send(
+                new VerifyZaloPayPaymentCommand { AppTransId = donation.OrderId },
+                cancellationToken);
+        }
+
+        if (donation.PaymentMethodCode == PaymentMethodCode.PAYOS && !string.IsNullOrWhiteSpace(donation.OrderId))
+        {
+            return await mediator.Send(
+                new VerifyPayOSPaymentCommand { OrderId = donation.OrderId },
+                cancellationToken);
+        }
+
+        return false;
     }
 }
 

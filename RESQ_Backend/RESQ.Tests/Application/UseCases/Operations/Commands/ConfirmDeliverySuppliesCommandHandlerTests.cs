@@ -130,6 +130,159 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AllowsQuantityOnlyDelivery_WhenPickupRecordedBufferUsage()
+    {
+        const int missionId = 7;
+        const int depotId = 3;
+        const int missionTeamId = 6;
+        const int collectActivityId = 16;
+        const int deliverActivityId = 17;
+        const int waterItemId = 1;
+        var userId = Guid.NewGuid();
+
+        var collectActivity = new MissionActivityModel
+        {
+            Id = collectActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 1,
+            ActivityType = "COLLECT_SUPPLIES",
+            Status = MissionActivityStatus.Succeed,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = waterItemId,
+                    ItemName = "Nuoc suoi",
+                    Quantity = 6,
+                    Unit = "chai",
+                    BufferQuantity = 1,
+                    BufferUsedQuantity = 1,
+                    BufferUsedReason = "Can du phong"
+                }
+            })
+        };
+
+        var deliverActivity = new MissionActivityModel
+        {
+            Id = deliverActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 2,
+            ActivityType = "DELIVER_SUPPLIES",
+            Status = MissionActivityStatus.OnGoing,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new() { ItemId = waterItemId, ItemName = "Nuoc suoi", Quantity = 6, Unit = "chai" }
+            })
+        };
+
+        var handler = CreateHandler(
+            new StubMissionActivityRepository([collectActivity, deliverActivity]),
+            new Dictionary<int, ItemModelRecord>
+            {
+                [waterItemId] = new() { Id = waterItemId, Name = "Nuoc suoi", Unit = "chai", ItemType = "Consumable" }
+            });
+
+        var response = await handler.Handle(new ConfirmDeliverySuppliesCommand(
+            deliverActivityId,
+            missionId,
+            userId,
+            [new ActualDeliveredItemDto { ItemId = waterItemId, ActualQuantity = 7 }],
+            null), CancellationToken.None);
+
+        var deliveredItem = Assert.Single(response.DeliveredItems);
+        Assert.Equal(7, deliveredItem.ActualDeliveredQuantity);
+        Assert.Null(response.SurplusReturnActivityId);
+    }
+
+    [Fact]
+    public async Task Handle_AllowsLotDelivery_WhenPickupRecordedBufferUsage()
+    {
+        const int missionId = 7;
+        const int depotId = 3;
+        const int missionTeamId = 6;
+        const int collectActivityId = 16;
+        const int deliverActivityId = 17;
+        const int riceItemId = 1;
+        const int lotId = 501;
+        var userId = Guid.NewGuid();
+
+        var collectActivity = new MissionActivityModel
+        {
+            Id = collectActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 1,
+            ActivityType = "COLLECT_SUPPLIES",
+            Status = MissionActivityStatus.Succeed,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = riceItemId,
+                    ItemName = "Gao",
+                    Quantity = 6,
+                    Unit = "kg",
+                    BufferQuantity = 1,
+                    BufferUsedQuantity = 1,
+                    BufferUsedReason = "Can du phong",
+                    PickupLotAllocations =
+                    [
+                        new SupplyExecutionLotDto { LotId = lotId, QuantityTaken = 7 }
+                    ]
+                }
+            })
+        };
+
+        var deliverActivity = new MissionActivityModel
+        {
+            Id = deliverActivityId,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            DepotId = depotId,
+            Step = 2,
+            ActivityType = "DELIVER_SUPPLIES",
+            Status = MissionActivityStatus.OnGoing,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new() { ItemId = riceItemId, ItemName = "Gao", Quantity = 6, Unit = "kg" }
+            })
+        };
+
+        var handler = CreateHandler(
+            new StubMissionActivityRepository([collectActivity, deliverActivity]),
+            new Dictionary<int, ItemModelRecord>
+            {
+                [riceItemId] = new() { Id = riceItemId, Name = "Gao", Unit = "kg", ItemType = "Consumable" }
+            });
+
+        var response = await handler.Handle(new ConfirmDeliverySuppliesCommand(
+            deliverActivityId,
+            missionId,
+            userId,
+            [
+                new ActualDeliveredItemDto
+                {
+                    ItemId = riceItemId,
+                    ActualQuantity = 7,
+                    LotAllocations =
+                    [
+                        new SupplyExecutionLotDto { LotId = lotId, QuantityTaken = 7 }
+                    ]
+                }
+            ],
+            null), CancellationToken.None);
+
+        var deliveredItem = Assert.Single(response.DeliveredItems);
+        Assert.Equal(7, deliveredItem.ActualDeliveredQuantity);
+        Assert.Equal(7, Assert.Single(deliveredItem.DeliveredLotAllocations).QuantityTaken);
+    }
+
+    [Fact]
     public async Task Handle_RejectsLotDelivery_WhenQuantityExceedsCarriedLotBalance()
     {
         const int missionId = 7;

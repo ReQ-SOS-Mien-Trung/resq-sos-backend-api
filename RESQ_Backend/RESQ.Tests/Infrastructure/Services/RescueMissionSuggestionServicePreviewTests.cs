@@ -19,6 +19,8 @@ namespace RESQ.Tests.Infrastructure.Services;
 
 public class RescueMissionSuggestionServicePreviewTests
 {
+    private const string ValidStructuredData = """{"incident":{"people_count":{"adult":1,"child":0,"elderly":0}}}""";
+
     [Fact]
     public async Task PreviewSuggestionAsync_MissionPlanningPrompt_DoesNotPersistSuggestion()
     {
@@ -35,7 +37,7 @@ public class RescueMissionSuggestionServicePreviewTests
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
-            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue" }],
+            [BuildValidSosRequest(rawMessage: "Need rescue")],
             [],
             [],
             isMultiDepotRecommended: false,
@@ -86,7 +88,7 @@ public class RescueMissionSuggestionServicePreviewTests
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
-            [new SosRequestSummary { Id = 1, RawMessage = "Need supplies" }],
+            [BuildValidSosRequest(rawMessage: "Need supplies")],
             [],
             [],
             isMultiDepotRecommended: false,
@@ -113,6 +115,161 @@ public class RescueMissionSuggestionServicePreviewTests
     }
 
     [Fact]
+    public async Task GenerateSuggestionAsync_PipelineResultMissingSosCoverage_MarksManualReview()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationCoveredSosIds: [1]);
+        var service = BuildPipelineService(aiClient, suggestionRepository);
+
+        var result = await service.GenerateSuggestionAsync(
+            [BuildValidSosRequest(id: 1), BuildValidSosRequest(id: 2)],
+            [],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(result.NeedsManualReview);
+        Assert.Contains("SOS #2", result.SpecialNotes ?? string.Empty);
+        Assert.Contains("Mission suggestion chưa cover đầy đủ SOS", result.SpecialNotes ?? string.Empty);
+        Assert.Equal(["active-requirements", "active-depot", "active-team", "active-validation"], aiClient.StageMarkers);
+        Assert.Equal(1, suggestionRepository.CreateCalls);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_PipelineResultCoversEverySos_DoesNotAddCoverageWarning()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationCoveredSosIds: [1, 2]);
+        var service = BuildPipelineService(aiClient, suggestionRepository);
+
+        var result = await service.GenerateSuggestionAsync(
+            [BuildValidSosRequest(id: 1), BuildValidSosRequest(id: 2)],
+            [],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.False(result.NeedsManualReview, result.SpecialNotes);
+        Assert.DoesNotContain("Mission suggestion chưa cover đầy đủ SOS", result.SpecialNotes ?? string.Empty);
+        Assert.Contains(result.SuggestedActivities, activity => activity.SosRequestId == 1);
+        Assert.Contains(result.SuggestedActivities, activity => activity.SosRequestId == 2);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_PipelineReconcilesInventedSupplyIdsAndHydratesPickupLots()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationResponseOverride: """
+            {
+              "mission_title": "Inventory repair preview",
+              "mission_type": "SUPPLY",
+              "priority_score": 7.5,
+              "severity_level": "High",
+              "overall_assessment": "Need water delivery",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Collect generic water from depot",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 1,
+                  "depot_name": "AI Depot Name",
+                  "depot_address": "AI Depot Address",
+                  "supplies_to_collect": [
+                    { "item_id": 101, "item_name": "Nuoc uong", "quantity": 2, "unit": "lit" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Nearby",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                },
+                {
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Deliver generic water to SOS 1",
+                  "priority": "High",
+                  "estimated_time": "20 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 1,
+                  "depot_name": "AI Depot Name",
+                  "depot_address": "AI Depot Address",
+                  "supplies_to_collect": [
+                    { "item_id": 101, "item_name": "Nuoc uong", "quantity": 2, "unit": "lit" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Nearby",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "40 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": []
+            }
+            """);
+        var service = BuildPipelineService(
+            aiClient,
+            suggestionRepository,
+            CreateInventedSupplyRepairDepotRepository(),
+            CreateInventedSupplyRepairItemMetadataRepository());
+
+        var result = await service.GenerateSuggestionAsync(
+            [BuildValidSosRequest(id: 1, rawMessage: "Need drinking water")],
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi",
+                    Latitude = 16.4545,
+                    Longitude = 107.5680
+                }
+            ],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        var collect = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        var collectSupply = Assert.Single(collect.SuppliesToCollect!);
+        Assert.Equal(15, collectSupply.ItemId);
+        Assert.Equal("Nuoc khoang Lavie 500ml", collectSupply.ItemName);
+        Assert.Equal("chai", collectSupply.Unit);
+        var pickupLot = Assert.Single(collectSupply.PlannedPickupLotAllocations!);
+        Assert.Equal(7001, pickupLot.LotId);
+        Assert.Equal(2, pickupLot.QuantityTaken);
+
+        var delivery = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "DELIVER_SUPPLIES");
+        var deliverySupply = Assert.Single(delivery.SuppliesToCollect!);
+        Assert.Equal(15, deliverySupply.ItemId);
+        Assert.Equal("Nuoc khoang Lavie 500ml", deliverySupply.ItemName);
+        Assert.Equal("chai", deliverySupply.Unit);
+    }
+
+    [Fact]
     public async Task PreviewSuggestionAsync_LegacyPrompt_MapsBoatResourceIntoCollectAndReturnActivities()
     {
         var suggestionRepository = new RecordingMissionAiSuggestionRepository();
@@ -133,6 +290,7 @@ public class RescueMissionSuggestionServicePreviewTests
                 {
                     Id = 1,
                     RawMessage = "Khu vuc ngap sau, can ca no cuu ho de so tan nguoi mac ket.",
+                    StructuredData = ValidStructuredData,
                     PriorityLevel = "Critical",
                     Latitude = 16.4661,
                     Longitude = 107.5978
@@ -191,7 +349,7 @@ public class RescueMissionSuggestionServicePreviewTests
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.GenerateSuggestionAsync(
-            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue supplies" }],
+            [BuildValidSosRequest()],
             [],
             [],
             isMultiDepotRecommended: false,
@@ -239,7 +397,7 @@ public class RescueMissionSuggestionServicePreviewTests
             NullLogger<RescueMissionSuggestionService>.Instance);
 
         var result = await service.PreviewSuggestionAsync(
-            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue supplies" }],
+            [BuildValidSosRequest()],
             [],
             [],
             isMultiDepotRecommended: false,
@@ -283,7 +441,7 @@ public class RescueMissionSuggestionServicePreviewTests
 
         var events = new List<SseMissionEvent>();
         await foreach (var evt in service.GenerateSuggestionStreamAsync(
-            [new SosRequestSummary { Id = 1, RawMessage = "Need rescue supplies" }],
+            [BuildValidSosRequest()],
             [],
             [],
             isMultiDepotRecommended: false,
@@ -303,6 +461,125 @@ public class RescueMissionSuggestionServicePreviewTests
         Assert.Contains("active-depot failed", errorEvent.Data ?? string.Empty);
     }
 
+    [Fact]
+    public async Task GenerateSuggestionAsync_InvalidZeroPeople_ReturnsValidationErrorWithoutCallingAi()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient();
+        var service = BuildPipelineService(aiClient, suggestionRepository);
+
+        var result = await service.GenerateSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 12,
+                    RawMessage = "Need rescue supplies",
+                    StructuredData = """{"incident":{"people_count":{"adult":0,"child":0,"elderly":0}}}"""
+                }
+            ],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        AssertSosValidationFailure(result);
+        Assert.Contains("SOS #12", result.ErrorMessage ?? string.Empty);
+        Assert.Contains("tổng số người = 0", result.ErrorMessage ?? string.Empty);
+        Assert.Empty(aiClient.StageMarkers);
+        Assert.Equal(0, suggestionRepository.CreateCalls);
+        Assert.Equal(0, suggestionRepository.SavePipelineSnapshotCalls);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_InvalidTooManyPeople_ReturnsValidationErrorWithoutCallingAi()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient();
+        var service = BuildPipelineService(aiClient, suggestionRepository);
+
+        var result = await service.GenerateSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 13,
+                    RawMessage = "Need rescue supplies",
+                    StructuredData = """{"incident":{"people_count":{"adult":51,"child":0,"elderly":0}}}"""
+                }
+            ],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        AssertSosValidationFailure(result);
+        Assert.Contains("SOS #13", result.ErrorMessage ?? string.Empty);
+        Assert.Contains("vượt giới hạn tối đa 50", result.ErrorMessage ?? string.Empty);
+        Assert.Empty(aiClient.StageMarkers);
+        Assert.Equal(0, suggestionRepository.CreateCalls);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_MissingStructuredData_ReturnsValidationErrorWithoutCallingAi()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient();
+        var service = BuildPipelineService(aiClient, suggestionRepository);
+
+        var result = await service.GenerateSuggestionAsync(
+            [new SosRequestSummary { Id = 14, RawMessage = "Need rescue supplies" }],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        AssertSosValidationFailure(result);
+        Assert.Contains("SOS #14", result.ErrorMessage ?? string.Empty);
+        Assert.Contains("thiếu structured_data", result.ErrorMessage ?? string.Empty);
+        Assert.Empty(aiClient.StageMarkers);
+        Assert.Equal(0, suggestionRepository.CreateCalls);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_VictimsExceedPeopleCount_ReturnsValidationErrorWithoutCallingAi()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient();
+        var service = BuildPipelineService(aiClient, suggestionRepository);
+
+        var result = await service.GenerateSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 15,
+                    RawMessage = "Need rescue supplies",
+                    StructuredData =
+                        """
+                        {
+                          "incident": { "people_count": { "adult": 1, "child": 0, "elderly": 0 } },
+                          "victims": [
+                            { "person_type": "ADULT" },
+                            { "person_type": "CHILD" }
+                          ]
+                        }
+                        """
+                }
+            ],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        AssertSosValidationFailure(result);
+        Assert.Contains("SOS #15", result.ErrorMessage ?? string.Empty);
+        Assert.Contains("lớn hơn tổng số người", result.ErrorMessage ?? string.Empty);
+        Assert.Empty(aiClient.StageMarkers);
+        Assert.Equal(0, suggestionRepository.CreateCalls);
+    }
+
     private static PromptModel BuildStagePrompt(
         int id,
         PromptType promptType,
@@ -318,6 +595,61 @@ public class RescueMissionSuggestionServicePreviewTests
             Version = "v1.0",
             IsActive = isActive
         };
+
+    private static SosRequestSummary BuildValidSosRequest(
+        int id = 1,
+        string rawMessage = "Need rescue supplies") => new()
+        {
+            Id = id,
+            RawMessage = rawMessage,
+            StructuredData = ValidStructuredData
+        };
+
+    private static RescueMissionSuggestionService BuildPipelineService(
+        IAiProviderClient aiClient,
+        RecordingMissionAiSuggestionRepository suggestionRepository,
+        IDepotInventoryRepository? depotInventoryRepository = null,
+        IItemModelMetadataRepository? itemMetadataRepository = null) =>
+        new(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            CreatePipelinePromptRepository(),
+            suggestionRepository,
+            depotInventoryRepository ?? ThrowingProxy<IDepotInventoryRepository>.Create(),
+            itemMetadataRepository ?? ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+    private static AgentTeamInfo BuildNearbyTeam() => new()
+    {
+        TeamId = 1,
+        TeamName = "Medical Team 1",
+        TeamType = "Medical",
+        Status = "Available",
+        IsAvailable = true,
+        MemberCount = 4,
+        AssemblyPointId = 10,
+        AssemblyPointName = "Safe Point",
+        Latitude = 16.0,
+        Longitude = 107.0,
+        DistanceKm = 1.5
+    };
+
+    private static void AssertSosValidationFailure(RescueMissionSuggestionResult result)
+    {
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.SuggestionId);
+        Assert.Empty(result.SuggestedActivities);
+        Assert.Empty(result.SuggestedResources);
+        Assert.NotNull(result.PipelineMetadata);
+        Assert.Equal("pipeline", result.PipelineMetadata!.ExecutionMode);
+        Assert.Equal("failed", result.PipelineMetadata.PipelineStatus);
+        Assert.Equal("failed", result.PipelineMetadata.FinalResultSource);
+        Assert.Equal("sos_validation", result.PipelineMetadata.FailedStage);
+        Assert.Contains("Không thể tạo gợi ý nhiệm vụ", result.ErrorMessage ?? string.Empty);
+        Assert.Contains("coordinator kiểm tra/cập nhật số lượng người", result.ErrorMessage ?? string.Empty);
+    }
 
     private static RecordingPromptRepository CreatePipelinePromptRepository()
         => new(
@@ -411,6 +743,81 @@ public class RescueMissionSuggestionServicePreviewTests
                             }
                         }
                         : new Dictionary<int, ItemModelRecord>()),
+                _ => throw new NotImplementedException(method?.Name ?? typeof(IItemModelMetadataRepository).Name)
+            });
+    }
+
+    private static IDepotInventoryRepository CreateInventedSupplyRepairDepotRepository()
+    {
+        return ThrowingProxy<IDepotInventoryRepository>.Create((method, _) =>
+            method?.Name switch
+            {
+                nameof(IDepotInventoryRepository.SearchForAgentAsync) => Task.FromResult((
+                    new List<AgentInventoryItem>
+                    {
+                        new()
+                        {
+                            ItemId = 15,
+                            ItemName = "Nuoc khoang Lavie 500ml",
+                            CategoryName = "Nuoc uong",
+                            ItemType = "Consumable",
+                            Unit = "chai",
+                            AvailableQuantity = 24,
+                            DepotId = 1,
+                            DepotName = "Kho Hue",
+                            DepotAddress = "1 Le Loi",
+                            DepotLatitude = 16.4545,
+                            DepotLongitude = 107.5680
+                        }
+                    },
+                    1)),
+                nameof(IDepotInventoryRepository.PreviewReserveSuppliesAsync) => Task.FromResult(
+                    new MissionSupplyReservationResult
+                    {
+                        Items =
+                        [
+                            new SupplyExecutionItemDto
+                            {
+                                ItemModelId = 15,
+                                ItemName = "Nuoc khoang Lavie 500ml",
+                                Unit = "chai",
+                                Quantity = 2,
+                                LotAllocations =
+                                [
+                                    new SupplyExecutionLotDto
+                                    {
+                                        LotId = 7001,
+                                        QuantityTaken = 2,
+                                        RemainingQuantityAfterExecution = 22
+                                    }
+                                ]
+                            }
+                        ]
+                    }),
+                nameof(IDepotInventoryRepository.GetDepotLocationAsync) => Task.FromResult<(double Latitude, double Longitude)?>((16.4545, 107.5680)),
+                _ => throw new NotImplementedException(method?.Name ?? typeof(IDepotInventoryRepository).Name)
+            });
+    }
+
+    private static IItemModelMetadataRepository CreateInventedSupplyRepairItemMetadataRepository()
+    {
+        return ThrowingProxy<IItemModelMetadataRepository>.Create((method, args) =>
+            method?.Name switch
+            {
+                nameof(IItemModelMetadataRepository.GetByIdsAsync) => Task.FromResult(
+                    ((IReadOnlyList<int>)args![0]!)
+                    .Where(id => id == 15)
+                    .Distinct()
+                    .ToDictionary(
+                        id => id,
+                        id => new ItemModelRecord
+                        {
+                            Id = id,
+                            CategoryId = 20,
+                            Name = "Nuoc khoang Lavie 500ml",
+                            Unit = "chai",
+                            ItemType = "Consumable"
+                        })),
                 _ => throw new NotImplementedException(method?.Name ?? typeof(IItemModelMetadataRepository).Name)
             });
     }
@@ -525,10 +932,17 @@ public class RescueMissionSuggestionServicePreviewTests
     private sealed class PipelineStubAiProviderClient : IAiProviderClient
     {
         private readonly string? _failingStage;
+        private readonly IReadOnlyCollection<int> _validationCoveredSosIds;
+        private readonly string? _validationResponseOverride;
 
-        public PipelineStubAiProviderClient(string? failingStage = null)
+        public PipelineStubAiProviderClient(
+            string? failingStage = null,
+            IReadOnlyCollection<int>? validationCoveredSosIds = null,
+            string? validationResponseOverride = null)
         {
             _failingStage = failingStage;
+            _validationCoveredSosIds = validationCoveredSosIds ?? [];
+            _validationResponseOverride = validationResponseOverride;
         }
 
         public AiProvider Provider => AiProvider.Gemini;
@@ -577,6 +991,14 @@ public class RescueMissionSuggestionServicePreviewTests
                   "supply_shortages": []
                 }
                 """,
+                "active-depot" => """
+                {
+                  "activities": [],
+                  "special_notes": null,
+                  "needs_additional_depot": false,
+                  "supply_shortages": []
+                }
+                """,
                 "active-team" => """
                 {
                   "activity_assignments": [],
@@ -585,21 +1007,7 @@ public class RescueMissionSuggestionServicePreviewTests
                   "special_notes": null
                 }
                 """,
-                "active-validation" => """
-                {
-                  "mission_title": "Pipeline preview",
-                  "mission_type": "SUPPLY",
-                  "priority_score": 6.5,
-                  "severity_level": "Moderate",
-                  "overall_assessment": "Preview only",
-                  "activities": [],
-                  "resources": [],
-                  "estimated_duration": "20 phut",
-                  "special_notes": null,
-                  "needs_additional_depot": false,
-                  "supply_shortages": []
-                }
-                """,
+                "active-validation" => _validationResponseOverride ?? BuildValidationResponse(_validationCoveredSosIds),
                 _ => throw new InvalidOperationException($"Unexpected stage marker {marker}.")
             };
 
@@ -626,6 +1034,53 @@ public class RescueMissionSuggestionServicePreviewTests
             return end >= 0
                 ? systemPrompt[start..end].Trim()
                 : systemPrompt[start..].Trim();
+        }
+
+        private static string BuildValidationResponse(IReadOnlyCollection<int> coveredSosIds)
+        {
+            var activitiesJson = string.Join(
+                $",{Environment.NewLine}",
+                coveredSosIds.Select((sosId, index) => $$"""
+                  {
+                    "step": {{index + 1}},
+                    "activity_type": "MEDICAL_AID",
+                    "description": "Provide medical aid to SOS {{sosId}}",
+                    "priority": "High",
+                    "estimated_time": "20 phut",
+                    "sos_request_id": {{sosId}},
+                    "depot_id": null,
+                    "depot_name": null,
+                    "depot_address": null,
+                    "supplies_to_collect": [],
+                    "suggested_team": {
+                      "team_id": 1,
+                      "team_name": "Medical Team 1",
+                      "team_type": "Medical",
+                      "reason": "Nearby available medical team",
+                      "assembly_point_id": 10,
+                      "assembly_point_name": "Safe Point",
+                      "latitude": 16.0,
+                      "longitude": 107.0,
+                      "distance_km": 1.5
+                    }
+                  }
+                """));
+
+            return $$"""
+                {
+                  "mission_title": "Pipeline preview",
+                  "mission_type": "SUPPLY",
+                  "priority_score": 6.5,
+                  "severity_level": "Moderate",
+                  "overall_assessment": "Preview only",
+                  "activities": [{{activitiesJson}}],
+                  "resources": [],
+                  "estimated_duration": "20 phut",
+                  "special_notes": null,
+                  "needs_additional_depot": false,
+                  "supply_shortages": []
+                }
+                """;
         }
     }
 

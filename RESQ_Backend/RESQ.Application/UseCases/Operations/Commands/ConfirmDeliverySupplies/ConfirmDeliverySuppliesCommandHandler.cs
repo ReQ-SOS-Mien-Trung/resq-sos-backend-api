@@ -77,6 +77,9 @@ public class ConfirmDeliverySuppliesCommandHandler(
             missionActivities,
             activity,
             subtractPlannedDeliveries: true);
+        var remainingBufferByItemId = CalculateRemainingBufferBeforeActivity(
+            missionActivities,
+            activity);
 
         var deliveredLookup = request.ActualDeliveredItems
             .GroupBy(item => item.ItemId)
@@ -88,7 +91,11 @@ public class ConfirmDeliverySuppliesCommandHandler(
             if (!deliveredLookup.TryGetValue(itemId, out var deliveredItem))
                 continue;
 
-            ApplyDeliveredItemSnapshot(supply, deliveredItem, carriedBalance);
+            ApplyDeliveredItemSnapshot(
+                supply,
+                deliveredItem,
+                carriedBalance,
+                remainingBufferByItemId);
         }
 
         activity.Items = JsonSerializer.Serialize(supplies);
@@ -186,9 +193,15 @@ public class ConfirmDeliverySuppliesCommandHandler(
     private static void ApplyDeliveredItemSnapshot(
         SupplyToCollectDto supply,
         ActualDeliveredItemDto deliveredItem,
-        MissionSupplyCarriedBalance carriedBalance)
+        MissionSupplyCarriedBalance carriedBalance,
+        IReadOnlyDictionary<int, int> remainingBufferByItemId)
     {
         var itemId = supply.ItemId!.Value;
+        var effectiveBufferAllowance = ResolveEffectiveBufferAllowance(
+            itemId,
+            supply,
+            carriedBalance,
+            remainingBufferByItemId);
         var providedLots = (deliveredItem.LotAllocations ?? [])
             .Where(lot => lot.QuantityTaken > 0)
             .ToList();
@@ -203,7 +216,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             var actualQuantity = providedLots.Sum(lot => lot.QuantityTaken);
             EnsureActualQuantityMatches(itemId, deliveredItem.ActualQuantity, actualQuantity);
-            EnsureWithinPlannedQuantity(itemId, supply.Quantity, supply.BufferUsedQuantity ?? 0, actualQuantity);
+            EnsureWithinPlannedQuantity(itemId, supply.Quantity, effectiveBufferAllowance, actualQuantity);
 
             var deliveredLots = new List<SupplyExecutionLotDto>();
             foreach (var lot in providedLots)
@@ -237,7 +250,7 @@ public class ConfirmDeliverySuppliesCommandHandler(
         {
             var actualQuantity = providedUnits.Count;
             EnsureActualQuantityMatches(itemId, deliveredItem.ActualQuantity, actualQuantity);
-            EnsureWithinPlannedQuantity(itemId, supply.Quantity, supply.BufferUsedQuantity ?? 0, actualQuantity);
+            EnsureWithinPlannedQuantity(itemId, supply.Quantity, effectiveBufferAllowance, actualQuantity);
 
             var deliveredUnits = new List<SupplyExecutionReusableUnitDto>();
             foreach (var unit in providedUnits)
@@ -276,10 +289,98 @@ public class ConfirmDeliverySuppliesCommandHandler(
                 $"Item #{itemId}: mission này yêu cầu xác nhận delivery theo lot hoặc reusable unit, không chỉ gửi quantity.");
         }
 
-        EnsureWithinPlannedQuantity(itemId, supply.Quantity, supply.BufferUsedQuantity ?? 0, deliveredItem.ActualQuantity);
+        EnsureWithinPlannedQuantity(itemId, supply.Quantity, effectiveBufferAllowance, deliveredItem.ActualQuantity);
         supply.DeliveredLotAllocations = null;
         supply.DeliveredReusableUnits = null;
         supply.ActualDeliveredQuantity = deliveredItem.ActualQuantity;
+    }
+
+    private static Dictionary<int, int> CalculateRemainingBufferBeforeActivity(
+        IEnumerable<MissionActivityModel> missionActivities,
+        MissionActivityModel referenceActivity)
+    {
+        var collectedBufferByItemId = new Dictionary<int, int>();
+        var deliveredExtraByItemId = new Dictionary<int, int>();
+
+        foreach (var activity in missionActivities
+            .Where(activity => activity.MissionTeamId == referenceActivity.MissionTeamId)
+            .OrderBy(activity => activity.Step ?? int.MaxValue)
+            .ThenBy(activity => activity.Id))
+        {
+            if (!IsBefore(activity, referenceActivity))
+                break;
+
+            var supplies = MissionSupplyCarriedBalanceHelper.ParseSupplies(activity.Items);
+            if (supplies.Count == 0)
+                continue;
+
+            if (IsActivity(activity, "COLLECT_SUPPLIES"))
+            {
+                foreach (var supply in supplies.Where(supply => supply.ItemId.HasValue))
+                {
+                    var bufferUsedQuantity = Math.Max(0, supply.BufferUsedQuantity ?? 0);
+                    if (bufferUsedQuantity <= 0)
+                        continue;
+
+                    var itemId = supply.ItemId!.Value;
+                    collectedBufferByItemId[itemId] =
+                        collectedBufferByItemId.GetValueOrDefault(itemId) + bufferUsedQuantity;
+                }
+
+                continue;
+            }
+
+            if (!IsActivity(activity, "DELIVER_SUPPLIES"))
+                continue;
+
+            foreach (var supply in supplies.Where(supply => supply.ItemId.HasValue))
+            {
+                var extraDeliveredQuantity = Math.Max(0, ResolveActualDeliveredQuantity(supply) - supply.Quantity);
+                if (extraDeliveredQuantity <= 0)
+                    continue;
+
+                var itemId = supply.ItemId!.Value;
+                deliveredExtraByItemId[itemId] =
+                    deliveredExtraByItemId.GetValueOrDefault(itemId) + extraDeliveredQuantity;
+            }
+        }
+
+        return collectedBufferByItemId.ToDictionary(
+            entry => entry.Key,
+            entry => Math.Max(0, entry.Value - deliveredExtraByItemId.GetValueOrDefault(entry.Key)));
+    }
+
+    private static int ResolveEffectiveBufferAllowance(
+        int itemId,
+        SupplyToCollectDto supply,
+        MissionSupplyCarriedBalance carriedBalance,
+        IReadOnlyDictionary<int, int> remainingBufferByItemId)
+    {
+        var explicitBufferAllowance = Math.Max(0, supply.BufferUsedQuantity ?? 0);
+        var derivedBufferAllowance = Math.Max(0, remainingBufferByItemId.GetValueOrDefault(itemId));
+        var carriedLots = carriedBalance.GetLots(itemId);
+        var carriedUnits = carriedBalance.GetReusableUnits(itemId);
+        var hasDetailedCarrySnapshot = carriedLots.Count > 0 || carriedUnits.Count > 0;
+
+        if (hasDetailedCarrySnapshot)
+        {
+            var carriedQuantity = carriedLots.Sum(lot => lot.QuantityTaken) + carriedUnits.Count;
+            var carryExtraAbovePlan = Math.Max(0, carriedQuantity - supply.Quantity);
+            derivedBufferAllowance = Math.Min(derivedBufferAllowance, carryExtraAbovePlan);
+        }
+
+        return Math.Max(explicitBufferAllowance, derivedBufferAllowance);
+    }
+
+    private static int ResolveActualDeliveredQuantity(SupplyToCollectDto supply)
+    {
+        var deliveredLotQuantity = supply.DeliveredLotAllocations?.Sum(lot => lot.QuantityTaken) ?? 0;
+        var deliveredUnitQuantity = supply.DeliveredReusableUnits?.Count ?? 0;
+
+        if (deliveredLotQuantity > 0 || deliveredUnitQuantity > 0)
+            return deliveredLotQuantity + deliveredUnitQuantity;
+
+        return Math.Max(0, supply.ActualDeliveredQuantity ?? 0);
     }
 
     private async Task<int?> RefreshReturnActivityAsync(
@@ -532,6 +633,22 @@ public class ConfirmDeliverySuppliesCommandHandler(
 
         activities.Add(activity);
     }
+
+    private static bool IsBefore(MissionActivityModel activity, MissionActivityModel referenceActivity)
+    {
+        var activityStep = activity.Step ?? int.MaxValue;
+        var referenceStep = referenceActivity.Step ?? int.MaxValue;
+        if (activityStep != referenceStep)
+            return activityStep < referenceStep;
+
+        if (activity.Id == referenceActivity.Id)
+            return false;
+
+        return activity.Id < referenceActivity.Id;
+    }
+
+    private static bool IsActivity(MissionActivityModel activity, string activityType) =>
+        string.Equals(activity.ActivityType, activityType, StringComparison.OrdinalIgnoreCase);
 
     private static void EnsureActualQuantityMatches(int itemId, int requestQuantity, int detailedQuantity)
     {

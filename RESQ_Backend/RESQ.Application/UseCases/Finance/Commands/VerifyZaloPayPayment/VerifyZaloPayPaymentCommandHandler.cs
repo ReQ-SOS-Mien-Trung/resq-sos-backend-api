@@ -1,9 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
@@ -15,27 +13,21 @@ namespace RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
 /// </summary>
 public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayPaymentCommand, bool>
 {
-    private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
-    private readonly IFundCampaignRepository _campaignRepository;
-    private readonly IFundTransactionRepository _transactionRepository;
+    private readonly IDonationPaymentProcessingService _donationPaymentProcessingService;
     private readonly IPaymentGatewayFactory _paymentGatewayFactory;
     private readonly IEmailService _emailService;
     private readonly ILogger<VerifyZaloPayPaymentCommandHandler> _logger;
 
     public VerifyZaloPayPaymentCommandHandler(
-        IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
-        IFundCampaignRepository campaignRepository,
-        IFundTransactionRepository transactionRepository,
+        IDonationPaymentProcessingService donationPaymentProcessingService,
         IPaymentGatewayFactory paymentGatewayFactory,
         IEmailService emailService,
         ILogger<VerifyZaloPayPaymentCommandHandler> logger)
     {
-        _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
-        _campaignRepository = campaignRepository;
-        _transactionRepository = transactionRepository;
+        _donationPaymentProcessingService = donationPaymentProcessingService;
         _paymentGatewayFactory = paymentGatewayFactory;
         _emailService = emailService;
         _logger = logger;
@@ -86,42 +78,25 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
         }
 
         // 3. Update donation
+        var wasSucceededBefore = donation.Status == Status.Succeed;
+
         try
         {
-            donation.UpdatePaymentStatus(Status.Succeed);
-            donation.TransactionId = queryResult.ZpTransId.ToString();
-            donation.PaymentAuditInfo = $"[ZaloPay:ZpTransId={queryResult.ZpTransId}][Source=QueryAPI]";
-            donation.PaidAt = DateTimeOffset.FromUnixTimeMilliseconds(queryResult.ServerTime).UtcDateTime;
+            var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
+                donation.Id,
+                $"[ZaloPay:ZpTransId={queryResult.ZpTransId}][Source=QueryAPI]",
+                DateTimeOffset.FromUnixTimeMilliseconds(queryResult.ServerTime).UtcDateTime,
+                queryResult.ZpTransId.ToString(),
+                preserveExistingTransactionId: false,
+                cancellationToken);
 
-            await _donationRepository.UpdateAsync(donation, cancellationToken);
-
-            // 4. Update fund campaign
-            if (donation.FundCampaignId.HasValue)
+            if (!processed)
             {
-                var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
-                if (campaign != null && !campaign.IsDeleted)
-                {
-                    campaign.ReceiveDonation(donation.Amount?.Amount ?? 0);
-                    await _campaignRepository.UpdateAsync(campaign, cancellationToken);
-
-                    var transaction = new FundTransactionModel
-                    {
-                        FundCampaignId = donation.FundCampaignId,
-                        Type = TransactionType.Donation,
-                        Direction = TransactionDirection.In,
-                        Amount = donation.Amount?.Amount,
-                        ReferenceType = TransactionReferenceType.Donation,
-                        ReferenceId = donation.Id,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.CreateAsync(transaction, cancellationToken);
-                }
+                return false;
             }
 
-            await _unitOfWork.SaveAsync();
-
             // 5. Send confirmation email (fire-and-forget)
-            if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
+            if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
                 _ = _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,

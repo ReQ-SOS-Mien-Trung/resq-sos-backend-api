@@ -35,6 +35,7 @@ public static class DonationMapper
             PaymentAuditInfo = entity.PaymentAuditInfo, 
             IsPrivate = entity.IsPrivate, 
             CreatedAt = entity.CreatedAt,
+            ResponseDeadline = entity.ResponseDeadline,
             FundCampaignName = entity.FundCampaign?.Name,
             FundCampaignCode = entity.FundCampaign?.Code
         };
@@ -60,7 +61,8 @@ public static class DonationMapper
             Note = model.Note,
             PaymentAuditInfo = model.PaymentAuditInfo, 
             IsPrivate = model.IsPrivate, 
-            CreatedAt = model.CreatedAt
+            CreatedAt = model.CreatedAt,
+            ResponseDeadline = model.ResponseDeadline
         };
     }
 
@@ -82,6 +84,7 @@ public static class DonationMapper
         entity.Note = model.Note;
         entity.PaymentAuditInfo = model.PaymentAuditInfo; 
         entity.IsPrivate = model.IsPrivate; 
+        entity.ResponseDeadline = model.ResponseDeadline;
     }
 }
 

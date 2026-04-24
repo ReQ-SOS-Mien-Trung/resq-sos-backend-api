@@ -45,13 +45,14 @@ public class ClosureInventoryItemDto
 }
 
 /// <summary>
-/// DTO chi tiết tồn kho theo từng lô - dùng cho Excel template xử lý bên ngoài.
+/// DTO chi tiết tồn kho theo từng lot hoặc từng reusable unit - dùng cho Excel template xử lý bên ngoài.
 /// Consumable items được chia theo lot (ngày nhập, hạn sử dụng).
-/// Reusable items được nhóm theo item model (không có lot).
+/// Reusable items được trả theo từng unit để giữ được serial number.
 /// </summary>
 public class ClosureInventoryLotItemDto
 {
     public int ItemModelId { get; set; }
+    public int? ReusableItemId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
 
@@ -62,16 +63,17 @@ public class ClosureInventoryLotItemDto
     public string ItemType { get; set; } = string.Empty;
 
     public string Unit { get; set; } = string.Empty;
+    public string? SerialNumber { get; set; }
 
     /// <summary>ID lô hàng (null nếu Reusable hoặc consumable không có lot).</summary>
     public int? LotId { get; set; }
 
-    /// <summary>Ngày nhập lô hàng.</summary>
+    /// <summary>Ngày nhập lô hàng hoặc ngày tạo unit reusable.</summary>
     public DateTime? ReceivedDate { get; set; }
 
     /// <summary>Hạn sử dụng của lô hàng.</summary>
     public DateTime? ExpiredDate { get; set; }
 
-    /// <summary>Số lượng tồn (remaining) của lô.</summary>
+    /// <summary>Số lượng tồn của lot hoặc unit.</summary>
     public int Quantity { get; set; }
 }

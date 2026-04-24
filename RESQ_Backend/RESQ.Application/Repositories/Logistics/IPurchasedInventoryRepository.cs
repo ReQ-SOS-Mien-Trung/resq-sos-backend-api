@@ -13,7 +13,7 @@ public interface IPurchasedInventoryRepository
     /// <summary>
     /// Tạo một hóa đơn VAT mới và trả về domain model đã được lưu (có Id).
     /// </summary>
-    Task<VatInvoiceModel> CreateVatInvoiceAsync(VatInvoiceModel model, CancellationToken cancellationToken = default);
+    Task<TrackedEntityReference<VatInvoiceModel>> CreateVatInvoiceAsync(VatInvoiceModel model, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tìm hoặc tạo các ItemModel theo danh sách bulk.
@@ -23,7 +23,7 @@ public interface IPurchasedInventoryRepository
     /// <summary>
     /// Tạo mới ItemModel theo danh sách bulk (không tái sử dụng item cũ).
     /// </summary>
-    Task<List<ItemModelRecord>> CreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default);
+    Task<List<TrackedEntityReference<ItemModelRecord>>> CreateReliefItemsBulkAsync(List<ItemModelRecord> models, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Bulk insert danh sách PurchasedInventoryItem.

@@ -161,6 +161,10 @@ public class InitiateDepotClosureTransferCommandHandler(
         foreach (var targetGroup in normalizedAssignments.GroupBy(x => x.TargetDepotId))
         {
             var targetDepot = targetDepots[targetGroup.Key];
+            var (pendingInboundVolume, pendingInboundWeight) = await depotRepository.GetPendingInboundLoadAsync(
+                targetDepot.Id,
+                cancellationToken);
+
             var requiredVolume = targetGroup
                 .Sum(x =>
                 {
@@ -168,7 +172,7 @@ public class InitiateDepotClosureTransferCommandHandler(
                     return ResolveVolumePerUnit(item) * x.Quantity;
                 });
 
-            var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
+            var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization - pendingInboundVolume;
             if (requiredVolume > availableVolumeCapacity)
             {
                 throw new ConflictException(
@@ -183,7 +187,7 @@ public class InitiateDepotClosureTransferCommandHandler(
                     return ResolveWeightPerUnit(item) * x.Quantity;
                 });
 
-            var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization;
+            var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization - pendingInboundWeight;
             if (requiredWeight > availableWeightCapacity)
             {
                 throw new ConflictException(
@@ -242,6 +246,19 @@ public class InitiateDepotClosureTransferCommandHandler(
                     transferItems.Select(x => x.Record).ToList(),
                     cancellationToken);
 
+                await inventoryRepository.ReserveForClosurePreparationAsync(
+                    request.DepotId,
+                    transferId,
+                    closureId,
+                    request.InitiatedBy,
+                    transferItems.Select(x => new DepotClosureTransferItemMoveDto
+                    {
+                        ItemModelId = x.Record.ItemModelId,
+                        ItemType = x.Record.ItemType,
+                        Quantity = x.Record.Quantity
+                    }).ToList(),
+                    cancellationToken);
+
                 transferSummaries.Add(new InitiateDepotClosureTransferSummaryDto
                 {
                     TransferId = transferId,
@@ -268,8 +285,12 @@ public class InitiateDepotClosureTransferCommandHandler(
 
         var realtimeTasks = new List<Task>
         {
+            operationalHubService.PushDepotInventoryUpdateAsync(
+                request.DepotId,
+                "ClosureTransferReserved",
+                cancellationToken),
             operationalHubService.PushDepotClosureUpdateAsync(
-                new Common.Models.DepotClosureRealtimeUpdate
+                new RESQ.Application.Common.Models.DepotClosureRealtimeUpdate
                 {
                     SourceDepotId = request.DepotId,
                     TargetDepotId = targetDepotIds.Count == 1 ? targetDepotIds[0] : null,
@@ -283,7 +304,7 @@ public class InitiateDepotClosureTransferCommandHandler(
 
         realtimeTasks.AddRange(transferSummaries.Select(transferSummary =>
             operationalHubService.PushDepotClosureUpdateAsync(
-                new Common.Models.DepotClosureRealtimeUpdate
+                new RESQ.Application.Common.Models.DepotClosureRealtimeUpdate
                 {
                     SourceDepotId = request.DepotId,
                     TargetDepotId = transferSummary.TargetDepotId,

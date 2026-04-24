@@ -87,8 +87,12 @@ public class CreateSupplyRequestCommandHandler(
         var totalRequestedWeight = requestedItems.Sum(x =>
             x.Quantity * itemModelMap[x.ItemModelId].WeightPerUnit);
 
-        var remainingVolumeCapacity = requestingDepot.Capacity - requestingDepot.CurrentUtilization;
-        var remainingWeightCapacity = requestingDepot.WeightCapacity - requestingDepot.CurrentWeightUtilization;
+        var (pendingInboundVolume, pendingInboundWeight) = await _depotRepository.GetPendingInboundLoadAsync(
+            requestingDepotId.Value,
+            cancellationToken);
+
+        var remainingVolumeCapacity = requestingDepot.Capacity - requestingDepot.CurrentUtilization - pendingInboundVolume;
+        var remainingWeightCapacity = requestingDepot.WeightCapacity - requestingDepot.CurrentWeightUtilization - pendingInboundWeight;
 
         if (totalRequestedVolume > remainingVolumeCapacity || totalRequestedWeight > remainingWeightCapacity)
         {
