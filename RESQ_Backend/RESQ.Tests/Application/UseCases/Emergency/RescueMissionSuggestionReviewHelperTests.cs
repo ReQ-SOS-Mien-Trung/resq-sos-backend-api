@@ -150,6 +150,6 @@ public class RescueMissionSuggestionReviewHelperTests
         Assert.Null(shortage.SelectedDepotId);
         Assert.Null(shortage.SelectedDepotName);
         Assert.True(result.NeedsManualReview);
-        Assert.Contains("ngoài pool nearby depots", result.SpecialNotes);
+        Assert.Contains("ngoài pool", result.SpecialNotes);
     }
 }

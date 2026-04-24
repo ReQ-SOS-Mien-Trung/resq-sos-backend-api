@@ -173,7 +173,16 @@ public partial class RescueMissionSuggestionService
                         ["sos_requests_data"] = BuildSosRequestsData(sosRequests),
                         ["requirements_fragment"] = SerializePipelineFragment(requirements),
                         ["depot_fragment"] = SerializePipelineFragment(depot),
-                        ["nearby_team_count"] = nearbyTeams.Count.ToString()
+                        ["nearby_team_count"] = nearbyTeams.Count.ToString(),
+                        ["nearby_teams_data"] = JsonSerializer.Serialize(nearbyTeams.Select(t => new {
+                            team_id = t.TeamId,
+                            team_name = t.TeamName,
+                            team_type = t.TeamType,
+                            status = t.Status,
+                            distance_km = t.DistanceKm,
+                            assembly_point_id = t.AssemblyPointId,
+                            assembly_point_name = t.AssemblyPointName
+                        }), PipelineJsonDeserializeOptions)
                     },
                     "Assign nearby teams, add rescue/medical/evacuate activities as JSON fragments, and decide the exact final activity order. A mission may use many teams, but each individual activity must remain SingleTeam. Every SOS that needs rescue, medical aid, evacuation, or field work with depot-backed Reusable gear must receive a direct RESCUE, MEDICAL_AID, or EVACUATE activity with exact sos_request_id when team work is the correct coverage."),
                 "Only getTeams and getAssemblyPoints are available. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS that needs rescue, medical aid, evacuation, or field work with depot-backed Reusable gear must have at least one additional RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS when field work is required. Do not rely on description-only mentions. Do not invent team_id or assembly_point_id. Do not use SplitAcrossTeams, MultiTeam, or required_team_count > 1 on any activity or assignment. You may keep coordination_group_key only as a route-ordering hint, not as a multi-team split signal. Every additional activity should include activity_key when available. Return ordered_activity_keys when possible; if omitted, backend will keep the combined depot/team activity order. Non-urgent mixed routes may do COLLECT->DELIVER before rescue only for a real Consumable delivery branch. Urgent rescue routes should still prioritize rescue work before unrelated work; depot-backed COLLECT_SUPPLIES may appear before rescue when the same route must bring Reusable operational gear to the scene. A DELIVER_SUPPLIES activity must stay on the same route/team as the COLLECT_SUPPLIES that gathered its depot-backed Consumable supplies; cross-team inventory handoff is unsupported. Do not assign one team to COLLECT and another team to DELIVER the same collected Consumable supplies. Return JSON only.",
@@ -530,24 +539,36 @@ public partial class RescueMissionSuggestionService
             ? fallbackInstructions
             : template.Trim();
 
+        var unreplacedKeys = new List<string>();
+
         foreach (var pair in replacements)
-            message = message.Replace($"{{{{{pair.Key}}}}}", pair.Value, StringComparison.Ordinal);
-
-        if (replacements.Count == 0)
         {
-            if (!string.IsNullOrWhiteSpace(template) && !string.IsNullOrWhiteSpace(fallbackInstructions))
-                return $"{message.Trim()}\n\n{fallbackInstructions.Trim()}".Trim();
+            var placeholder = $"{{{{{pair.Key}}}}}";
+            if (message.Contains(placeholder, StringComparison.Ordinal))
+            {
+                message = message.Replace(placeholder, pair.Value, StringComparison.Ordinal);
+            }
+            else
+            {
+                unreplacedKeys.Add(pair.Key);
+            }
+        }
 
+        if (!string.IsNullOrWhiteSpace(template) && !string.IsNullOrWhiteSpace(fallbackInstructions))
+        {
+            message = $"{message.Trim()}\n\n{fallbackInstructions.Trim()}";
+        }
+
+        if (unreplacedKeys.Count == 0)
+        {
             return message.Trim();
         }
 
         var contextBlock = string.Join(
             "\n\n",
-            replacements.Select(pair => $"{pair.Key.ToUpperInvariant()}:\n{pair.Value}"));
+            unreplacedKeys.Select(key => $"{key.ToUpperInvariant()}:\n{replacements[key]}"));
 
-        return string.IsNullOrWhiteSpace(contextBlock)
-            ? message.Trim()
-            : $"{message.Trim()}\n\n{contextBlock}".Trim();
+        return $"{message.Trim()}\n\n{contextBlock}".Trim();
     }
 
     private static string BuildStageSystemPrompt(string? systemPrompt, string appendix)

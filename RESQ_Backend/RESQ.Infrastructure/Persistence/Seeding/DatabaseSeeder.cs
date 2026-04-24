@@ -28,16 +28,16 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
-    private const string MarkerName = "demo-seed-v1-2026-04-16";
+    private const string MarkerName = "demo-seed-v2-2026-04-24";
     private const int TotalRescuerCount = 140;
     private const int RecentRescuerCount = 20;
     private const int UnassignedRescuerCount = 40;
     private const int EligibleAssignedRescuerCount = 78;
-    private const int HueStadiumUnclusteredSosCount = 10;
+    private const int HueStadiumSosClusterCount = 11;
+    private const int HueStadiumSosRequestCount = 20;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
     private const int HueStadiumReserveTeamCount = 2;
     private const int HueStadiumReserveTeamMemberCount = 3;
-    private const int ClusteredSosClusterCount = 190;
     private const string HueStadiumReserveTeamCodePrefix = "RT-HUE-TD-AV";
     private static readonly string[] DepotClosureTestDepotNames =
     [
@@ -1557,233 +1557,98 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedEmergencyAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var clusterSosCounts = GetClusteredSosCounts();
-        var createdSos = new List<SosRequest>();
-
-        for (var i = 0; i < clusterSosCounts.Length; i++)
+        var (clusterScenarios, sosScenarios) = CreateHueStadiumSosScenarios();
+        if (clusterScenarios.Count != HueStadiumSosClusterCount || sosScenarios.Count != HueStadiumSosRequestCount)
         {
-            var area = Area(i);
-            var localDate = RandomEventLocal(seed, i);
-            var severity = ClusterSeverityForSeedIndex(i);
-            var clusterStatus = ClusterStatusForSeedIndex(i);
-            var scatterPoints = BuildClusterScatterPoints(area, i, clusterSosCounts[i]);
-            var avgLat = scatterPoints.Average(p => p.Lat);
-            var avgLon = scatterPoints.Average(p => p.Lon);
-            var radius = Math.Max(0.8, scatterPoints.Max(p => DistanceKm(avgLat, avgLon, p.Lat, p.Lon)) + 0.5);
-            var cluster = new SosCluster
-            {
-                CenterLocation = Point(avgLon, avgLat),
-                RadiusKm = Math.Round(radius, 2),
-                SeverityLevel = severity,
-                WaterLevel = severity == "Critical" ? "Ngập 1.5-2m, nước đang lên" : severity == "High" ? "Ngập 0.8-1.2m" : "Ngập cục bộ",
-                VictimEstimated = 10 + clusterSosCounts[i] * (3 + i % 8),
-                ChildrenCount = 1 + i % 9,
-                ElderlyCount = i % 7,
-                MedicalUrgencyScore = Math.Round(0.35 + (i % 60) / 100.0, 2),
-                CreatedAt = VnToUtc(localDate),
-                LastUpdatedAt = ClampHistoricalUtc(
-                    VnToUtc(localDate.AddHours(clusterStatus == SosClusterStatus.Completed.ToString() ? 8 : 3)),
-                    VnToUtc(localDate),
-                    seed.AnchorUtc),
-                Status = clusterStatus
-            };
-            seed.SosClusters.Add(cluster);
-
-            for (var j = 0; j < clusterSosCounts[i]; j++)
-            {
-                var victim = seed.Victims[(i * 4 + j) % seed.Victims.Count];
-                var priority = severity;
-                var situation = ClusterSituationForSeedIndex(i, j, priority);
-                var onBehalf = (i + j) % 5 == 0;
-                var reporterOther = !onBehalf && (i + j) % 10 == 0;
-                var reporter = reporterOther ? seed.Victims[(i * 7 + j + 11) % seed.Victims.Count] : victim;
-                var coordinator = seed.Coordinators[(i + j) % seed.Coordinators.Count];
-                var status = SosRequestStatusForClusterSeedIndex(i);
-                var historicalCreatedAt = VnToUtc(localDate.AddMinutes(j * 18));
-                var timeline = IsRecentOpenSosStatus(status)
-                    ? BuildRecentOpenSosTimeline(seed.AnchorUtc, i, j, status, onBehalf)
-                    : BuildClampedHistoricalSosTimeline(
-                        historicalCreatedAt,
-                        TimeSpan.FromMinutes(onBehalf ? 2 : 0),
-                        status == "Pending" ? null : TimeSpan.FromMinutes(20 + i % 30),
-                        TimeSpan.FromHours(status == "Resolved" ? 8 : 1),
-                        seed.AnchorUtc);
-                var createdAt = timeline.CreatedAt;
-                var people = 1 + (i + j) % 6;
-                var hasInjured = situation is "Medical" or "Landslide" || (i + j) % 11 == 0;
-
-                createdSos.Add(new SosRequest
-                {
-                    PacketId = StableGuid($"packet-{i}-{j}"),
-                    Cluster = cluster,
-                    UserId = victim.Id,
-                    Location = Point(scatterPoints[j].Lon, scatterPoints[j].Lat),
-                    LocationAccuracy = 12 + (i + j) % 35,
-                    SosType = SosTypeForSituation(situation),
-                    RawMessage = SosMessage(situation, people, hasInjured),
-                    StructuredData = Json(new
-                    {
-                        incident = new { situation, water_level = cluster.WaterLevel },
-                        people_count = new { adult = Math.Max(1, people - 2), child = (i + j) % 3, elderly = (i + j) % 2, pregnant = (i + j) % 17 == 0 ? 1 : 0 },
-                        has_injured = hasInjured,
-                        can_move = situation is not "CannotMove" and not "Stranded",
-                        medical_issues = hasInjured ? new[] { "chấn thương nhẹ", "hạ thân nhiệt" } : Array.Empty<string>(),
-                        supplies = SuppliesFor(situation),
-                        address = $"{12 + i % 80} {area.Address}",
-                        vulnerable = new { elderly = (i + j) % 2, children = (i + j) % 3 }
-                    }),
-                    NetworkMetadata = Json(new { source = onBehalf ? "hotline" : "mobile", network = (i + j) % 8 == 0 ? "mesh" : "4g", battery = 20 + (i + j) % 80 }),
-                    SenderInfo = Json(new { user_id = victim.Id, phone = victim.Phone }),
-                    VictimInfo = Json(new { user_name = FullName(victim), user_phone = victim.Phone }),
-                    ReporterInfo = Json(new { user_name = onBehalf ? FullName(coordinator) : FullName(reporter), user_phone = onBehalf ? coordinator.Phone : reporter.Phone, is_online = !onBehalf }),
-                    IsSentOnBehalf = onBehalf,
-                    OriginId = onBehalf ? $"hotline-{createdAt:yyyyMMddHHmm}-{i:000}" : null,
-                    PriorityLevel = priority,
-                    PriorityScore = PriorityScore(priority, i + j),
-                    Status = status,
-                    AiAnalysis = null,
-                    ReceivedAt = timeline.ReceivedAt,
-                    Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
-                    CreatedAt = createdAt,
-                    LastUpdatedAt = timeline.LastUpdatedAt,
-                    ReviewedAt = timeline.ReviewedAt,
-                    ReviewedById = status == "Pending" ? null : coordinator.Id,
-                    CreatedByCoordinatorId = onBehalf ? coordinator.Id : null
-                });
-            }
+            throw new InvalidOperationException(
+                $"Hue stadium SOS seed must contain exactly {HueStadiumSosClusterCount} clusters and {HueStadiumSosRequestCount} SOS requests.");
         }
 
-        var hueStadium = GetHueStadiumAssemblyPoint(seed);
-        if (hueStadium?.Location is not null)
+        var createdSos = new List<SosRequest>();
+
+        for (var i = 0; i < clusterScenarios.Count; i++)
         {
-            var providedHueStadiumCoordinates = new[]
+            var scenario = clusterScenarios[i];
+            var createdAt = VnToUtc(scenario.LocalCreatedAt);
+            var cluster = new SosCluster
             {
-                (Lat: 16.460961, Lon: 107.603519),
-                (Lat: 16.460189, Lon: 107.604323),
-                (Lat: 16.459558, Lon: 107.607519),
-                (Lat: 16.457873, Lon: 107.606934),
-                (Lat: 16.456865, Lon: 107.606899),
-                (Lat: 16.456520, Lon: 107.603405),
-                (Lat: 16.456520, Lon: 107.603405),
-                (Lat: 16.471658, Lon: 107.595076),
-                (Lat: 16.467322, Lon: 107.590873),
-                (Lat: 16.464858, Lon: 107.587997),
-                (Lat: 16.471709, Lon: 107.600581),
-                (Lat: 16.475408, Lon: 107.605147),
-                (Lat: 16.476301, Lon: 107.595605),
-                (Lat: 16.478070, Lon: 107.593401),
-                (Lat: 16.479217, Lon: 107.593574),
-                (Lat: 16.482083, Lon: 107.593530),
-                (Lat: 16.485600, Lon: 107.592436),
-                (Lat: 16.470081, Lon: 107.577616),
-                (Lat: 16.458785, Lon: 107.575439),
-                (Lat: 16.458538, Lon: 107.572746),
-                (Lat: 16.514372, Lon: 107.577081),
-                (Lat: 16.558760, Lon: 107.648561),
-                (Lat: 16.563841, Lon: 107.639783),
-                (Lat: 16.543280, Lon: 107.676925),
-                (Lat: 16.550248, Lon: 107.625967),
-                (Lat: 16.449575, Lon: 107.539708),
-                (Lat: 16.452708, Lon: 107.545034),
-                (Lat: 16.615046, Lon: 107.553152),
-                (Lat: 16.597909, Lon: 107.512506),
-                (Lat: 16.524541, Lon: 107.479148),
-                (Lat: 16.521984, Lon: 107.513786),
-                (Lat: 16.527904, Lon: 107.555187),
-                (Lat: 16.387384, Lon: 107.575956),
-                (Lat: 16.490477, Lon: 107.751398)
-            };
-            var uniqueHueStadiumCoordinates = providedHueStadiumCoordinates
-                .Distinct()
-                .Take(HueStadiumUnclusteredSosCount)
-                .ToArray();
-            if (uniqueHueStadiumCoordinates.Length < HueStadiumUnclusteredSosCount)
-            {
-                throw new InvalidOperationException("Không đủ toạ độ SOS quanh sân Tự Do sau khi loại trùng.");
-            }
-            var nearbyAddresses = new[]
-            {
-                "12 Hà Huy Tập, Phú Nhuận, Huế",
-                "37 Nguyễn Huệ, Phú Nhuận, Huế",
-                "18 Lê Quý Đôn, Vĩnh Ninh, Huế",
-                "54 Nguyễn Trường Tộ, Phước Vĩnh, Huế",
-                "29 Đống Đa, Phú Nhuận, Huế",
-                "8 Nguyễn Công Trứ, Phú Hội, Huế",
-                "41 Trần Cao Vân, Vĩnh Ninh, Huế",
-                "66 Bà Triệu, Xuân Phú, Huế",
-                "23 Hoàng Hoa Thám, Phú Nhuận, Huế",
-                "15 Phan Bội Châu, Vĩnh Ninh, Huế"
+                CenterLocation = Point(scenario.Longitude, scenario.Latitude),
+                RadiusKm = scenario.RadiusKm,
+                SeverityLevel = scenario.SeverityLevel,
+                WaterLevel = scenario.WaterLevel,
+                VictimEstimated = scenario.VictimEstimated,
+                ChildrenCount = scenario.ChildrenCount,
+                ElderlyCount = scenario.ElderlyCount,
+                MedicalUrgencyScore = scenario.MedicalUrgencyScore,
+                CreatedAt = createdAt,
+                LastUpdatedAt = ClampHistoricalUtc(createdAt.AddHours(1), createdAt, seed.AnchorUtc),
+                Status = scenario.Status
             };
 
-            for (var i = 0; i < HueStadiumUnclusteredSosCount; i++)
-            {
-                var victim = seed.Victims[110 + i];
-                var coordinator = seed.Coordinators[i % seed.Coordinators.Count];
-                var isPendingHueStadiumTestSos = i == 6; // SOS #7 for testing pending/unprocessed flow
-                var situation = (i % 4) switch
-                {
-                    0 => "Stranded",
-                    1 => "Flooding",
-                    2 => "CannotMove",
-                    _ => "NeedSupplies"
-                };
-                var status = isPendingHueStadiumTestSos
-                    ? "Pending"
-                    : i < 4 ? "Pending" : i < 7 ? "Assigned" : i < 9 ? "InProgress" : "Resolved";
-                var people = 2 + i % 4;
-                var hasInjured = i % 3 == 0;
-                var localDate = new DateTime(2026, 4, 6 + i, 6 + i % 5, 15 + i * 3 % 35, 0, DateTimeKind.Unspecified);
-                var historicalCreatedAt = VnToUtc(localDate);
-                var timeline = IsRecentOpenSosStatus(status)
-                    ? BuildRecentOpenSosTimeline(seed.AnchorUtc, 10_000 + i, 0, status, false)
-                    : BuildClampedHistoricalSosTimeline(
-                        historicalCreatedAt,
-                        TimeSpan.Zero,
-                        status == "Pending" ? null : TimeSpan.FromMinutes(16 + i),
-                        TimeSpan.FromHours(status == "Resolved" ? 6 : 2),
-                        seed.AnchorUtc);
-                var createdAt = timeline.CreatedAt;
-                var location = Point(uniqueHueStadiumCoordinates[i].Lon, uniqueHueStadiumCoordinates[i].Lat);
+            seed.SosClusters.Add(cluster);
+        }
 
-                createdSos.Add(new SosRequest
-                {
-                    PacketId = StableGuid($"packet-hue-stadium-scatter-{i}"),
-                    ClusterId = null,
-                    UserId = victim.Id,
-                    Location = location,
-                    LocationAccuracy = 9 + i,
-                    SosType = SosTypeForSituation(situation),
-                    RawMessage = SosMessage(situation, people, hasInjured),
-                    StructuredData = Json(new
-                    {
-                        incident = new { situation, water_level = i % 2 == 0 ? "Ngập cục bộ quanh sân vận động" : "Ngập sâu ở kiệt nhỏ quanh khu dân cư" },
-                        people_count = new { adult = Math.Max(1, people - 1), child = i % 2, elderly = i % 3 == 0 ? 1 : 0, pregnant = i == 7 ? 1 : 0 },
-                        has_injured = hasInjured,
-                        can_move = situation is not "CannotMove" and not "Stranded",
-                        medical_issues = hasInjured ? new[] { "trầy xước", "mệt do ngâm nước lâu" } : Array.Empty<string>(),
-                        supplies = SuppliesFor(situation),
-                        address = nearbyAddresses[i],
-                        assembly_point_reference = new { assembly_point_code = hueStadium.Code, assembly_point_name = hueStadium.Name }
-                    }),
-                    NetworkMetadata = Json(new { source = "mobile", network = i % 4 == 0 ? "4g" : "wifi", battery = 36 + i * 5 }),
-                    SenderInfo = Json(new { user_id = victim.Id, phone = victim.Phone }),
-                    VictimInfo = Json(new { user_name = FullName(victim), user_phone = victim.Phone }),
-                    ReporterInfo = Json(new { user_name = FullName(victim), user_phone = victim.Phone, is_online = true }),
-                    IsSentOnBehalf = false,
-                    OriginId = $"mobile-hue-stadium-{i + 1:000}",
-                    PriorityLevel = i < 3 ? "High" : i < 8 ? "Medium" : "Low",
-                    PriorityScore = i < 3 ? 69 + i : i < 8 ? 48 + i : 28 + i,
-                    Status = status,
-                    AiAnalysis = null,
-                    ReceivedAt = timeline.ReceivedAt,
-                    Timestamp = new DateTimeOffset(createdAt).ToUnixTimeMilliseconds(),
-                    CreatedAt = createdAt,
-                    LastUpdatedAt = timeline.LastUpdatedAt,
-                    ReviewedAt = timeline.ReviewedAt,
-                    ReviewedById = status == "Pending" ? null : coordinator.Id,
-                    CreatedByCoordinatorId = null
-                });
+        for (var i = 0; i < sosScenarios.Count; i++)
+        {
+            var scenario = sosScenarios[i];
+            var cluster = seed.SosClusters[scenario.ClusterIndex];
+            var victim = seed.Victims[scenario.VictimIndex % seed.Victims.Count];
+            var reporter = seed.Victims[scenario.ReporterIndex % seed.Victims.Count];
+            var coordinator = seed.Coordinators[scenario.CoordinatorIndex % seed.Coordinators.Count];
+            var createdAt = VnToUtc(scenario.LocalCreatedAt);
+            var receivedAt = ClampHistoricalUtc(createdAt.AddMinutes(1 + i % 4), createdAt, seed.AnchorUtc);
+            DateTime? reviewedAt = scenario.Status == SosRequestStatus.Pending.ToString()
+                ? null
+                : ClampHistoricalUtc(receivedAt.AddMinutes(6 + i % 8), receivedAt, seed.AnchorUtc);
+            var lastUpdatedAt = ClampHistoricalUtc(
+                reviewedAt?.AddMinutes(scenario.Status == SosRequestStatus.Resolved.ToString() ? 160 + i * 4 : 24 + i * 3)
+                    ?? receivedAt.AddMinutes(8 + i),
+                reviewedAt ?? receivedAt,
+                seed.AnchorUtc);
+            var packetId = StableGuid($"packet-hue-tu-do-{i + 1:000}");
+            var deviceId = StableGuid($"device-hue-tu-do-{i + 1:000}").ToString().ToUpperInvariant();
+
+            createdSos.Add(new SosRequest
+            {
+                PacketId = packetId,
+                Cluster = cluster,
+                UserId = victim.Id,
+                Location = Point(scenario.Longitude, scenario.Latitude),
+                LocationAccuracy = 6 + i % 9,
+                SosType = scenario.SosType,
+                RawMessage = BuildHueStadiumRawMessage(scenario),
+                StructuredData = BuildHueStadiumStructuredData(scenario),
+                NetworkMetadata = BuildHueStadiumNetworkMetadata(scenario, deviceId),
+                SenderInfo = BuildHueStadiumSenderInfo(victim, reporter, coordinator, scenario, deviceId),
+                VictimInfo = BuildHueStadiumVictimInfo(victim, scenario),
+                ReporterInfo = BuildHueStadiumReporterInfo(victim, reporter, coordinator, scenario, deviceId),
+                IsSentOnBehalf = scenario.IsSentOnBehalf,
+                OriginId = deviceId,
+                PriorityLevel = scenario.PriorityLevel,
+                PriorityScore = scenario.PriorityScore,
+                Status = scenario.Status,
+                AiAnalysis = null,
+                ReceivedAt = receivedAt,
+                Timestamp = new DateTimeOffset(createdAt).ToUnixTimeSeconds(),
+                CreatedAt = createdAt,
+                LastUpdatedAt = lastUpdatedAt,
+                ReviewedAt = reviewedAt,
+                ReviewedById = scenario.Status == SosRequestStatus.Pending.ToString() ? null : coordinator.Id,
+                CreatedByCoordinatorId = scenario.IsSentOnBehalf ? coordinator.Id : null
+            });
+        }
+
+        foreach (var cluster in seed.SosClusters)
+        {
+            var clusterSos = createdSos.Where(sos => ReferenceEquals(sos.Cluster, cluster)).ToList();
+            if (clusterSos.Count == 0)
+            {
+                continue;
             }
+
+            cluster.LastUpdatedAt = clusterSos
+                .Select(sos => sos.LastUpdatedAt ?? sos.CreatedAt ?? cluster.CreatedAt ?? seed.AnchorUtc)
+                .Max();
         }
 
         _db.SosClusters.AddRange(seed.SosClusters);
@@ -1792,25 +1657,29 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         seed.SosRequests.AddRange(createdSos);
 
         var companions = new List<SosRequestCompanion>();
-        for (var i = 0; i < 130; i++)
+        for (var i = 0; i < seed.SosRequests.Count; i++)
         {
-            var sos = seed.SosRequests[(i * 3) % seed.SosRequests.Count];
-            var companion = seed.Victims[(i * 7 + 17) % seed.Victims.Count];
-            if (companion.Id == sos.UserId)
+            var sos = seed.SosRequests[i];
+            var companionCount = 1 + i % 3;
+            for (var j = 0; j < companionCount; j++)
             {
-                companion = seed.Victims[(i * 7 + 18) % seed.Victims.Count];
-            }
+                var companion = seed.Victims[(i * 5 + j * 11 + 30) % seed.Victims.Count];
+                if (companion.Id == sos.UserId)
+                {
+                    companion = seed.Victims[(i * 5 + j * 11 + 31) % seed.Victims.Count];
+                }
 
-            companions.Add(new SosRequestCompanion
-            {
-                SosRequestId = sos.Id,
-                UserId = companion.Id,
-                PhoneNumber = companion.Phone,
-                AddedAt = ClampHistoricalUtc(
-                    (sos.CreatedAt ?? seed.StartUtc).AddMinutes(4),
-                    sos.CreatedAt ?? seed.StartUtc,
-                    seed.AnchorUtc)
-            });
+                companions.Add(new SosRequestCompanion
+                {
+                    SosRequestId = sos.Id,
+                    UserId = companion.Id,
+                    PhoneNumber = companion.Phone,
+                    AddedAt = ClampHistoricalUtc(
+                        (sos.CreatedAt ?? seed.StartUtc).AddMinutes(4 + j * 3),
+                        sos.CreatedAt ?? seed.StartUtc,
+                        seed.AnchorUtc)
+                });
+            }
         }
         _db.SosRequestCompanions.AddRange(companions.GroupBy(c => new { c.SosRequestId, c.UserId }).Select(g => g.First()));
 
@@ -1829,8 +1698,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 TotalScore = sos.PriorityScore,
                 PriorityLevel = sos.PriorityLevel,
                 RuleVersion = "v1.0",
-                ItemsNeeded = Json(new[] { "Water", "Food", "Medicine" }),
-                BreakdownJson = Json(new { priority = sos.PriorityLevel, reason = "Generated by deterministic demo seed" }),
+                ItemsNeeded = BuildHueStadiumRuleItemsNeeded(sos),
+                BreakdownJson = Json(new { priority = sos.PriorityLevel, reason = "Curated Hue stadium mobile SOS demo seed" }),
                 DetailsJson = sos.StructuredData,
                 CreatedAt = ClampHistoricalUtc(createdAt.AddMinutes(1), createdAt, seed.AnchorUtc)
             });
@@ -1848,7 +1717,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
-        foreach (var sos in seed.SosRequests.Take(255))
+        foreach (var sos in seed.SosRequests)
         {
             _db.SosAiAnalyses.Add(new SosAiAnalysis
             {
@@ -1868,7 +1737,12 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 AgreesWithRuleBase = true,
                 Explanation = $"Đề xuất {sos.PriorityLevel} dựa trên vị trí, khả năng di chuyển và nhóm dễ tổn thương.",
                 SuggestionScope = "DemoSeed",
-                Metadata = Json(new { risk_factors = new[] { "flood", "vulnerable_people", "limited_access" } }),
+                Metadata = Json(new
+                {
+                    seed_area = "Sân vận động Tự Do, Huế",
+                    risk_factors = new[] { "flood", "vulnerable_people", "limited_access" },
+                    mobile_packet = true
+                }),
                 CreatedAt = ClampHistoricalUtc(
                     (sos.CreatedAt ?? seed.StartUtc).AddMinutes(2),
                     sos.CreatedAt ?? seed.StartUtc,
@@ -1885,14 +1759,467 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         await _db.SaveChangesAsync(cancellationToken);
     }
 
+    private static string BuildHueStadiumStructuredData(HueStadiumSosScenario scenario)
+    {
+        var peopleCount = CountHueStadiumPeople(scenario.Victims);
+        var payload = new Dictionary<string, object?>
+        {
+            ["incident"] = new Dictionary<string, object?>
+            {
+                ["address"] = scenario.Address,
+                ["people_count"] = new
+                {
+                    adult = peopleCount.Adult,
+                    child = peopleCount.Child,
+                    elderly = peopleCount.Elderly
+                },
+                ["situation"] = scenario.Situation,
+                ["can_move"] = scenario.CanMove,
+                ["has_injured"] = scenario.HasInjured,
+                ["need_medical"] = scenario.NeedMedical,
+                ["others_are_stable"] = scenario.OthersAreStable,
+                ["additional_description"] = scenario.AdditionalDescription
+            },
+            ["victims"] = scenario.Victims
+                .Select((victim, index) => new Dictionary<string, object?>
+                {
+                    ["person_id"] = victim.PersonId,
+                    ["person_type"] = victim.PersonType,
+                    ["index"] = index + 1,
+                    ["custom_name"] = victim.CustomName,
+                    ["incident_status"] = BuildHueStadiumVictimIncidentStatus(victim),
+                    ["personal_needs"] = BuildHueStadiumVictimPersonalNeeds(victim)
+                })
+                .ToList()
+        };
+
+        if (scenario.GroupNeeds.Count > 0)
+        {
+            payload["group_needs"] = BuildHueStadiumGroupNeeds(scenario);
+        }
+
+        return Json(payload);
+    }
+
+    private static string BuildHueStadiumNetworkMetadata(
+        HueStadiumSosScenario scenario,
+        string deviceId)
+    {
+        return Json(new
+        {
+            hop_count = scenario.Network == "MESH" ? 1 : 0,
+            path = new[] { deviceId }
+        });
+    }
+
+    private static string BuildHueStadiumSenderInfo(
+        User victim,
+        User reporter,
+        User coordinator,
+        HueStadiumSosScenario scenario,
+        string deviceId)
+    {
+        var sender = scenario.IsSentOnBehalf ? coordinator : reporter;
+        return Json(new
+        {
+            device_id = deviceId,
+            is_online = scenario.Network != "MESH" && !scenario.IsSentOnBehalf,
+            user_id = sender.Id,
+            user_name = FullName(sender),
+            user_phone = sender.Phone,
+            battery_level = scenario.BatteryPercentage
+        });
+    }
+
+    private static string BuildHueStadiumVictimInfo(User victim, HueStadiumSosScenario scenario)
+    {
+        return Json(new
+        {
+            user_id = victim.Id,
+            user_name = FullName(victim),
+            user_phone = victim.Phone
+        });
+    }
+
+    private static string BuildHueStadiumReporterInfo(
+        User victim,
+        User reporter,
+        User coordinator,
+        HueStadiumSosScenario scenario,
+        string deviceId)
+    {
+        var reporterUser = scenario.IsSentOnBehalf ? coordinator : reporter;
+        return Json(new
+        {
+            device_id = deviceId,
+            is_online = scenario.Network != "MESH" && !scenario.IsSentOnBehalf,
+            user_id = reporterUser.Id,
+            user_name = FullName(reporterUser),
+            user_phone = reporterUser.Phone,
+            battery_level = scenario.BatteryPercentage
+        });
+    }
+
+    private static string BuildHueStadiumRawMessage(HueStadiumSosScenario scenario)
+    {
+        var peopleCount = CountHueStadiumPeople(scenario.Victims);
+        var totalPeople = peopleCount.Adult + peopleCount.Child + peopleCount.Elderly;
+        var injuredVictims = scenario.Victims
+            .Select((victim, index) => (Victim: victim, Index: index + 1, MedicalIssues: HueStadiumMedicalIssuesForVictim(victim)))
+            .Where(item => IsHueStadiumVictimInjured(item.Victim, item.MedicalIssues))
+            .Select(item => $"{HueStadiumPersonTypeLabel(item.Victim.PersonType)} {item.Index}: {item.Victim.CustomName} - {HueStadiumMedicalIssueLabel(item.MedicalIssues.FirstOrDefault())}")
+            .ToList();
+        var injuredText = injuredVictims.Count == 0
+            ? "Không"
+            : string.Join("; ", injuredVictims);
+
+        return $"{HueStadiumSosTypeLabel(scenario.SosType)} | Tình trạng: {HueStadiumSituationLabel(scenario.Situation)} | Số người: {totalPeople} | Bị thương: {injuredText} | Ghi chú: {scenario.AdditionalDescription}";
+    }
+
+    private static object BuildHueStadiumGroupNeeds(HueStadiumSosScenario scenario)
+    {
+        var peopleCount = CountHueStadiumPeople(scenario.Victims);
+        var totalPeople = peopleCount.Adult + peopleCount.Child + peopleCount.Elderly;
+        var supplies = scenario.GroupNeeds;
+        var needsWater = supplies.Contains("DRINKING_WATER", StringComparer.Ordinal);
+        var needsFood = supplies.Any(need => need is "READY_TO_EAT_FOOD" or "CHILD_SUPPLIES");
+        var needsBlanket = supplies.Contains("BLANKET", StringComparer.Ordinal);
+        var needsMedicine = supplies.Contains("MEDICINE", StringComparer.Ordinal)
+            || scenario.Victims.Any(victim => HueStadiumMedicalIssuesForVictim(victim).Count > 0);
+        var needsClothing = supplies.Contains("DRY_CLOTHES", StringComparer.Ordinal)
+            || scenario.Victims.Any(victim => HueStadiumNeedsClothing(victim));
+
+        return new
+        {
+            supplies,
+            water = needsWater
+                ? new { duration = "12_TO_24H", remaining = "LOW" }
+                : null,
+            food = needsFood
+                ? new { duration = "12_TO_24H" }
+                : null,
+            blanket = needsBlanket
+                ? new { is_cold_or_wet = true, are_blankets_enough = false, availability = "LOW", request_count = Math.Max(1, Math.Min(totalPeople, 4)) }
+                : null,
+            medicine = needsMedicine
+                ? new
+                {
+                    needs_urgent_medicine = scenario.NeedMedical,
+                    conditions = scenario.Victims.SelectMany(HueStadiumMedicalIssuesForVictim).Distinct().ToList(),
+                    medical_needs = scenario.Victims.SelectMany(HueStadiumMedicalIssuesForVictim).Distinct().ToList(),
+                    medical_description = scenario.AdditionalDescription
+                }
+                : null,
+            clothing = needsClothing
+                ? new { status = "NEEDED", needed_people_count = Math.Max(1, scenario.Victims.Count(HueStadiumNeedsClothing)) }
+                : null,
+            other_supply_description = scenario.SosType is "Relief" or "Both" ? scenario.AdditionalDescription : null
+        };
+    }
+
+    private static object BuildHueStadiumVictimIncidentStatus(HueStadiumVictimScenario victim)
+    {
+        var medicalIssues = HueStadiumMedicalIssuesForVictim(victim);
+        var isInjured = IsHueStadiumVictimInjured(victim, medicalIssues);
+
+        return new
+        {
+            is_injured = isInjured,
+            medical_issues = medicalIssues,
+            severity = HueStadiumVictimSeverity(victim, isInjured)
+        };
+    }
+
+    private static object BuildHueStadiumVictimPersonalNeeds(HueStadiumVictimScenario victim)
+    {
+        var hasSpecialDiet = victim.PersonalNeeds.Any(need => need is "LOW_SALT_FOOD" or "DIABETES_MEDICINE" or "MILK" or "PORRIDGE");
+
+        return new
+        {
+            clothing = new
+            {
+                needed = HueStadiumNeedsClothing(victim),
+                gender = victim.PersonType == "CHILD" ? "CHILD" : null
+            },
+            diet = new
+            {
+                has_special_diet = hasSpecialDiet,
+                description = hasSpecialDiet ? HueStadiumDietDescription(victim) : null
+            }
+        };
+    }
+
+    private static (int Adult, int Child, int Elderly) CountHueStadiumPeople(IReadOnlyList<HueStadiumVictimScenario> victims)
+    {
+        var child = victims.Count(victim => string.Equals(victim.PersonType, "CHILD", StringComparison.Ordinal));
+        var elderly = victims.Count(victim => string.Equals(victim.PersonType, "ELDERLY", StringComparison.Ordinal));
+        var adult = victims.Count - child - elderly;
+        return (Math.Max(0, adult), child, elderly);
+    }
+
+    private static bool IsHueStadiumVictimInjured(HueStadiumVictimScenario victim, IReadOnlyCollection<string> medicalIssues)
+        => medicalIssues.Count > 0
+            || victim.IncidentStatus is "INJURED" or "CRITICAL" or "MODERATE";
+
+    private static bool HueStadiumNeedsClothing(HueStadiumVictimScenario victim)
+        => victim.PersonalNeeds.Any(need => need is "DRY_CLOTHES" or "HYPOTHERMIA_BLANKET" or "BLANKET");
+
+    private static string HueStadiumVictimSeverity(HueStadiumVictimScenario victim, bool isInjured)
+    {
+        if (!isInjured)
+        {
+            return "LOW";
+        }
+
+        return victim.IncidentStatus switch
+        {
+            "CRITICAL" => "CRITICAL",
+            "INJURED" or "MODERATE" => "MODERATE",
+            _ => "MILD"
+        };
+    }
+
+    private static List<string> HueStadiumMedicalIssuesForVictim(HueStadiumVictimScenario victim)
+    {
+        var needs = victim.PersonalNeeds;
+        var issues = new SortedSet<string>(StringComparer.Ordinal);
+
+        if (needs.Any(need => need.Contains("FRACTURE", StringComparison.Ordinal)))
+        {
+            issues.Add("FRACTURE");
+        }
+
+        if (needs.Any(need => need.Contains("HYPOTHERMIA", StringComparison.Ordinal)))
+        {
+            issues.Add("HYPOTHERMIA");
+        }
+
+        if (needs.Any(need => need.Contains("HEART", StringComparison.Ordinal)))
+        {
+            issues.Add("CARDIOVASCULAR");
+        }
+
+        if (needs.Any(need => need.Contains("DIABETES", StringComparison.Ordinal)))
+        {
+            issues.Add("CHRONIC_DISEASE");
+        }
+
+        if (needs.Any(need => need.Contains("FEVER", StringComparison.Ordinal)))
+        {
+            issues.Add("FEVER");
+        }
+
+        if (needs.Any(need => need.Contains("OXYGEN", StringComparison.Ordinal)))
+        {
+            issues.Add("BREATHING_DIFFICULTY");
+        }
+
+        if (needs.Any(need => need.Contains("MATERNITY", StringComparison.Ordinal)) || victim.PersonType == "PREGNANT")
+        {
+            issues.Add("PREGNANCY");
+        }
+
+        if (needs.Any(need => need.Contains("WOUND", StringComparison.Ordinal)
+                || need.Contains("FIRST_AID", StringComparison.Ordinal)
+                || need.Contains("PAIN", StringComparison.Ordinal))
+            || victim.IncidentStatus == "INJURED")
+        {
+            issues.Add("MINOR_INJURY");
+        }
+
+        return issues.ToList();
+    }
+
+    private static string HueStadiumSosTypeLabel(string sosType) => sosType switch
+    {
+        "Relief" => "[CỨU TRỢ]",
+        "Both" => "[CỨU HỘ + CỨU TRỢ]",
+        _ => "[CỨU HỘ]"
+    };
+
+    private static string HueStadiumSituationLabel(string situation) => situation switch
+    {
+        "TRAPPED" => "Mắc kẹt",
+        "STRANDED" => "Bị cô lập",
+        "SUPPLY_SHORTAGE" => "Thiếu nhu yếu phẩm",
+        "MEDICAL" => "Cần y tế",
+        "UNSAFE_ROUTE" => "Đường nguy hiểm",
+        "EVACUATION" => "Cần sơ tán",
+        _ => situation
+    };
+
+    private static string HueStadiumPersonTypeLabel(string personType) => personType switch
+    {
+        "CHILD" => "Trẻ em",
+        "ELDERLY" => "Người già",
+        "PREGNANT" => "Phụ nữ mang thai",
+        _ => "Người lớn"
+    };
+
+    private static string HueStadiumMedicalIssueLabel(string? issue) => issue switch
+    {
+        "FRACTURE" => "Gãy xương",
+        "HYPOTHERMIA" => "Mất nhiệt",
+        "CARDIOVASCULAR" => "Tim mạch",
+        "CHRONIC_DISEASE" => "Bệnh nền",
+        "FEVER" => "Sốt",
+        "BREATHING_DIFFICULTY" => "Khó thở",
+        "PREGNANCY" => "Thai kỳ",
+        "MINOR_INJURY" => "Chấn thương nhẹ",
+        _ => "Cần hỗ trợ y tế"
+    };
+
+    private static string HueStadiumDietDescription(HueStadiumVictimScenario victim)
+    {
+        if (victim.PersonalNeeds.Contains("LOW_SALT_FOOD", StringComparer.Ordinal))
+        {
+            return "Ăn nhạt, hạn chế muối.";
+        }
+
+        if (victim.PersonalNeeds.Contains("DIABETES_MEDICINE", StringComparer.Ordinal))
+        {
+            return "Cần kiểm soát đường huyết và ăn đúng bữa.";
+        }
+
+        if (victim.PersonalNeeds.Contains("MILK", StringComparer.Ordinal))
+        {
+            return "Cần sữa hoặc thức ăn mềm cho trẻ nhỏ.";
+        }
+
+        return "Có nhu cầu ăn uống riêng.";
+    }
+
+    private static string BuildHueStadiumRuleItemsNeeded(SosRequest sos)
+    {
+        var items = new SortedSet<string>(StringComparer.Ordinal)
+        {
+            "LOCATION_VERIFICATION"
+        };
+
+        if (!string.IsNullOrWhiteSpace(sos.StructuredData))
+        {
+            using var document = JsonDocument.Parse(sos.StructuredData);
+            if (document.RootElement.TryGetProperty("group_needs", out var groupNeeds)
+                && groupNeeds.ValueKind == JsonValueKind.Object
+                && groupNeeds.TryGetProperty("supplies", out var supplies)
+                && supplies.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in supplies.EnumerateArray())
+                {
+                    var value = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        items.Add(value);
+                    }
+                }
+            }
+
+            if (document.RootElement.TryGetProperty("incident", out var incident))
+            {
+                if (incident.TryGetProperty("need_medical", out var needMedical) && needMedical.GetBoolean())
+                {
+                    items.Add("FIRST_AID");
+                }
+
+                if (incident.TryGetProperty("can_move", out var canMove) && !canMove.GetBoolean())
+                {
+                    items.Add("RESCUE_TEAM");
+                }
+            }
+        }
+
+        if (sos.SosType is "Relief" or "Both")
+        {
+            items.Add("DRINKING_WATER");
+            items.Add("READY_TO_EAT_FOOD");
+        }
+
+        return Json(items);
+    }
+
+    private static string SosAddressFromStructuredData(string? structuredData)
+    {
+        if (string.IsNullOrWhiteSpace(structuredData))
+        {
+            return "Khu dân cư quanh Sân vận động Tự Do";
+        }
+
+        using var document = JsonDocument.Parse(structuredData);
+        if (document.RootElement.TryGetProperty("incident", out var incident)
+            && incident.TryGetProperty("address", out var nestedAddress))
+        {
+            return nestedAddress.GetString() ?? "Khu dân cư quanh Sân vận động Tự Do";
+        }
+
+        if (document.RootElement.TryGetProperty("address", out var address))
+        {
+            return address.GetString() ?? "Khu dân cư quanh Sân vận động Tự Do";
+        }
+
+        return "Khu dân cư quanh Sân vận động Tự Do";
+    }
+
+    private static (
+        IReadOnlyList<HueStadiumClusterScenario> Clusters,
+        IReadOnlyList<HueStadiumSosScenario> SosRequests)
+        CreateHueStadiumSosScenarios()
+    {
+        var clusters = new[]
+        {
+            new HueStadiumClusterScenario("HUE-TD-01", 16.462120, 107.602860, 0.34, "High", "Ngập 0.8m quanh cổng", 9, 2, 1, 0.72, "Pending", new DateTime(2026, 4, 24, 6, 45, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-02", 16.461170, 107.606060, 0.18, "Critical", "Ngập 1.2m phía đông", 4, 0, 0, 0.91, "InProgress", new DateTime(2026, 4, 24, 7, 5, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-03", 16.458620, 107.601700, 0.24, "High", "Nước rút còn 0.4m", 7, 1, 1, 0.61, "Completed", new DateTime(2026, 4, 24, 7, 40, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-04", 16.462630, 107.603940, 0.42, "High", "Ngập kiệt nhỏ, có điểm dây điện võng thấp", 9, 0, 1, 0.70, "Pending", new DateTime(2026, 4, 24, 8, 15, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-05", 16.459900, 107.604470, 0.24, "High", "Nước chảy xiết", 8, 1, 1, 0.79, "InProgress", new DateTime(2026, 4, 24, 9, 0, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-06", 16.465500, 107.603400, 0.22, "Medium", "Ngập cục bộ", 5, 1, 1, 0.42, "Completed", new DateTime(2026, 4, 24, 9, 35, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-07", 16.457760, 107.606050, 0.16, "Critical", "Ngập sâu 1.4m", 5, 0, 0, 0.88, "InProgress", new DateTime(2026, 4, 24, 10, 20, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-08", 16.466740, 107.598890, 0.20, "Low", "Ngập rải rác", 2, 0, 0, 0.26, "InProgress", new DateTime(2026, 4, 24, 11, 5, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-09", 16.462260, 107.602950, 0.38, "Medium", "Ngập quanh các kiệt nhỏ", 12, 2, 1, 0.55, "InProgress", new DateTime(2026, 4, 24, 11, 30, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-10", 16.460740, 107.606690, 0.16, "Critical", "Ngập sâu phía đông", 6, 1, 1, 0.90, "InProgress", new DateTime(2026, 4, 24, 11, 55, 0, DateTimeKind.Unspecified)),
+            new HueStadiumClusterScenario("HUE-TD-11", 16.458300, 107.606000, 0.22, "High", "Ngập sâu ở cổng phụ phía nam", 8, 1, 1, 0.76, "InProgress", new DateTime(2026, 4, 24, 12, 20, 0, DateTimeKind.Unspecified))
+        };
+
+        var sosRequests = new[]
+        {
+            new HueStadiumSosScenario(0, 16.462310, 107.602510, "Cổng chính Sân vận động Tự Do, đường Lê Quý Đôn, Huế", "Rescue", "Pending", "High", 74, "TRAPPED", false, true, true, false, "Ba người kẹt ở tầng trệt, nước dâng nhanh và có một người bị rách chân.", "Gia đình tôi ở sát cổng chính sân Tự Do, nước vào nhà gần tới thắt lưng. Có 3 người, một người bị rách chân, cần xuồng tiếp cận gấp.", "4G", 34, false, 2, 2, 0, new DateTime(2026, 4, 24, 7, 12, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Minh", "TRAPPED", ["FIRST_AID", "EVACUATION_SUPPORT"]), new HueStadiumVictimScenario("mother", "ELDERLY", "Bà Lan", "INJURED", ["WHEELCHAIR_SUPPORT", "BLOOD_PRESSURE_MEDICINE"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Nam", "SCARED", ["CHILD_LIFE_JACKET"])], []),
+            new HueStadiumSosScenario(0, 16.461880, 107.603040, "Kiệt 18 Lê Quý Đôn, cạnh khán đài A Sân Tự Do, Huế", "Both", "Pending", "High", 70, "STRANDED", false, false, false, true, "Nhóm bốn người mắc kẹt trên gác, còn nước uống khoảng nửa ngày.", "Nhà trong kiệt cạnh khán đài A bị ngập, bốn người đang ở trên gác. Cần đội cứu hộ kiểm tra và mang nước uống, đồ ăn khô.", "WIFI", 58, false, 3, 4, 1, new DateTime(2026, 4, 24, 7, 28, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Chị Hạnh", "TRAPPED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("father", "ELDERLY", "Ông Phú", "STABLE", ["LOW_SALT_FOOD"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé My", "STABLE", ["MILK"]), new HueStadiumVictimScenario("child-2", "CHILD", "Bé Bo", "STABLE", ["CHILD_MEDICINE"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD", "CHILD_SUPPLIES"]),
+            new HueStadiumSosScenario(8, 16.462530, 107.603260, "Nhà số 7 hẻm sau cổng Sân Tự Do, phường Phú Nhuận, Huế", "Relief", "Pending", "Medium", 57, "SUPPLY_SHORTAGE", true, false, false, true, "Điểm trú tạm thiếu nước sạch, pin sạc và chăn cho trẻ nhỏ.", "Chúng tôi đã lên tầng hai an toàn nhưng có 6 người trú tạm, thiếu nước sạch, chăn và pin sạc điện thoại từ sáng.", "MESH", 22, false, 4, 4, 2, new DateTime(2026, 4, 24, 7, 51, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("group-lead", "ADULT", "Cô Thảo", "SAFE", ["POWER_BANK"]), new HueStadiumVictimScenario("older-neighbor", "ELDERLY", "Bác Năm", "STABLE", ["BLANKET"])], ["DRINKING_WATER", "BLANKET", "POWER_BANK"]),
+            new HueStadiumSosScenario(1, 16.461170, 107.606060, "Đường Hà Huy Tập đoạn sát Sân Tự Do, Huế", "Rescue", "Assigned", "Critical", 91, "TRAPPED", false, true, true, false, "Một người lớn bị gãy tay nghi ngờ, nhóm đang bám lan can trước nhà.", "Nhà tôi ở đoạn Hà Huy Tập sát sân, nước chảy mạnh. Có người nghi gãy tay, không thể tự ra ngoài, xin đội cứu hộ đến ngay.", "5G", 46, false, 5, 5, 3, new DateTime(2026, 4, 24, 8, 6, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Dũng", "INJURED", ["FRACTURE_SPLINT", "PAIN_RELIEF"]), new HueStadiumVictimScenario("wife", "ADULT", "Chị Mai", "TRAPPED", ["EVACUATION_SUPPORT"])], []),
+            new HueStadiumSosScenario(9, 16.460740, 107.606690, "Hẻm 24 Hà Huy Tập, phía đông Sân Tự Do, Huế", "Both", "InProgress", "Critical", 88, "MEDICAL", false, true, true, false, "Cụ ông khó thở sau khi ngâm nước lâu, cần sơ cứu và áo phao để đưa ra.", "Cụ ông 78 tuổi khó thở, gia đình 5 người bị kẹt trong hẻm 24 Hà Huy Tập. Cần y tế và áo phao trẻ em.", "4G", 41, true, 6, 7, 4, new DateTime(2026, 4, 24, 8, 34, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("grandfather", "ELDERLY", "Ông Tịnh", "CRITICAL", ["OXYGEN_CHECK", "HEART_MEDICINE"]), new HueStadiumVictimScenario("adult-1", "ADULT", "Chị Ngọc", "TRAPPED", ["EVACUATION_SUPPORT"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé Su", "STABLE", ["CHILD_LIFE_JACKET"])], ["LIFE_JACKET", "DRINKING_WATER", "MEDICINE"]),
+            new HueStadiumSosScenario(3, 16.461420, 107.606870, "Tổ dân phố sau Trường THCS gần Sân Tự Do, Huế", "Rescue", "Incident", "High", 76, "UNSAFE_ROUTE", true, false, false, true, "Đường vào bị dây điện võng thấp, cần đội kiểm tra trước khi sơ tán.", "Lối vào xóm phía sau trường gần sân Tự Do có dây điện võng xuống nước. Gia đình còn trong nhà, chưa dám di chuyển.", "4G", 63, false, 8, 8, 0, new DateTime(2026, 4, 24, 8, 58, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Khánh", "AT_RISK", ["ROUTE_CLEARANCE"]), new HueStadiumVictimScenario("mother", "ELDERLY", "Mẹ Khánh", "STABLE", ["ESCORT_SUPPORT"])], []),
+            new HueStadiumSosScenario(2, 16.458740, 107.601460, "Kiệt 5 Nguyễn Huệ nối về Sân Tự Do, Huế", "Rescue", "Resolved", "High", 69, "EVACUATION", true, true, true, true, "Hai người đã được đưa ra khỏi vùng ngập, còn cần ghi nhận y tế sau sơ cứu.", "Hai người trong kiệt 5 Nguyễn Huệ đã được đội xuồng đưa ra, một người trầy chân đã băng bó tạm.", "4G", 77, false, 9, 9, 1, new DateTime(2026, 4, 24, 9, 18, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Chị Duyên", "RESCUED", ["WOUND_CLEANING"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Linh", "RESCUED", ["DRY_CLOTHES"])], []),
+            new HueStadiumSosScenario(2, 16.458420, 107.601940, "Nhà trọ sau Sân Tự Do, gần Nguyễn Huệ, Huế", "Both", "Resolved", "Medium", 52, "SUPPLY_SHORTAGE", true, false, false, true, "Nhóm sinh viên đã nhận nước và được hướng dẫn ra điểm tập kết.", "Nhóm sinh viên ở nhà trọ sau sân Tự Do thiếu nước và mì, đã được đội hỗ trợ chuyển đến điểm tập kết.", "WIFI", 69, false, 10, 10, 2, new DateTime(2026, 4, 24, 9, 31, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("group-lead", "ADULT", "Bạn Hoàng", "RESCUED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("roommate", "ADULT", "Bạn Phúc", "RESCUED", ["READY_TO_EAT_FOOD"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD"]),
+            new HueStadiumSosScenario(8, 16.464260, 107.600470, "Góc Nguyễn Huệ - Lê Quý Đôn, cách Sân Tự Do 300m, Huế", "Relief", "Pending", "Medium", 49, "SUPPLY_SHORTAGE", true, false, false, true, "Một điểm trú tạm 7 người cần nước, cháo ăn liền và thuốc hạ sốt.", "Điểm trú ở góc Nguyễn Huệ - Lê Quý Đôn có 7 người, trong đó có trẻ nhỏ. Cần nước sạch, cháo ăn liền, thuốc hạ sốt.", "5G", 52, false, 11, 12, 3, new DateTime(2026, 4, 24, 10, 3, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Cô Lệ", "SAFE", ["FEVER_MEDICINE"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé Bảo", "STABLE", ["PORRIDGE", "MILK"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD", "MEDICINE"]),
+            new HueStadiumSosScenario(3, 16.463840, 107.601010, "Sau dãy quán đường Nguyễn Huệ gần Sân Tự Do, Huế", "Rescue", "Pending", "High", 72, "TRAPPED", false, false, false, true, "Hai người bị kẹt trong quán, cửa cuốn hỏng do mất điện.", "Hai người đang kẹt trong quán phía sau Nguyễn Huệ, cửa cuốn không mở vì mất điện, nước ngoài đường lên nhanh.", "MESH", 28, false, 12, 12, 4, new DateTime(2026, 4, 24, 10, 22, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("owner", "ADULT", "Anh Sơn", "TRAPPED", ["DOOR_OPENING_SUPPORT"]), new HueStadiumVictimScenario("staff", "ADULT", "Bạn Vy", "TRAPPED", ["EVACUATION_SUPPORT"])], []),
+            new HueStadiumSosScenario(4, 16.459620, 107.604620, "Hẻm nhỏ sau đường Hà Huy Tập, phường Phú Nhuận, Huế", "Both", "Assigned", "High", 73, "STRANDED", false, true, true, false, "Nhà có sản phụ đau bụng nhẹ, nhóm cần được đưa ra và nhận nước sạch.", "Sản phụ trong nhà đau bụng nhẹ, nước ngập qua đầu gối và có trẻ nhỏ. Cần đội đưa ra điểm an toàn, mang thêm nước sạch.", "4G", 49, true, 13, 14, 0, new DateTime(2026, 4, 24, 10, 49, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("pregnant", "PREGNANT", "Chị Hà", "MODERATE", ["MATERNITY_SUPPORT", "FIRST_AID"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Sóc", "STABLE", ["CHILD_LIFE_JACKET"])], ["DRINKING_WATER", "LIFE_JACKET"]),
+            new HueStadiumSosScenario(8, 16.459980, 107.605120, "Tầng trệt nhà số 12 Hà Huy Tập, Huế", "Relief", "InProgress", "Medium", 58, "SUPPLY_SHORTAGE", true, false, false, true, "Năm người ở tầng hai thiếu thuốc tiểu đường và nước sạch.", "Gia đình 5 người đã lên tầng hai, đang thiếu nước uống và thuốc tiểu đường cho người lớn tuổi.", "WIFI", 71, false, 14, 14, 1, new DateTime(2026, 4, 24, 11, 18, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("father", "ELDERLY", "Ông Bảy", "STABLE", ["DIABETES_MEDICINE"]), new HueStadiumVictimScenario("adult", "ADULT", "Chị Loan", "SAFE", ["DRINKING_WATER"])], ["DRINKING_WATER", "MEDICINE", "READY_TO_EAT_FOOD"]),
+            new HueStadiumSosScenario(4, 16.460180, 107.604310, "Kiệt 31 Hà Huy Tập nhìn sang Sân Tự Do, Huế", "Rescue", "Pending", "High", 68, "UNSAFE_ROUTE", false, false, false, true, "Cầu thang ngoài bị ngập, người già không thể xuống tầng trệt.", "Người già trong nhà không thể xuống cầu thang ngoài vì nước xiết. Cần đội có dây hỗ trợ tiếp cận.", "4G", 37, false, 15, 16, 2, new DateTime(2026, 4, 24, 11, 46, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("grandmother", "ELDERLY", "Bà Cúc", "TRAPPED", ["ROPE_ASSIST", "ESCORT_SUPPORT"]), new HueStadiumVictimScenario("adult", "ADULT", "Anh Tú", "AT_RISK", ["EVACUATION_SUPPORT"])], []),
+            new HueStadiumSosScenario(5, 16.465260, 107.603120, "Đường Trần Cao Vân gần lối vào Sân Tự Do, Huế", "Relief", "Resolved", "Medium", 44, "SUPPLY_SHORTAGE", true, false, false, true, "Điểm trú đã nhận nước và mì, không còn yêu cầu mở.", "Điểm trú trên Trần Cao Vân đã nhận nước và mì từ đội hỗ trợ, mọi người an toàn.", "5G", 80, false, 16, 16, 3, new DateTime(2026, 4, 24, 12, 9, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult", "ADULT", "Chú Lộc", "RESCUED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("elderly", "ELDERLY", "Bà Tâm", "RESCUED", ["BLANKET"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD"]),
+            new HueStadiumSosScenario(5, 16.465720, 107.603640, "Sau khu nhà thi đấu phụ Sân Tự Do, Huế", "Rescue", "Resolved", "Medium", 47, "EVACUATION", true, false, false, true, "Hai người đã tự ra theo hướng dẫn của đội, không cần thêm cứu hộ.", "Hai người ở sau nhà thi đấu phụ đã được hướng dẫn ra đường cao hơn, hiện an toàn.", "4G", 66, false, 17, 17, 4, new DateTime(2026, 4, 24, 12, 27, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Quốc", "RESCUED", ["CHECK_IN"]), new HueStadiumVictimScenario("wife", "ADULT", "Chị Nhi", "RESCUED", ["CHECK_IN"])], []),
+            new HueStadiumSosScenario(6, 16.457760, 107.606050, "Đoạn Lê Quý Đôn gần cổng phụ Sân Tự Do, Huế", "Both", "Incident", "Critical", 92, "MEDICAL", false, true, true, false, "Một người bị hạ thân nhiệt, đội báo cần cáng mềm và áo giữ nhiệt.", "Có người ngâm nước lâu bị lạnh run, lơ mơ. Đội đang tiếp cận nhưng cần thêm cáng mềm, áo giữ nhiệt và nước ấm.", "4G", 44, false, 18, 18, 0, new DateTime(2026, 4, 24, 13, 5, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("patient", "ADULT", "Anh Tài", "CRITICAL", ["HYPOTHERMIA_BLANKET", "STRETCHER"]), new HueStadiumVictimScenario("sister", "ADULT", "Chị Trâm", "TRAPPED", ["EVACUATION_SUPPORT"])], ["BLANKET", "MEDICINE", "DRINKING_WATER"]),
+            new HueStadiumSosScenario(10, 16.458080, 107.606420, "Hẻm thấp phía nam Sân Tự Do, Huế", "Rescue", "InProgress", "High", 78, "TRAPPED", false, false, false, true, "Ba người bị cô lập, điểm đón phù hợp là cổng phụ phía nam.", "Ba người bị cô lập trong hẻm thấp phía nam sân. Nước xoáy ở đầu hẻm, cần xuồng nhỏ vào cổng phụ.", "MESH", 19, false, 19, 20, 1, new DateTime(2026, 4, 24, 13, 33, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Anh Lâm", "TRAPPED", ["BOAT_RESCUE"]), new HueStadiumVictimScenario("adult-2", "ADULT", "Chị Yến", "TRAPPED", ["BOAT_RESCUE"]), new HueStadiumVictimScenario("elderly", "ELDERLY", "Ông Hòa", "TRAPPED", ["ESCORT_SUPPORT"])], []),
+            new HueStadiumSosScenario(7, 16.466530, 107.598650, "Đường Đống Đa hướng về Sân Tự Do, Huế", "Relief", "Resolved", "Low", 33, "SUPPLY_SHORTAGE", true, false, false, true, "Yêu cầu nước sạch đã được nhóm địa phương xử lý.", "Khu Đống Đa đã nhận nước sạch từ nhóm địa phương, cập nhật để đóng yêu cầu.", "5G", 83, false, 20, 20, 2, new DateTime(2026, 4, 24, 14, 2, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult", "ADULT", "Cô Vân", "RESCUED", ["DRINKING_WATER"])], ["DRINKING_WATER"]),
+            new HueStadiumSosScenario(7, 16.466940, 107.599120, "Kiệt 44 Đống Đa, cách Sân Tự Do 600m, Huế", "Rescue", "Cancelled", "Low", 26, "EVACUATION", true, false, false, true, "Người gửi báo đã tự di chuyển ra khỏi khu ngập, không cần đội đến.", "Tôi đã tự ra khỏi kiệt 44 Đống Đa nhờ hàng xóm hỗ trợ, xin hủy yêu cầu cứu hộ.", "WIFI", 61, false, 21, 21, 3, new DateTime(2026, 4, 24, 14, 26, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Huy", "SAFE", ["CHECK_IN"])], []),
+            new HueStadiumSosScenario(10, 16.466520, 107.599430, "Nhà dân sau khu Đống Đa, gần Sân Tự Do, Huế", "Both", "InProgress", "Medium", 63, "STRANDED", false, false, false, true, "Bốn người chờ đội ở tầng hai, cần nước uống và đèn pin vì mất điện.", "Bốn người đang chờ ở tầng hai khu Đống Đa gần sân Tự Do. Nhà mất điện, cần nước uống và đèn pin khi đội tới.", "4G", 39, true, 22, 23, 4, new DateTime(2026, 4, 24, 14, 51, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Chị Nương", "TRAPPED", ["FLASHLIGHT"]), new HueStadiumVictimScenario("adult-2", "ADULT", "Anh Bình", "TRAPPED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Kem", "STABLE", ["CHILD_LIFE_JACKET"])], ["DRINKING_WATER", "FLASHLIGHT", "LIFE_JACKET"])
+        };
+
+        return (clusters, sosRequests);
+    }
+
     private async Task SeedMissionsAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var missionClusters = seed.SosClusters.Take(100).ToList();
+        var missionClusters = seed.SosClusters.ToList();
         for (var i = 0; i < missionClusters.Count; i++)
         {
             var cluster = missionClusters[i];
             var createdAt = (cluster.CreatedAt ?? seed.StartUtc).AddMinutes(18);
-            var status = i < 20 ? "Planned" : i < 45 ? "OnGoing" : i < 95 ? "Completed" : "Incompleted";
+            var status = i switch
+            {
+                0 or 3 => "Planned",
+                1 or 4 or 6 => "OnGoing",
+                2 or 5 => "Completed",
+                _ => "Incompleted"
+            };
             seed.Missions.Add(new Mission
             {
                 ClusterId = cluster.Id,
@@ -1985,7 +2312,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         foreach (var mission in seed.Missions)
         {
             var missionTeams = seed.MissionTeams.Where(t => t.MissionId == mission.Id).ToList();
-            var activities = 4 + (seed.Missions.IndexOf(mission) < 20 ? 1 : 0);
+            var missionIndex = seed.Missions.IndexOf(mission);
+            var activities = mission.Status == "OnGoing" || missionIndex < 2 ? 5 : 4;
             var clusterSos = seed.SosRequests.Where(s => s.ClusterId == mission.ClusterId).ToList();
             for (var step = 1; step <= activities; step++)
             {
@@ -2004,7 +2332,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     Step = step,
                     ActivityType = type,
                     Description = ActivityDescription(type, depot.Name, sos.RawMessage),
-                    Target = Json(new { address = JsonDocument.Parse(sos.StructuredData ?? "{}").RootElement.TryGetProperty("address", out var address) ? address.GetString() : "Khu dân cư", sos_request_id = sos.Id }),
+                    Target = Json(new { address = SosAddressFromStructuredData(sos.StructuredData), sos_request_id = sos.Id }),
                     Items = hasDepot ? Json(new[] { new SupplyToCollectDto { ItemId = seed.ItemModels[(mission.Id + step) % seed.ItemModels.Count].Id, ItemName = seed.ItemModels[(mission.Id + step) % seed.ItemModels.Count].Name ?? "Vật phẩm", Quantity = 20 + step * 10, Unit = "đơn vị" } }) : null,
                     TargetLocation = hasDepot ? depot.Location : sos.Location,
                     Status = activityStatus,
@@ -2561,55 +2889,158 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             campaign.CurrentBalance = totalRaised - totalDisbursed;
         }
 
+        var vatInvoices = await _db.VatInvoices.OrderBy(v => v.Id).ToListAsync(cancellationToken);
+
+        // Calculate LiquidationRevenue needed to support all allocations from SystemFund
+        decimal totalSystemFundNeeded = 0m;
         foreach (var fund in depotFunds)
         {
-            for (var i = 0; i < 10; i++)
+            if (fund.FundSourceType == FundSourceType.SystemFund.ToString())
             {
-                var transactionType = (i % 5) switch
-                {
-                    0 => DepotFundTransactionType.Allocation.ToString(),
-                    1 => DepotFundTransactionType.Deduction.ToString(),
-                    2 => DepotFundTransactionType.PersonalAdvance.ToString(),
-                    3 => DepotFundTransactionType.AdvanceRepayment.ToString(),
-                    _ => DepotFundTransactionType.Refund.ToString()
-                };
-
-                _db.DepotFundTransactions.Add(new DepotFundTransaction
-                {
-                    DepotFundId = fund.Id,
-                    TransactionType = transactionType,
-                    Amount = 1_500_000 + fund.Id * 180_000 + i * 650_000,
-                    ReferenceType = transactionType == DepotFundTransactionType.Deduction.ToString()
-                        ? "VatInvoice"
-                        : transactionType == DepotFundTransactionType.Allocation.ToString()
-                            ? "CampaignDisbursement"
-                            : "DepotFundAllocation",
-                    ReferenceId = i + 1,
-                    Note = transactionType switch
-                    {
-                        "Deduction" => "Thanh toán mua bổ sung hàng cứu trợ từ quỹ kho",
-                        "PersonalAdvance" => "Cá nhân ứng trước cho kho khi cần nhập hàng nhanh",
-                        "AdvanceRepayment" => "Kho hoàn trả một phần tiền ứng cá nhân",
-                        "Refund" => "Hoàn quỹ sau đối soát chi phí",
-                        _ => "Nhận giải ngân vào quỹ kho"
-                    },
-                    CreatedBy = seed.Managers[i % seed.Managers.Count].Id,
-                    CreatedAt = seed.StartUtc.AddDays(220 + fund.Id * 3 + i)
-                });
+                totalSystemFundNeeded += 25_000_000m + fund.Id * 5_000_000m;
             }
         }
 
-        _db.SystemFundTransactions.AddRange(Enumerable.Range(0, 25).Select(i => new SystemFundTransaction
+        var systemFundCreatedAt = seed.StartUtc.AddDays(200);
+        if (totalSystemFundNeeded > 0)
         {
-            SystemFundId = systemFund.Id,
-            TransactionType = i % 4 == 0 ? "TransferOut" : "Income",
-            Amount = 10_000_000 + i * 2_000_000,
-            ReferenceType = i % 4 == 0 ? "CampaignDisbursement" : "Donation",
-            ReferenceId = i + 1,
-            Note = i % 4 == 0 ? "Cấp vốn bổ sung cho kho" : "Ghi nhận tiền vào quỹ hệ thống",
-            CreatedBy = seed.Admins[0].Id,
-            CreatedAt = seed.StartUtc.AddDays(250 + i * 20)
-        }));
+            var initialRevenue = totalSystemFundNeeded + 100_000_000m;
+            _db.SystemFundTransactions.Add(new SystemFundTransaction
+            {
+                SystemFundId = systemFund.Id,
+                TransactionType = SystemFundTransactionType.LiquidationRevenue.ToString(),
+                Amount = initialRevenue,
+                ReferenceType = "DepotClosure",
+                ReferenceId = 0,
+                Note = "Nguồn thu thanh lý tài sản đầu kỳ",
+                CreatedBy = seed.Admins[0].Id,
+                CreatedAt = systemFundCreatedAt
+            });
+            systemFund.Balance += initialRevenue;
+        }
+
+        foreach (var fund in depotFunds)
+        {
+            var managerId = seed.Managers[fund.DepotId % seed.Managers.Count].Id;
+            var fundCreatedAt = seed.StartUtc.AddDays(220 + fund.Id * 3);
+            fund.Balance = 0; // Reset for recalculation
+
+            // 1. Allocation
+            decimal allocationAmount = 25_000_000m + fund.Id * 5_000_000m;
+            int? allocationRefId = null;
+            string allocationRefType = "";
+
+            if (fund.FundSourceType == FundSourceType.SystemFund.ToString())
+            {
+                allocationRefType = "SystemFund";
+                allocationRefId = systemFund.Id;
+
+                _db.SystemFundTransactions.Add(new SystemFundTransaction
+                {
+                    SystemFundId = systemFund.Id,
+                    TransactionType = SystemFundTransactionType.AllocationToDepot.ToString(),
+                    Amount = allocationAmount,
+                    ReferenceType = "SystemFund",
+                    ReferenceId = fund.Id,
+                    Note = $"Cấp vốn cho quỹ kho {fund.DepotId}",
+                    CreatedBy = seed.Admins[0].Id,
+                    CreatedAt = fundCreatedAt
+                });
+                systemFund.Balance -= allocationAmount;
+            }
+            else
+            {
+                allocationRefType = DepotFundReferenceType.CampaignDisbursement.ToString();
+                var disbursement = seededDisbursements.FirstOrDefault(d => d.DepotId == fund.DepotId && d.FundCampaignId == fund.FundSourceId);
+                if (disbursement != null)
+                {
+                    allocationRefId = disbursement.Id;
+                    allocationAmount = disbursement.Amount;
+                }
+                else if (seededDisbursements.Count > 0)
+                {
+                    allocationRefId = seededDisbursements[0].Id;
+                }
+                else
+                {
+                    allocationRefId = 1;
+                }
+            }
+
+            _db.DepotFundTransactions.Add(new DepotFundTransaction
+            {
+                DepotFundId = fund.Id,
+                TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                Amount = allocationAmount,
+                ReferenceType = allocationRefType,
+                ReferenceId = allocationRefId,
+                Note = "Nhận giải ngân vào quỹ kho",
+                CreatedBy = seed.Admins[0].Id,
+                CreatedAt = fundCreatedAt
+            });
+            fund.Balance += allocationAmount;
+
+            // 2. Personal Advance
+            var advanceAmount = 5_000_000m + fund.Id * 1_000_000m;
+            _db.DepotFundTransactions.Add(new DepotFundTransaction
+            {
+                DepotFundId = fund.Id,
+                TransactionType = DepotFundTransactionType.PersonalAdvance.ToString(),
+                Amount = advanceAmount,
+                ReferenceType = "InternalAdvance",
+                ReferenceId = fund.DepotId,
+                Note = "Cá nhân ứng trước cho kho khi cần nhập hàng nhanh",
+                CreatedBy = managerId,
+                ContributorName = FullName(seed.Managers[fund.DepotId % seed.Managers.Count]),
+                ContributorPhoneNumber = seed.Managers[fund.DepotId % seed.Managers.Count].Phone,
+                ContributorId = managerId,
+                CreatedAt = fundCreatedAt.AddHours(2)
+            });
+            fund.Balance += advanceAmount;
+
+            // 3. Deduction (VatInvoice)
+            var invoice = vatInvoices.Skip(fund.Id % Math.Max(1, vatInvoices.Count)).FirstOrDefault() ?? vatInvoices.FirstOrDefault();
+            if (invoice != null)
+            {
+                var deductionAmount = (invoice.TotalAmount ?? 0m) > 0 ? invoice.TotalAmount.Value : 1_500_000m;
+                if (fund.Balance >= deductionAmount)
+                {
+                    _db.DepotFundTransactions.Add(new DepotFundTransaction
+                    {
+                        DepotFundId = fund.Id,
+                        TransactionType = DepotFundTransactionType.Deduction.ToString(),
+                        Amount = deductionAmount,
+                        ReferenceType = DepotFundReferenceType.VatInvoice.ToString(),
+                        ReferenceId = invoice.Id,
+                        Note = "Thanh toán mua bổ sung hàng cứu trợ từ quỹ kho",
+                        CreatedBy = managerId,
+                        CreatedAt = fundCreatedAt.AddHours(5)
+                    });
+                    fund.Balance -= deductionAmount;
+                }
+            }
+
+            // 4. Advance Repayment
+            var repaymentAmount = advanceAmount / 2;
+            if (fund.Balance >= repaymentAmount)
+            {
+                _db.DepotFundTransactions.Add(new DepotFundTransaction
+                {
+                    DepotFundId = fund.Id,
+                    TransactionType = DepotFundTransactionType.AdvanceRepayment.ToString(),
+                    Amount = repaymentAmount,
+                    ReferenceType = "InternalRepayment",
+                    ReferenceId = fund.DepotId,
+                    Note = "Kho hoàn trả một phần tiền ứng cá nhân",
+                    CreatedBy = managerId,
+                    ContributorName = FullName(seed.Managers[fund.DepotId % seed.Managers.Count]),
+                    ContributorPhoneNumber = seed.Managers[fund.DepotId % seed.Managers.Count].Phone,
+                    ContributorId = managerId,
+                    CreatedAt = fundCreatedAt.AddHours(24)
+                });
+                fund.Balance -= repaymentAmount;
+            }
+        }
 
         await _db.SaveChangesAsync(cancellationToken);
     }
@@ -4872,62 +5303,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         return groups.ToList();
     }
 
-    private static int[] GetClusteredSosCounts()
-    {
-        var counts = Enumerable.Repeat(2, ClusteredSosClusterCount).ToArray();
-        foreach (var index in Enumerable.Range(0, 30).Select(offset => 5 + offset * 6))
-        {
-            counts[index] = 1;
-        }
-
-        return counts;
-    }
-
-    private static string ClusterSeverityForSeedIndex(int index) => index switch
-    {
-        < 8 => "Critical",
-        < 40 => "High",
-        < 130 => "Medium",
-        _ => "Low"
-    };
-
-    private static string ClusterSituationForSeedIndex(int clusterIndex, int requestIndex, string priority)
-    {
-        var situations = priority switch
-        {
-            "Critical" => CriticalClusterSituations,
-            "High" => HighClusterSituations,
-            "Medium" => MediumClusterSituations,
-            _ => LowClusterSituations
-        };
-        var seed = StableGuid($"cluster-situation-{clusterIndex}-{requestIndex}-{priority}");
-        return situations[DeterministicIndex(seed, situations.Length)];
-    }
-
-    private static string[] SuppliesFor(string situation)
-    {
-        return situation switch
-        {
-            "NeedSupplies" => ["Water", "Food", "Blanket"],
-            _ => Array.Empty<string>()
-        };
-    }
-
-    private static string SosMessage(string situation, int people, bool injured)
-    {
-        var injury = injured ? " có người bị thương nhẹ," : "";
-        return situation switch
-        {
-            "Flooding" => $"Nhà tôi đang ngập sâu,{injury} có {people} người cần xuồng vào hỗ trợ.",
-            "Landslide" => $"Sạt lở sau nhà, đường bị chắn,{injury} gia đình {people} người đang mắc kẹt.",
-            "Stranded" => $"Chúng tôi bị cô lập trên tầng hai,{injury} cần đội cứu hộ tiếp cận.",
-            "CannotMove" => $"Có người già không thể di chuyển,{injury} nước đang lên nhanh.",
-            "Medical" => $"Có ca y tế cần hỗ trợ,{injury} cần thuốc và sơ cứu tại chỗ.",
-            "NeedSupplies" => $"Khu sơ tán thiếu nước uống và thức ăn cho {people} người.",
-            _ => $"Cần sơ tán {people} người ra khỏi vùng ngập bằng xuồng hoặc xe tải."
-        };
-    }
-
     private static double PriorityScore(string priority, int index)
     {
         return priority switch
@@ -4938,56 +5313,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             _ => 20 + index % 18
         };
     }
-
-    private static string SosTypeForSituation(string situation) => situation == "NeedSupplies" ? "Relief" : "Rescue";
-
-    private static readonly string[] CriticalClusterSituations =
-    [
-        "Flooding",
-        "Medical",
-        "CannotMove",
-        "Landslide",
-        "Stranded",
-        "Evacuation"
-    ];
-
-    private static readonly string[] HighClusterSituations =
-    [
-        "Flooding",
-        "Stranded",
-        "NeedSupplies",
-        "CannotMove",
-        "Medical",
-        "Evacuation",
-        "Landslide",
-        "Flooding"
-    ];
-
-    private static readonly string[] MediumClusterSituations =
-    [
-        "NeedSupplies",
-        "Stranded",
-        "NeedSupplies",
-        "Evacuation",
-        "NeedSupplies",
-        "Medical",
-        "CannotMove",
-        "NeedSupplies"
-    ];
-
-    private static readonly string[] LowClusterSituations =
-    [
-        "NeedSupplies",
-        "NeedSupplies",
-        "Stranded",
-        "NeedSupplies",
-        "Evacuation",
-        "NeedSupplies",
-        "NeedSupplies",
-        "Flooding",
-        "NeedSupplies",
-        "NeedSupplies"
-    ];
 
     private static string MissionType(int index, string? severity)
     {
@@ -5082,8 +5407,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         // 1. Three RETURN_SUPPLIES → PendingConfirmation (for manager01 upcoming-returns + confirm-return)
         var returnActivities = seed.MissionActivities
-            .Where(a => a.DepotId == hueDepotId
-                     && a.ActivityType == "RETURN_SUPPLIES"
+            .Where(a => a.ActivityType == "RETURN_SUPPLIES"
                      && a.Status == "Planned"
                      && a.MissionId.HasValue
                      && onGoingMissionIds.Contains(a.MissionId.Value)
@@ -5320,26 +5644,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
     }
 
-    private static string ClusterStatusForSeedIndex(int index) => index switch
-    {
-        < 32 => SosClusterStatus.Pending.ToString(),
-        < 58 => SosClusterStatus.InProgress.ToString(),
-        < 148 => SosClusterStatus.Completed.ToString(),
-        < 164 => SosClusterStatus.InProgress.ToString(),
-        _ => SosClusterStatus.Pending.ToString()
-    };
-
-    private static string SosRequestStatusForClusterSeedIndex(int index) => index switch
-    {
-        < 32 => SosRequestStatus.Pending.ToString(),
-        < 44 => SosRequestStatus.Assigned.ToString(),
-        < 58 => SosRequestStatus.InProgress.ToString(),
-        < 148 => SosRequestStatus.Resolved.ToString(),
-        < 164 => SosRequestStatus.Incident.ToString(),
-        < 176 => SosRequestStatus.Pending.ToString(),
-        _ => SosRequestStatus.Cancelled.ToString()
-    };
-
     private static string ActivityType(int step, int total, string? missionType)
     {
         if (step == 1)
@@ -5554,6 +5858,53 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         string? SpecialNeedsNote,
         string? SpecialDietNote,
         string MedicalProfileJson);
+
+    private sealed record HueStadiumClusterScenario(
+        string Code,
+        double Latitude,
+        double Longitude,
+        double RadiusKm,
+        string SeverityLevel,
+        string WaterLevel,
+        int VictimEstimated,
+        int ChildrenCount,
+        int ElderlyCount,
+        double MedicalUrgencyScore,
+        string Status,
+        DateTime LocalCreatedAt);
+
+    private sealed record HueStadiumSosScenario(
+        int ClusterIndex,
+        double Latitude,
+        double Longitude,
+        string Address,
+        string SosType,
+        string Status,
+        string PriorityLevel,
+        double PriorityScore,
+        string Situation,
+        bool CanMove,
+        bool HasInjured,
+        bool NeedMedical,
+        bool OthersAreStable,
+        string AdditionalDescription,
+        string RawMessage,
+        string Network,
+        int BatteryPercentage,
+        bool IsSentOnBehalf,
+        int VictimIndex,
+        int ReporterIndex,
+        int CoordinatorIndex,
+        DateTime LocalCreatedAt,
+        IReadOnlyList<HueStadiumVictimScenario> Victims,
+        IReadOnlyList<string> GroupNeeds);
+
+    private sealed record HueStadiumVictimScenario(
+        string PersonId,
+        string PersonType,
+        string CustomName,
+        string IncidentStatus,
+        IReadOnlyList<string> PersonalNeeds);
 
     private sealed record ItemTemplate(
         string CategoryCode,

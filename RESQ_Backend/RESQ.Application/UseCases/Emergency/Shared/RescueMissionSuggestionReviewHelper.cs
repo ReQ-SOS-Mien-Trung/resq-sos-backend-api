@@ -30,12 +30,16 @@ public static class RescueMissionSuggestionReviewHelper
 
         NormalizeExecutionMetadata(result.SuggestedActivities, warnings);
 
+        var teamAssignmentErrors = new List<string>();
+
         result.SuggestedTeam = SanitizeSuggestedTeam(
             result.SuggestedTeam,
             nearbyTeamLookup,
             nearbyTeamNameLookup,
-            "Đội tổng thể của mission suggestion",
-            warnings);
+            "Đội tổng thể của mission",
+            teamAssignmentErrors);
+
+        var unassignedSteps = new List<int>();
 
         foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
         {
@@ -44,12 +48,30 @@ public static class RescueMissionSuggestionReviewHelper
                 nearbyTeamLookup,
                 nearbyTeamNameLookup,
                 $"Activity step {activity.Step} ({activity.ActivityType})",
-                warnings);
+                teamAssignmentErrors);
 
             if (activity.SuggestedTeam is null && nearbyTeamLookup.Count > 0)
             {
-                warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) chưa được gán đội trong pool nearby teams.");
+                unassignedSteps.Add(activity.Step);
             }
+        }
+
+        if (teamAssignmentErrors.Count > 0)
+        {
+            var uniqueErrors = teamAssignmentErrors.Distinct().ToList();
+            if (uniqueErrors.Count > 3)
+            {
+                warnings.Add($"AI đã đề xuất đội không hợp lệ cho nhiều bước. Vui lòng kiểm tra lại cấu hình pool nearby teams.");
+            }
+            else
+            {
+                warnings.AddRange(uniqueErrors);
+            }
+        }
+
+        if (unassignedSteps.Count > 0)
+        {
+            warnings.Add($"Các bước sau chưa được gán đội hợp lệ (vui lòng gán thủ công): {string.Join(", ", unassignedSteps)}.");
         }
 
         if (warnings.Count == 0)
@@ -79,6 +101,9 @@ public static class RescueMissionSuggestionReviewHelper
             warnings.Add("Không có kho eligible nào trong pool nearby depots của cluster hiện tại; điều phối viên cần chọn kho thủ công.");
         }
 
+        var depotAssignmentErrors = new List<string>();
+        var unassignedDepotSteps = new List<int>();
+
         foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
         {
             if (!RequiresDepotAssignment(activity)
@@ -98,22 +123,22 @@ public static class RescueMissionSuggestionReviewHelper
             {
                 if (activity.DepotId.HasValue && activity.DepotId.Value > 0)
                 {
-                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) đang tham chiếu depot_id={activity.DepotId.Value} nằm ngoài pool nearby depots.");
+                    depotAssignmentErrors.Add($"Bước {activity.Step} tham chiếu depot_id={activity.DepotId.Value} ngoài pool.");
                 }
                 else if (!string.IsNullOrWhiteSpace(activity.DepotName))
                 {
-                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) đang tham chiếu depot_name='{activity.DepotName!.Trim()}' nằm ngoài pool nearby depots.");
+                    depotAssignmentErrors.Add($"Bước {activity.Step} tham chiếu depot_name='{activity.DepotName!.Trim()}' ngoài pool.");
                 }
                 else if (RequiresDepotAssignment(activity))
                 {
-                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) thiếu depot_id hợp lệ.");
+                    depotAssignmentErrors.Add($"Bước {activity.Step} thiếu depot hợp lệ.");
                 }
 
                 ClearActivityDepot(activity);
 
                 if (RequiresDepotAssignment(activity) && nearbyDepotLookup.Count > 0)
                 {
-                    warnings.Add($"Activity step {activity.Step} ({activity.ActivityType}) chưa được gán kho trong pool nearby depots.");
+                    unassignedDepotSteps.Add(activity.Step);
                 }
 
                 continue;
@@ -138,11 +163,7 @@ public static class RescueMissionSuggestionReviewHelper
             {
                 if (shortage.SelectedDepotId.HasValue && shortage.SelectedDepotId.Value > 0)
                 {
-                    warnings.Add($"Supply shortage '{shortage.ItemName}' đang tham chiếu selected_depot_id={shortage.SelectedDepotId.Value} nằm ngoài pool nearby depots.");
-                }
-                else if (!string.IsNullOrWhiteSpace(shortage.SelectedDepotName))
-                {
-                    warnings.Add($"Supply shortage '{shortage.ItemName}' đang tham chiếu selected_depot_name='{shortage.SelectedDepotName!.Trim()}' nằm ngoài pool nearby depots.");
+                    depotAssignmentErrors.Add($"Supply shortage '{shortage.ItemName}' tham chiếu depot_id={shortage.SelectedDepotId.Value} ngoài pool.");
                 }
 
                 shortage.SelectedDepotId = null;
@@ -152,6 +173,24 @@ public static class RescueMissionSuggestionReviewHelper
 
             shortage.SelectedDepotId = canonicalDepot.Id;
             shortage.SelectedDepotName = canonicalDepot.Name;
+        }
+
+        if (depotAssignmentErrors.Count > 0)
+        {
+            var uniqueErrors = depotAssignmentErrors.Distinct().ToList();
+            if (uniqueErrors.Count > 3)
+            {
+                warnings.Add($"Nhiều bước tham chiếu kho không hợp lệ.");
+            }
+            else
+            {
+                warnings.AddRange(uniqueErrors);
+            }
+        }
+
+        if (unassignedDepotSteps.Count > 0)
+        {
+            warnings.Add($"Các bước sau cần chọn kho thủ công: {string.Join(", ", unassignedDepotSteps)}.");
         }
 
         if (warnings.Count == 0)
@@ -205,7 +244,7 @@ public static class RescueMissionSuggestionReviewHelper
         {
             if (suggestedTeam.TeamId > 0)
             {
-                warnings.Add($"{contextLabel} đang tham chiếu team_id={suggestedTeam.TeamId} nằm ngoài pool nearby teams.");
+                warnings.Add($"{contextLabel} tham chiếu team_id={suggestedTeam.TeamId} ngoài pool.");
             }
             else
             {

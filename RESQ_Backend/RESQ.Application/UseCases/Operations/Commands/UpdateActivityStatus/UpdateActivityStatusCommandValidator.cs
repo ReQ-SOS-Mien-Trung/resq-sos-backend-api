@@ -20,7 +20,7 @@ public class UpdateActivityStatusCommandValidator : AbstractValidator<UpdateActi
             .NotEmpty().WithMessage("DecisionBy không được để trống");
 
         RuleFor(x => x.ImageUrl)
-            .Must(url => string.IsNullOrWhiteSpace(url) || Uri.TryCreate(url.Trim(), UriKind.Absolute, out _))
+            .Must(url => string.IsNullOrWhiteSpace(url) || (Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)))
             .WithMessage("ImageUrl phải là một URL tuyệt đối hợp lệ.");
     }
 }

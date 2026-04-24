@@ -93,6 +93,37 @@ public sealed class DemoSeedValidator
             errors.Add($"SOS clusters with only resolved requests must be Completed: {string.Join(", ", resolvedClustersNotCompleted)}.");
         }
 
+        var clusteredSosPriorities = await db.SosRequests
+            .Where(s => s.ClusterId.HasValue)
+            .Select(s => new { ClusterId = s.ClusterId!.Value, s.PriorityLevel })
+            .ToListAsync(cancellationToken);
+        var oversizedClusters = clusteredSosPriorities
+            .GroupBy(s => s.ClusterId)
+            .Select(group =>
+            {
+                var priorities = group.Select(s => s.PriorityLevel).ToList();
+                return new
+                {
+                    ClusterId = group.Key,
+                    Count = group.Count(),
+                    HighestPriority = HighestSosPriority(priorities),
+                    Limit = MaxSosRequestsForCluster(priorities)
+                };
+            })
+            .Where(cluster => cluster.Count > cluster.Limit)
+            .Take(20)
+            .ToList();
+        if (oversizedClusters.Count > 0)
+        {
+            errors.Add(
+                "SOS clusters exceed severity-based request limits: "
+                + string.Join(
+                    "; ",
+                    oversizedClusters.Select(cluster =>
+                        $"cluster #{cluster.ClusterId} has {cluster.Count}/{cluster.Limit} SOS requests for {cluster.HighestPriority}"))
+                + ".");
+        }
+
         var badSosTypes = await db.SosRequests
             .Where(s => s.SosType != null && !SosTypes.Contains(s.SosType))
             .Select(s => s.SosType!)
@@ -240,6 +271,39 @@ public sealed class DemoSeedValidator
 
         errors.Add($"{field} contains invalid values: {string.Join(", ", values)}.");
     }
+
+    private static string HighestSosPriority(IEnumerable<string?> priorities)
+    {
+        var prioritySet = priorities
+            .Where(priority => !string.IsNullOrWhiteSpace(priority))
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (prioritySet.Contains("Critical"))
+        {
+            return "Critical";
+        }
+
+        if (prioritySet.Contains("High"))
+        {
+            return "High";
+        }
+
+        if (prioritySet.Contains("Medium"))
+        {
+            return "Medium";
+        }
+
+        return "Low";
+    }
+
+    private static int MaxSosRequestsForCluster(IEnumerable<string?> priorities) =>
+        HighestSosPriority(priorities) switch
+        {
+            "Critical" => 1,
+            "High" => 2,
+            "Medium" => 3,
+            _ => 5
+        };
 
     private static int CalculateConsumableBalance(IEnumerable<RESQ.Infrastructure.Entities.Logistics.InventoryLog> logs)
     {
