@@ -21,7 +21,8 @@ public static class DepotFundMapper
             entity.Balance,
             entity.LastUpdatedAt,
             sourceType,
-            entity.FundSourceId
+            entity.FundSourceId,
+            entity.RowVersion
         );
 
         model.DepotName = entity.Depot?.Name;
@@ -38,7 +39,8 @@ public static class DepotFundMapper
             Balance = model.Balance,
             LastUpdatedAt = model.LastUpdatedAt,
             FundSourceType = model.FundSourceType?.ToString(),
-            FundSourceId = model.FundSourceId
+            FundSourceId = model.FundSourceId,
+            RowVersion = model.RowVersion
         };
     }
 
@@ -48,5 +50,6 @@ public static class DepotFundMapper
         entity.LastUpdatedAt = model.LastUpdatedAt;
         entity.FundSourceType = model.FundSourceType?.ToString();
         entity.FundSourceId = model.FundSourceId;
+        entity.RowVersion = model.RowVersion;
     }
 }

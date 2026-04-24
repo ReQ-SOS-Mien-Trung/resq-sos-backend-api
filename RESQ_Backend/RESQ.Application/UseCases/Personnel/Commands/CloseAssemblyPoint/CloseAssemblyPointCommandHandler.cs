@@ -53,7 +53,7 @@ public class CloseAssemblyPointCommandHandler(
         var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(request.Id, cancellationToken);
         if (activeEvent != null)
         {
-            await _assemblyEventRepository.UpdateEventStatusAsync(activeEvent.Value.EventId, AssemblyEventStatus.Completed.ToString(), cancellationToken);
+            await _assemblyEventRepository.UpdateEventStatusAsync(activeEvent.Value.EventId, AssemblyEventStatus.Cancelled.ToString(), cancellationToken);
             var participants = await _assemblyEventRepository.GetParticipantIdsAsync(activeEvent.Value.EventId, cancellationToken);
             foreach (var userId in participants)
             {
@@ -62,8 +62,8 @@ public class CloseAssemblyPointCommandHandler(
                     await _firebaseService.SendNotificationToUserAsync(
                         userId,
                         "Sự kiện tập hợp đã bị hủy",
-                        $"Điểm tập kết \"{assemblyPoint.Name}\" đã bị đóng. Sự kiện tập hợp đã kết thúc.",
-                        "assembly_event_completed",
+                        $"Điểm tập kết \"{assemblyPoint.Name}\" đã bị đóng. Sự kiện tập hợp đã bị hủy.",
+                        "assembly_event_cancelled",
                         cancellationToken);
                 }
                 catch (Exception ex)

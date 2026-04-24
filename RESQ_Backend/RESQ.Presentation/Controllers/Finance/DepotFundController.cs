@@ -45,8 +45,14 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
     public IActionResult GetReferenceTypeMetadata()
     {
-        var result = FinanceLabels.DepotFundReferenceTypeLabels
-            .Select(kv => new MetadataDto { Key = kv.Key, Value = kv.Value })
+        var result = Enum.GetValues<DepotFundReferenceType>()
+            .Select(referenceType => new MetadataDto
+            {
+                Key = referenceType.ToString(),
+                Value = FinanceLabels.Translate(
+                    FinanceLabels.DepotFundReferenceTypeLabels,
+                    referenceType.ToString())
+            })
             .ToList();
 
         return Ok(result);

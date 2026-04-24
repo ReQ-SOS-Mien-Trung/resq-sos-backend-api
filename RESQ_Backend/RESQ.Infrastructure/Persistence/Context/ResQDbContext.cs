@@ -263,6 +263,9 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<DepotFund>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("depot_funds_pkey");
+            entity.Property(e => e.RowVersion)
+                .HasColumnName("xmin")
+                .IsRowVersion();
             entity.HasIndex(e => new { e.DepotId, e.FundSourceType, e.FundSourceId })
                   .IsUnique()
                   .HasDatabaseName("uix_depot_funds_depot_source");
@@ -280,6 +283,16 @@ public partial class ResQDbContext : DbContext
         modelBuilder.Entity<SystemFund>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("system_funds_pkey");
+            entity.Property(e => e.RowVersion)
+                .HasColumnName("xmin")
+                .IsRowVersion();
+        });
+
+        modelBuilder.Entity<FundCampaign>(entity =>
+        {
+            entity.Property(e => e.RowVersion)
+                .HasColumnName("xmin")
+                .IsRowVersion();
         });
 
         modelBuilder.Entity<SystemFundTransaction>(entity =>
@@ -332,11 +345,32 @@ public partial class ResQDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("depot_closure_external_items_pkey");
 
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_ClosureExternalItem_ConsumableOrReusable",
+                    "((\"item_type\" = 'Consumable' AND \"lot_id\" IS NOT NULL AND \"reusable_item_id\" IS NULL AND \"serial_number\" IS NULL) " +
+                    "OR (\"item_type\" = 'Reusable' AND \"lot_id\" IS NULL AND \"reusable_item_id\" IS NOT NULL AND \"serial_number\" IS NOT NULL))");
+            });
+
             entity.HasIndex(e => e.DepotId)
                   .HasDatabaseName("ix_depot_closure_external_items_depot_id");
 
             entity.HasIndex(e => e.ClosureId)
                   .HasDatabaseName("ix_depot_closure_external_items_closure_id");
+
+            entity.HasIndex(e => e.ReusableItemId)
+                  .HasDatabaseName("ix_depot_closure_external_items_reusable_item_id");
+
+            entity.HasOne(e => e.Lot)
+                  .WithMany()
+                  .HasForeignKey(e => e.LotId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ReusableItem)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReusableItemId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<DepotClosureTransfer>(entity =>

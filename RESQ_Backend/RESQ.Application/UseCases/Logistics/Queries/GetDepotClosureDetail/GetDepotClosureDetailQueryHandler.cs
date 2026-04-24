@@ -176,10 +176,14 @@ public class GetDepotClosureDetailQueryHandler(
             ExternalItems = externalItems.Select(item => new DepotClosureExternalItemDetailResponse
             {
                 Id = item.Id,
+                ItemModelId = item.ItemModelId,
+                LotId = item.LotId,
+                ReusableItemId = item.ReusableItemId,
                 ItemName = item.ItemName,
                 CategoryName = item.CategoryName,
                 ItemType = item.ItemType,
                 Unit = item.Unit,
+                SerialNumber = item.SerialNumber,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.TotalPrice,

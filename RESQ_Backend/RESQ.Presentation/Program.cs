@@ -52,6 +52,7 @@ builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 builder.Services.AddScoped<IDashboardHubService, DashboardHubService>();
 builder.Services.AddScoped<IAdminRealtimeHubService, AdminRealtimeHubService>();
 builder.Services.AddScoped<IOperationalHubService, OperationalHubService>();
+builder.Services.AddScoped<IDonationPaymentProcessingService, RESQ.Infrastructure.Services.Finance.DonationPaymentProcessingService>();
 
 // Swagger + JWT support
 builder.Services.AddSwaggerGen(c =>

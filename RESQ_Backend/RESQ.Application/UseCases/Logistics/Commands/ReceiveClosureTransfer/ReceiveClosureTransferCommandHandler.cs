@@ -54,7 +54,6 @@ public class ReceiveClosureTransferCommandHandler(
         if (transferItems.Count == 0)
             throw new ConflictException("Transfer không có vật phẩm được cấu hình để nhận hàng.");
 
-        transfer.MarkReceived(request.UserId, request.Note);
         var completedAt = DateTime.UtcNow;
         var requiresFurtherResolution = false;
         var remainingItemCount = 0;
@@ -81,6 +80,7 @@ public class ReceiveClosureTransferCommandHandler(
                 transfer.ClosureId,
                 transfer.Id);
 
+            transfer.MarkReceived(request.UserId, request.Note);
             await transferRepository.UpdateAsync(transfer, cancellationToken);
 
             var hasOpenTransfers = await transferRepository.HasOpenTransfersAsync(closure.Id, cancellationToken);

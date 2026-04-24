@@ -18,21 +18,11 @@ public class ScheduleGatheringCommandHandler(
 {
     public async Task<int> Handle(ScheduleGatheringCommand request, CancellationToken cancellationToken)
     {
-        // 1. Kiểm tra điểm tập kết tồn tại.
-        var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId}");
-
-        if (ap.Status != Domain.Enum.Personnel.AssemblyPointStatus.Available)
-        {
-            throw new BadRequestException(
-                $"Không thể tạo sự kiện tập trung vì điểm tập kết {ap.Name} đang ở trạng thái {ap.Status}. Chỉ cho phép khi điểm tập kết đang Available.");
-        }
-
-        // 2. Chuẩn hóa sang UTC để lưu trữ.
+        // 1. Chuẩn hóa sang UTC để lưu trữ.
         var assemblyDateUtc = request.AssemblyDate.ToUtcForStorage();
         var checkInDeadlineUtc = request.CheckInDeadline.ToUtcForStorage();
 
-        // 3. Không cho phép lập lịch vào một thời điểm đã trôi qua.
+        // 2. Không cho phép lập lịch vào một thời điểm đã trôi qua.
         var nowUtc = DateTime.UtcNow;
         if (assemblyDateUtc < nowUtc)
         {
@@ -41,28 +31,51 @@ public class ScheduleGatheringCommandHandler(
                 $"Thời gian triệu tập không được là thời điểm trong quá khứ. Thời điểm hiện tại theo giờ Việt Nam là {nowInVietnam:HH:mm dd/MM/yyyy}.");
         }
 
-        // 4. Tạo AssemblyEvent.
-        var eventId = await assemblyEventRepository.CreateEventAsync(
-            request.AssemblyPointId, assemblyDateUtc, checkInDeadlineUtc, request.CreatedBy, cancellationToken);
+        var assemblyPointName = string.Empty;
+        List<Guid> rescuerIds = [];
+        var eventId = 0;
 
-        // 5. Snapshot rescuer chưa có team vào sự kiện triệu tập để xếp nhóm.
-        var rescuerIds = await assemblyPointRepository.GetTeamlessRescuerUserIdsAsync(
-            request.AssemblyPointId, cancellationToken);
-
-        if (rescuerIds.Count > 0)
+        await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            await assemblyEventRepository.AssignParticipantsAsync(eventId, rescuerIds, cancellationToken);
-        }
+            // 3. Kiểm tra điểm tập kết tồn tại và hợp lệ trong cùng transaction.
+            var assemblyPoint = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy điểm tập kết với id = {request.AssemblyPointId}");
 
-        await unitOfWork.SaveAsync();
+            if (assemblyPoint.Status != Domain.Enum.Personnel.AssemblyPointStatus.Available)
+            {
+                throw new BadRequestException(
+                    $"Không thể tạo sự kiện tập trung vì điểm tập kết {assemblyPoint.Name} đang ở trạng thái {assemblyPoint.Status}. Chỉ cho phép khi điểm tập kết đang Available.");
+            }
 
-        // 6. Gửi thông báo Firebase cho tất cả rescuer được gán vào sự kiện.
+            assemblyPointName = assemblyPoint.Name;
+
+            // 4. Tạo AssemblyEvent và snapshot participant trong cùng transaction.
+            eventId = await assemblyEventRepository.CreateEventAsync(
+                request.AssemblyPointId,
+                assemblyDateUtc,
+                checkInDeadlineUtc,
+                request.CreatedBy,
+                cancellationToken);
+
+            rescuerIds = await assemblyPointRepository.GetTeamlessRescuerUserIdsAsync(
+                request.AssemblyPointId,
+                cancellationToken);
+
+            if (rescuerIds.Count > 0)
+            {
+                await assemblyEventRepository.AssignParticipantsAsync(eventId, rescuerIds, cancellationToken);
+            }
+
+            await unitOfWork.SaveAsync();
+        });
+
+        // 5. Gửi thông báo Firebase sau khi transaction đã commit thành công.
         var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
         var vnAssemblyDate = TimeZoneInfo.ConvertTimeFromUtc(assemblyDateUtc, vnTimeZone);
         var vnCheckInDeadline = TimeZoneInfo.ConvertTimeFromUtc(checkInDeadlineUtc, vnTimeZone);
 
         var title = "Thông báo triệu tập";
-        var body = $"Bạn được triệu tập tập trung tại điểm tập kết \"{ap.Name}\" vào lúc " +
+        var body = $"Bạn được triệu tập tập trung tại điểm tập kết \"{assemblyPointName}\" vào lúc " +
                    $"{vnAssemblyDate:HH:mm} ngày {vnAssemblyDate:dd/MM/yyyy}. " +
                    $"Thời hạn check-in: {vnCheckInDeadline:HH:mm} ngày {vnCheckInDeadline:dd/MM/yyyy}. " +
                    "Vui lòng có mặt đúng giờ và thực hiện check-in trên ứng dụng khi đến nơi.";

@@ -11,6 +11,7 @@ using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.UpdateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.AssignRescuerToAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
+using RESQ.Application.UseCases.Personnel.Commands.CancelAssemblyEvent;
 using RESQ.Application.UseCases.Personnel.Commands.CheckInAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.MarkParticipantAbsent;
@@ -239,6 +240,19 @@ namespace RESQ.Presentation.Controllers.Personnel
             var command = new ScheduleGatheringCommand(id, dto.AssemblyDate, dto.CheckInDeadline, createdBy);
             var eventId = await _mediator.Send(command);
             return Ok(new { EventId = eventId });
+        }
+
+        /// <summary>Coordinator hủy sự kiện tập trung khi sự kiện đang ở trạng thái Gathering.</summary>
+        [HttpPost("events/{eventId}/cancel")]
+        [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
+        public async Task<IActionResult> CancelAssemblyEvent(int eventId)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var cancelledBy))
+                return Unauthorized();
+
+            var result = await _mediator.Send(new CancelAssemblyEventCommand(eventId, cancelledBy));
+            return Ok(result);
         }
 
         /// <summary>Rescuer check-in tại sự kiện tập trung (kèm GPS validation trong bán kính 200m).</summary>

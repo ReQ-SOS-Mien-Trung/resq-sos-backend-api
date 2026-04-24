@@ -20,8 +20,8 @@ public interface ICampaignDisbursementRepository
     /// <summary>Tính tổng số tiền đã giải ngân từ campaign.</summary>
     Task<decimal> GetTotalDisbursedByCampaignAsync(int campaignId, CancellationToken cancellationToken = default);
 
-    /// <summary>Tạo mới disbursement, lưu ngay và trả về ID được sinh ra từ DB.</summary>
-    Task<int> CreateAsync(CampaignDisbursementModel model, CancellationToken cancellationToken = default);
+    /// <summary>Tạo mới disbursement trong DbContext hiện tại và cho phép đọc ID thật sau khi transaction flush.</summary>
+    Task<TrackedFinanceEntityReference<CampaignDisbursementModel>> CreateAsync(CampaignDisbursementModel model, CancellationToken cancellationToken = default);
 
     /// <summary>Thêm danh sách vật phẩm đã mua vào disbursement (cho donor xem).</summary>
     Task AddItemsAsync(int disbursementId, List<DisbursementItemModel> items, CancellationToken cancellationToken = default);

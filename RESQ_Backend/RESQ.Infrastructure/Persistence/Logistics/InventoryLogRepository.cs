@@ -3,6 +3,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Common;
 using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryMovementChart;
 using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory;
 using RESQ.Domain.Entities.Logistics.Models;
@@ -283,8 +284,10 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         {
             "donation" => GetOrganizationName(sourceId.Value),
             "mission" => $"Mission #{sourceId.Value}",
+            "missionactivity" => $"Hoạt động #{sourceId.Value}",
             "transfer" => $"Transfer #{sourceId.Value}",
-            "adjustment" => "Manual Adjustment",
+            "depotclosure" => $"Phiên đóng kho #{sourceId.Value}",
+            "adjustment" => "Điều chỉnh thủ công",
             _ => $"{sourceType} #{sourceId.Value}"
         };
     }
@@ -301,13 +304,19 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
     private static string FormatQuantityChange(string actionType, int quantityChange)
     {
-        return actionType.ToLower() switch
+        if (InventoryLogMetadataMappings.IsPositiveAction(actionType))
         {
-            "import" or "transferin" or "return" => $"+ {quantityChange}",
-            "export" or "transferout" => $"- {Math.Abs(quantityChange)}",
-            "adjust" => quantityChange >= 0 ? $"+ {quantityChange}" : $"- {Math.Abs(quantityChange)}",
-            _ => quantityChange.ToString()
-        };
+            return $"+ {quantityChange}";
+        }
+
+        if (InventoryLogMetadataMappings.IsNegativeAction(actionType))
+        {
+            return $"- {Math.Abs(quantityChange)}";
+        }
+
+        return actionType.Equals(nameof(InventoryActionType.Adjust), StringComparison.OrdinalIgnoreCase)
+            ? quantityChange >= 0 ? $"+ {quantityChange}" : $"- {Math.Abs(quantityChange)}"
+            : quantityChange.ToString();
     }
 
     private static string? NormalizeMultilineText(string? text)
@@ -371,9 +380,6 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .GroupBy(x => x.Date)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        static bool IsIn(string action) => action is "import" or "transferin" or "return" or "advancereturn";
-        static bool IsOut(string action) => action is "export" or "transferout" or "reserve" or "pickup" or "distribute";
-
         var result = new List<InventoryMovementDataPoint>();
         for (var day = effectiveFrom; day <= effectiveTo; day = day.AddDays(1))
         {
@@ -386,15 +392,15 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     var action = row.ActionType.ToLowerInvariant();
                     var quantity = Math.Abs(row.QuantityChange);
 
-                    if (IsIn(action))
+                    if (InventoryLogMetadataMappings.CountsAsInboundMovement(action))
                     {
                         point.TotalIn += quantity;
                     }
-                    else if (IsOut(action))
+                    else if (InventoryLogMetadataMappings.CountsAsOutboundMovement(action))
                     {
                         point.TotalOut += quantity;
                     }
-                    else if (action == "adjust")
+                    else if (action == nameof(InventoryActionType.Adjust).ToLowerInvariant())
                     {
                         point.TotalAdjust += row.QuantityChange;
                     }
@@ -412,35 +418,38 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
         var depotClosures = _unitOfWork.Set<DepotClosure>();
         var transferSourceType = InventorySourceType.Transfer.ToString();
-        const string depotClosureSourceType = "DepotClosure";
+        var depotClosureSourceType = InventorySourceType.DepotClosure.ToString();
+        var reserveActionType = InventoryActionType.Reserve.ToString();
+        var transferOutActionType = InventoryActionType.TransferOut.ToString();
+        var transferInActionType = InventoryActionType.TransferIn.ToString();
 
         return query.Where(log =>
             (
                 log.DepotSupplyInventoryId != null
                 && (
                     (
-                        log.SourceType == transferSourceType
-                        && (
-                            (
-                                (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
-                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == depotId)
+                            log.SourceType == transferSourceType
+                            && (
+                                (
+                                    (log.ActionType == reserveActionType || log.ActionType == transferOutActionType)
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == depotId)
+                                )
+                                || (
+                                    log.ActionType == transferInActionType
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == depotId)
+                                )
                             )
-                            || (
-                                log.ActionType == "TransferIn"
-                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == depotId)
-                            )
-                        )
                     )
                     || (
-                        log.SourceType == depotClosureSourceType
-                        && (
-                            (
-                                log.ActionType == "TransferOut"
-                                && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == depotId)
+                            log.SourceType == depotClosureSourceType
+                            && (
+                                (
+                                    log.ActionType == transferOutActionType
+                                    && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == depotId)
+                                )
+                                || (log.ActionType == transferInActionType && log.SupplyInventory!.DepotId == depotId)
                             )
-                            || (log.ActionType == "TransferIn" && log.SupplyInventory!.DepotId == depotId)
                         )
-                    )
                     || (
                         log.SourceType != transferSourceType
                         && log.SourceType != depotClosureSourceType
@@ -452,28 +461,28 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 log.ReusableItemId != null
                 && (
                     (
-                        log.SourceType == transferSourceType
-                        && (
-                            (
-                                (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
-                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == depotId)
+                            log.SourceType == transferSourceType
+                            && (
+                                (
+                                    (log.ActionType == reserveActionType || log.ActionType == transferOutActionType)
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == depotId)
+                                )
+                                || (
+                                    log.ActionType == transferInActionType
+                                    && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == depotId)
+                                )
                             )
-                            || (
-                                log.ActionType == "TransferIn"
-                                && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == depotId)
-                            )
-                        )
                     )
                     || (
-                        log.SourceType == depotClosureSourceType
-                        && (
-                            (
-                                log.ActionType == "TransferOut"
-                                && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == depotId)
+                            log.SourceType == depotClosureSourceType
+                            && (
+                                (
+                                    log.ActionType == transferOutActionType
+                                    && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == depotId)
+                                )
+                                || (log.ActionType == transferInActionType && log.ReusableItem!.DepotId == depotId)
                             )
-                            || (log.ActionType == "TransferIn" && log.ReusableItem!.DepotId == depotId)
                         )
-                    )
                     || (
                         log.SourceType != transferSourceType
                         && log.SourceType != depotClosureSourceType

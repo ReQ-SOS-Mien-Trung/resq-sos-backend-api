@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Common;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
 using RESQ.Domain.Enum.Logistics;
@@ -42,7 +43,10 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
             var supplyRequests = _unitOfWork.Set<DepotSupplyRequest>();
             var depotClosures = _unitOfWork.Set<DepotClosure>();
             var transferSourceType = InventorySourceType.Transfer.ToString();
-            const string depotClosureSourceType = "DepotClosure";
+            var depotClosureSourceType = InventorySourceType.DepotClosure.ToString();
+            var reserveActionType = InventoryActionType.Reserve.ToString();
+            var transferOutActionType = InventoryActionType.TransferOut.ToString();
+            var transferInActionType = InventoryActionType.TransferIn.ToString();
 
             query = query.Where(log =>
                 (
@@ -52,11 +56,11 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
                             log.SourceType == transferSourceType
                             && (
                                 (
-                                    (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
+                                    (log.ActionType == reserveActionType || log.ActionType == transferOutActionType)
                                     && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == targetDepotId)
                                 )
                                 || (
-                                    log.ActionType == "TransferIn"
+                                    log.ActionType == transferInActionType
                                     && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == targetDepotId)
                                 )
                             )
@@ -65,10 +69,10 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
                             log.SourceType == depotClosureSourceType
                             && (
                                 (
-                                    log.ActionType == "TransferOut"
+                                    log.ActionType == transferOutActionType
                                     && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == targetDepotId)
                                 )
-                                || (log.ActionType == "TransferIn" && log.SupplyInventory!.DepotId == targetDepotId)
+                                || (log.ActionType == transferInActionType && log.SupplyInventory!.DepotId == targetDepotId)
                             )
                         )
                         || (
@@ -85,11 +89,11 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
                             log.SourceType == transferSourceType
                             && (
                                 (
-                                    (log.ActionType == "Reserve" || log.ActionType == "TransferOut")
+                                    (log.ActionType == reserveActionType || log.ActionType == transferOutActionType)
                                     && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.SourceDepotId == targetDepotId)
                                 )
                                 || (
-                                    log.ActionType == "TransferIn"
+                                    log.ActionType == transferInActionType
                                     && supplyRequests.Any(sr => sr.Id == log.SourceId && sr.RequestingDepotId == targetDepotId)
                                 )
                             )
@@ -98,10 +102,10 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
                             log.SourceType == depotClosureSourceType
                             && (
                                 (
-                                    log.ActionType == "TransferOut"
+                                    log.ActionType == transferOutActionType
                                     && depotClosures.Any(dc => dc.Id == log.SourceId && dc.DepotId == targetDepotId)
                                 )
-                                || (log.ActionType == "TransferIn" && log.ReusableItem!.DepotId == targetDepotId)
+                                || (log.ActionType == transferInActionType && log.ReusableItem!.DepotId == targetDepotId)
                             )
                         )
                         || (
@@ -146,8 +150,8 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
                 QuantityChange = quantityChange,
                 FormattedQuantity = FormatQuantity(actionType, quantityChange),
                 CreatedAt = log.CreatedAt,
-                ActionType = TranslateActionType(actionType),
-                SourceType = TranslateSourceType(log.SourceType ?? string.Empty),
+                ActionType = InventoryLogMetadataMappings.GetActionTypeDisplayName(actionType),
+                SourceType = InventoryLogMetadataMappings.GetSourceTypeDisplayName(log.SourceType ?? string.Empty),
                 MissionName = log.MissionId.HasValue ? $"Nhiệm vụ #{log.MissionId.Value}" : null,
                 SerialNumber = log.ReusableItem?.SerialNumber,
                 LotId = log.SupplyInventoryLot?.Id,
@@ -156,13 +160,21 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
     }
 
     private static string FormatQuantity(string actionType, int quantityChange)
-        => actionType.ToLowerInvariant() switch
+    {
+        if (InventoryLogMetadataMappings.IsPositiveAction(actionType))
         {
-            "import" or "transferin" or "return" => $"+{quantityChange}",
-            "export" or "transferout" => $"-{Math.Abs(quantityChange)}",
-            "adjust" => quantityChange >= 0 ? $"+{quantityChange}" : $"-{Math.Abs(quantityChange)}",
-            _ => quantityChange.ToString()
-        };
+            return $"+{quantityChange}";
+        }
+
+        if (InventoryLogMetadataMappings.IsNegativeAction(actionType))
+        {
+            return $"-{Math.Abs(quantityChange)}";
+        }
+
+        return actionType.Equals(nameof(InventoryActionType.Adjust), StringComparison.OrdinalIgnoreCase)
+            ? quantityChange >= 0 ? $"+{quantityChange}" : $"-{Math.Abs(quantityChange)}"
+            : quantityChange.ToString();
+    }
 
     private static string TranslateItemType(string itemType)
         => itemType switch
@@ -170,19 +182,6 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
             "Consumable" => "Tiêu thụ",
             "Reusable" => "Tái sử dụng",
             _ => itemType
-        };
-
-    private static string TranslateActionType(string actionType)
-        => actionType switch
-        {
-            "Import" => "Nhập kho",
-            "Export" => "Xuất kho",
-            "Adjust" => "Điều chỉnh",
-            "TransferIn" => "Nhận chuyển kho",
-            "TransferOut" => "Chuyển kho đi",
-            "Return" => "Hoàn trả",
-            "Reserve" => "Đặt trước",
-            _ => actionType
         };
 
     private static string TranslateTargetGroup(string targetGroup)
@@ -196,18 +195,4 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
             targetGroup.Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.Trim()));
     }
-
-    private static string TranslateSourceType(string sourceType)
-        => sourceType switch
-        {
-            "Purchase" => "Mua sắm",
-            "Donation" => "Quyên góp",
-            "Mission" => "Nhiệm vụ",
-            "Adjustment" => "Điều chỉnh",
-            "Transfer" => "Chuyển kho",
-            "DepotClosure" => "Đóng kho",
-            "System" => "Hệ thống",
-            "SupplyRequest" => "Yêu cầu tiếp tế",
-            _ => sourceType
-        };
 }

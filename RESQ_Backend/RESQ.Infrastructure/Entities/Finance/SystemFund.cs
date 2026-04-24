@@ -23,4 +23,6 @@ public class SystemFund
 
     [Column("last_updated_at", TypeName = "timestamp with time zone")]
     public DateTime LastUpdatedAt { get; set; }
+
+    public uint RowVersion { get; set; }
 }

@@ -1,10 +1,8 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models.Finance.ZaloPay;
-using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using System.Text.Json;
 
@@ -12,25 +10,19 @@ namespace RESQ.Application.UseCases.Finance.Commands.ProcessZaloPayPayment;
 
 public class ProcessZaloPayPaymentCommandHandler : IRequestHandler<ProcessZaloPayPaymentCommand, bool>
 {
-    private readonly IUnitOfWork _unitOfWork;
     private readonly IDonationRepository _donationRepository;
-    private readonly IFundCampaignRepository _campaignRepository;
-    private readonly IFundTransactionRepository _transactionRepository;
+    private readonly IDonationPaymentProcessingService _donationPaymentProcessingService;
     private readonly IEmailService _emailService;
     private readonly ILogger<ProcessZaloPayPaymentCommandHandler> _logger;
 
     public ProcessZaloPayPaymentCommandHandler(
-        IUnitOfWork unitOfWork,
         IDonationRepository donationRepository,
-        IFundCampaignRepository campaignRepository,
-        IFundTransactionRepository transactionRepository,
+        IDonationPaymentProcessingService donationPaymentProcessingService,
         IEmailService emailService,
         ILogger<ProcessZaloPayPaymentCommandHandler> logger)
     {
-        _unitOfWork = unitOfWork;
         _donationRepository = donationRepository;
-        _campaignRepository = campaignRepository;
-        _transactionRepository = transactionRepository;
+        _donationPaymentProcessingService = donationPaymentProcessingService;
         _emailService = emailService;
         _logger = logger;
     }
@@ -70,37 +62,18 @@ public class ProcessZaloPayPaymentCommandHandler : IRequestHandler<ProcessZaloPa
                 return true;
             }
 
-            // Mark success
-            donation.UpdatePaymentStatus(Status.Succeed);
-            donation.TransactionId = dataJson.ZpTransId.ToString();
-            donation.PaymentAuditInfo = $"[ZaloPay:ZpTransId={dataJson.ZpTransId}]";
-            donation.PaidAt = DateTimeOffset.FromUnixTimeMilliseconds(dataJson.ServerTime).UtcDateTime;
+            var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
+                donation.Id,
+                $"[ZaloPay:ZpTransId={dataJson.ZpTransId}]",
+                DateTimeOffset.FromUnixTimeMilliseconds(dataJson.ServerTime).UtcDateTime,
+                dataJson.ZpTransId.ToString(),
+                preserveExistingTransactionId: false,
+                cancellationToken);
 
-            await _donationRepository.UpdateAsync(donation, cancellationToken);
-
-            if (donation.FundCampaignId.HasValue)
+            if (!processed)
             {
-                var campaign = await _campaignRepository.GetByIdAsync(donation.FundCampaignId.Value, cancellationToken);
-                if (campaign != null && !campaign.IsDeleted)
-                {
-                    campaign.ReceiveDonation(donation.Amount?.Amount ?? 0);
-                    await _campaignRepository.UpdateAsync(campaign, cancellationToken);
-
-                    var transaction = new FundTransactionModel
-                    {
-                        FundCampaignId = donation.FundCampaignId,
-                        Type = TransactionType.Donation,
-                        Direction = TransactionDirection.In,
-                        Amount = donation.Amount?.Amount,
-                        ReferenceType = TransactionReferenceType.Donation,
-                        ReferenceId = donation.Id,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _transactionRepository.CreateAsync(transaction, cancellationToken);
-                }
+                return false;
             }
-
-            await _unitOfWork.SaveAsync();
 
             if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {

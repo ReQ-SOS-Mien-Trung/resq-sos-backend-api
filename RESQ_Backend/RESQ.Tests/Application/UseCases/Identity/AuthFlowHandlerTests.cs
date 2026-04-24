@@ -644,6 +644,7 @@ public sealed class AuthFlowHandlerTests
         public Task<(int, int)> GetReusableItemCountsAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<int> GetConsumableInventoryRowCountAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<DepotStatus?> GetStatusByIdAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
+        public Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(int depotId, CancellationToken ct = default) => Task.FromResult((0m, 0m));
         public Task<bool> IsManagerActiveElsewhereAsync(Guid a, int b, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();
         public Task<List<ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int a, CancellationToken ct = default) => throw new NotImplementedException();

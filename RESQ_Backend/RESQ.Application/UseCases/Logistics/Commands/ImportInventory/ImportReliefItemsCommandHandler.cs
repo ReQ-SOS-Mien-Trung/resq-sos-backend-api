@@ -47,37 +47,6 @@ public class ImportReliefItemsCommandHandler(
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
             throw new ConflictException("Kho ngưng hoạt động hoặc đã đóng. Không thể nhập hàng vào kho này.");
 
-        // 2. Resolve organization ID
-        int organizationId;
-        if (request.OrganizationId.HasValue)
-        {
-            // Use existing organization ID
-            var existingOrg = await _organizationMetadataRepository.GetByIdAsync(request.OrganizationId.Value, cancellationToken);
-            if (existingOrg == null)
-            {
-                throw new BadRequestException($"Không tìm thấy tổ chức có ID: {request.OrganizationId.Value}");
-            }
-            organizationId = existingOrg.Id;
-        }
-        else if (!string.IsNullOrEmpty(request.OrganizationName))
-        {
-            // Find existing organization by name or create new one
-            var existingOrg = await _organizationMetadataRepository.GetByNameAsync(request.OrganizationName, cancellationToken);
-            if (existingOrg != null)
-            {
-                organizationId = existingOrg.Id;
-            }
-            else
-            {
-                var newOrg = await _organizationMetadataRepository.CreateAsync(request.OrganizationName, cancellationToken);
-                organizationId = newOrg.Id;
-            }
-        }
-        else
-        {
-            throw new BadRequestException("Phải cung cấp ID tổ chức hoặc tên tổ chức.");
-        }
-
         // 3. Pre-fetch all categories into memory for efficient matching
         var categories = await _categoryRepository.GetAllAsync(cancellationToken);
         var categoriesByCode = categories
@@ -110,7 +79,7 @@ public class ImportReliefItemsCommandHandler(
         }
 
         // 4. Validate all items and prepare domain models (dual-path)
-        var validItems = new List<(ImportReliefItemDto dto, ItemModelRecord reliefItem, OrganizationReliefItemModel donation)>();
+        var validItems = new List<(ImportReliefItemDto dto, ItemModelRecord reliefItem)>();
         var rowErrors = new Dictionary<int, HashSet<string>>();
 
         foreach (var item in request.Items)
@@ -202,30 +171,7 @@ public class ImportReliefItemsCommandHandler(
                     }
                 }
 
-                // Normalize dates to UTC before persisting
-                var receivedDateUtc = item.ReceivedDate.HasValue
-                    ? DateTime.SpecifyKind(item.ReceivedDate.Value, DateTimeKind.Utc)
-                    : (DateTime?)null;
-                var expiredDateUtc = item.ExpiredDate.HasValue
-                    ? DateTime.SpecifyKind(item.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
-                    : (DateTime?)null;
-
-                // Domain Orchestration: Create Organization Donation Receipt Model
-                var donationModel = OrganizationReliefItemModel.Create(
-                    organizationId,
-                    0, // Will be set after relief items are created
-                    item.Quantity,
-                    resolvedRecord.ItemType,
-                    receivedDateUtc,
-                    expiredDateUtc,
-                    batchNote,
-                    request.UserId,
-                    depotId,
-                    batchNote,
-                    null
-                );
-
-                validItems.Add((item, resolvedRecord, donationModel));
+                validItems.Add((item, resolvedRecord));
             }
             catch (Exception ex)
             {
@@ -258,46 +204,97 @@ public class ImportReliefItemsCommandHandler(
         // 5. Execute all bulk operations within a transaction to ensure atomicity
         try
         {
-            // Name-path rows: always create new item models. ID-path rows: use existing ID and ignore lookup fields.
-            var newItemModels = validItems
-                .Where(x => !x.dto.ItemModelId.HasValue)
-                .Select(x => x.reliefItem)
-                .ToList();
+            var importedCount = 0;
 
-            var createdItems = await _organizationReliefRepository.CreateReliefItemsBulkAsync(newItemModels, cancellationToken);
-            var createdIndex = 0;
-
-            // Map relief item IDs back to donation models
-            var donationModels = new List<OrganizationReliefItemModel>();
-            for (int i = 0; i < validItems.Count; i++)
+            await _unitOfWork.ExecuteInTransactionAsync(async () =>
             {
-                var (dto, reliefItem, donation) = validItems[i];
-                var resolvedItemModelId = dto.ItemModelId ?? createdItems[createdIndex++].Id;
+                int organizationId;
+                if (request.OrganizationId.HasValue)
+                {
+                    var existingOrganization = await _organizationMetadataRepository.GetByIdAsync(request.OrganizationId.Value, cancellationToken);
+                    if (existingOrganization == null)
+                    {
+                        throw new BadRequestException($"Không tìm thấy tổ chức có ID: {request.OrganizationId.Value}");
+                    }
 
-                // Update donation model with correct relief item ID
-                var updatedDonation = OrganizationReliefItemModel.Create(
-                    organizationId,
-                    resolvedItemModelId,
-                    donation.Quantity,
-                    donation.ItemType,
-                    donation.ReceivedDate,
-                    donation.ExpiredDate,
-                    donation.Notes,
-                    donation.ReceivedBy,
-                    donation.ReceivedAt,
-                    donation.BatchNote,
-                    null
-                );
-                donationModels.Add(updatedDonation);
-            }
+                    organizationId = existingOrganization.Id;
+                }
+                else if (!string.IsNullOrWhiteSpace(request.OrganizationName))
+                {
+                    var existingOrganization = await _organizationMetadataRepository.GetByNameAsync(request.OrganizationName, cancellationToken);
+                    if (existingOrganization != null)
+                    {
+                        organizationId = existingOrganization.Id;
+                    }
+                    else
+                    {
+                        await _organizationMetadataRepository.CreateAsync(request.OrganizationName.Trim(), cancellationToken);
+                        await _unitOfWork.SaveAsync();
 
-            // Bulk insert donation records, inventory updates, and logs
-            await _organizationReliefRepository.AddOrganizationReliefItemsBulkAsync(donationModels, cancellationToken);
+                        var createdOrganization = await _organizationMetadataRepository.GetByNameAsync(request.OrganizationName.Trim(), cancellationToken);
+                        if (createdOrganization == null)
+                        {
+                            throw new CreateFailedException("Không thể tạo tổ chức tiếp nhận cho lô nhập cứu trợ.");
+                        }
 
-            // Save all changes within a transaction for atomicity
-            await _unitOfWork.SaveChangesWithTransactionAsync();
+                        organizationId = createdOrganization.Id;
+                    }
+                }
+                else
+                {
+                    throw new BadRequestException("Phải cung cấp ID tổ chức hoặc tên tổ chức.");
+                }
 
-            response.Imported = donationModels.Count;
+                var newItemModels = validItems
+                    .Where(x => !x.dto.ItemModelId.HasValue)
+                    .Select(x => x.reliefItem)
+                    .ToList();
+
+                List<ItemModelRecord> createdItems;
+                if (newItemModels.Count > 0)
+                {
+                    await _organizationReliefRepository.CreateReliefItemsBulkAsync(newItemModels, cancellationToken);
+                    await _unitOfWork.SaveAsync();
+                    createdItems = await _organizationReliefRepository.GetReliefItemsBulkByDefinitionAsync(newItemModels, cancellationToken);
+                }
+                else
+                {
+                    createdItems = new List<ItemModelRecord>();
+                }
+
+                var createdIndex = 0;
+                var donationModels = new List<OrganizationReliefItemModel>(validItems.Count);
+
+                foreach (var (dto, reliefItem) in validItems)
+                {
+                    var resolvedItemModelId = dto.ItemModelId ?? createdItems[createdIndex++].Id;
+                    var receivedDateUtc = dto.ReceivedDate.HasValue
+                        ? DateTime.SpecifyKind(dto.ReceivedDate.Value, DateTimeKind.Utc)
+                        : (DateTime?)null;
+                    var expiredDateUtc = dto.ExpiredDate.HasValue
+                        ? DateTime.SpecifyKind(dto.ExpiredDate.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc)
+                        : (DateTime?)null;
+
+                    donationModels.Add(OrganizationReliefItemModel.Create(
+                        organizationId,
+                        resolvedItemModelId,
+                        dto.Quantity,
+                        reliefItem.ItemType,
+                        receivedDateUtc,
+                        expiredDateUtc,
+                        batchNote,
+                        request.UserId,
+                        depotId,
+                        batchNote,
+                        null));
+                }
+
+                await _organizationReliefRepository.AddOrganizationReliefItemsBulkAsync(donationModels, cancellationToken);
+                await _unitOfWork.SaveAsync();
+                importedCount = donationModels.Count;
+            });
+
+            response.Imported = importedCount;
 
             // Gửi thông báo đến toàn bộ Coordinator sau khi commit thành công
             try

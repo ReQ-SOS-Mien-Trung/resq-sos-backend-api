@@ -270,6 +270,11 @@ public class InitiateDepotClosureCommandHandlerTests
         public Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(
+            int depotId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult((0m, 0m));
+
         public Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 

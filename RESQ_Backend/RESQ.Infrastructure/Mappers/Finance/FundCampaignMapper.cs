@@ -31,7 +31,8 @@ public static class FundCampaignMapper
             entity.CreatedAt,
             entity.LastModifiedBy,
             entity.LastModifiedAt,
-            entity.IsDeleted
+            entity.IsDeleted,
+            entity.RowVersion
         );
     }
 
@@ -54,7 +55,8 @@ public static class FundCampaignMapper
             CreatedAt = model.CreatedAt,
             LastModifiedBy = model.LastModifiedBy,
             LastModifiedAt = model.LastModifiedAt,
-            IsDeleted = model.IsDeleted
+            IsDeleted = model.IsDeleted,
+            RowVersion = model.RowVersion
         };
     }
     
@@ -72,5 +74,6 @@ public static class FundCampaignMapper
         entity.LastModifiedBy = model.LastModifiedBy;
         entity.LastModifiedAt = model.LastModifiedAt;
         entity.IsDeleted = model.IsDeleted;
+        entity.RowVersion = model.RowVersion;
     }
 }

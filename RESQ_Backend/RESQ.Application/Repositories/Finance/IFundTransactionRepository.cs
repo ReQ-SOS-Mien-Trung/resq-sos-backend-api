@@ -20,6 +20,10 @@ public interface IFundTransactionRepository
         decimal? maxAmount = null,
         CancellationToken cancellationToken = default);
     Task CreateAsync(FundTransactionModel transaction, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByReferenceAsync(
+        TransactionReferenceType referenceType,
+        int referenceId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Lấy dữ liệu biến động quỹ chiến dịch theo kỳ (In/Out) cho bar chart.

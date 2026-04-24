@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
+using RESQ.Application.Common.Constants;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Finance.Exceptions;
@@ -50,6 +51,7 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
         // 3. Create Donation (dùng enum paymentCode - không quay lại dùng string)
         long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
+        var now = DateTime.UtcNow;
         var donationModel = new DonationModel
         {
             FundCampaignId = request.FundCampaignId,
@@ -59,7 +61,8 @@ public class CreateDonationCommandHandler : IRequestHandler<CreateDonationComman
             IsPrivate = request.IsPrivate,
             OrderId = orderCode.ToString(),
             PaymentMethodCode = paymentCode,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = now,
+            ResponseDeadline = DonationPaymentConstants.CalculateResponseDeadlineUtc(now),
             FundCampaignCode = campaign.Code,
             FundCampaignName = campaign.Name
         };

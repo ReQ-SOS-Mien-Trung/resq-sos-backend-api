@@ -17,9 +17,6 @@ public class AssemblyEventModel
 
     public AssemblyEventModel() { }
 
-    /// <summary>
-    /// Tạo sự kiện tập trung mới ở trạng thái Gathering.
-    /// </summary>
     public static AssemblyEventModel Create(int assemblyPointId, DateTime assemblyDate, Guid createdBy)
     {
         return new AssemblyEventModel
@@ -32,16 +29,23 @@ public class AssemblyEventModel
         };
     }
 
-    /// <summary>
-    /// Chuyển trạng thái Gathering → Completed (đóng sự kiện).
-    /// </summary>
     public void Complete()
     {
         if (Status != AssemblyEventStatus.Gathering)
             throw new InvalidAssemblyEventStatusException(
-                $"Không thể hoàn tất sự kiện. Trạng thái hiện tại: {Status}. Yêu cầu: Gathering.");
+                $"Cannot complete assembly event when status is {Status}. Required: Gathering.");
 
         Status = AssemblyEventStatus.Completed;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Cancel()
+    {
+        if (Status != AssemblyEventStatus.Gathering)
+            throw new InvalidAssemblyEventStatusException(
+                $"Cannot cancel assembly event when status is {Status}. Required: Gathering.");
+
+        Status = AssemblyEventStatus.Cancelled;
         UpdatedAt = DateTime.UtcNow;
     }
 }

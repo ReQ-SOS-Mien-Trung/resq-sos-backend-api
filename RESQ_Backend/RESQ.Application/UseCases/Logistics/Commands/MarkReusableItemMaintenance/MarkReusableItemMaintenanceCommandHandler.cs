@@ -21,23 +21,32 @@ public class MarkReusableItemMaintenanceCommandHandler(
         CancellationToken cancellationToken)
     {
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(
-            request.UserId,
-            request.DepotId,
-            cancellationToken)
+                request.UserId,
+                request.DepotId,
+                cancellationToken)
             ?? throw new ForbiddenException("Bạn không có quyền thao tác với kho này.");
 
         var itemDepotId = await _depotInventoryRepository.GetReusableItemDepotIdAsync(
-            request.ReusableItemId,
-            cancellationToken)
+                request.ReusableItemId,
+                cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy vật phẩm tái sử dụng #{request.ReusableItemId}.");
 
         if (itemDepotId != depotId)
+        {
             throw new NotFoundException(
                 $"Không tìm thấy vật phẩm tái sử dụng #{request.ReusableItemId} trong kho #{request.DepotId}.");
+        }
 
         var depotStatus = await _depotRepository.GetStatusByIdAsync(depotId, cancellationToken);
-        if (depotStatus is DepotStatus.Created or DepotStatus.PendingAssignment or DepotStatus.Closed or DepotStatus.Closing)
-            throw new ConflictException("Kho hiện không ở trạng thái cho phép cập nhật bảo trì vật phẩm tái sử dụng.");
+
+        // Kho Unavailable vẫn được phép bảo trì/tái kiểm tra nội bộ.
+        // Chỉ chặn các trạng thái chưa vận hành hoặc đang trong luồng đóng kho.
+        if (depotStatus is DepotStatus.Created or DepotStatus.PendingAssignment or DepotStatus.Closing or DepotStatus.Closed)
+        {
+            throw new ConflictException(
+                "Kho hiện không ở trạng thái cho phép cập nhật bảo trì vật phẩm tái sử dụng. " +
+                "Chỉ cho phép khi kho đang vận hành hoặc tạm ngừng (Unavailable).");
+        }
 
         await _depotInventoryRepository.MarkReusableItemMaintenanceAsync(
             depotId,

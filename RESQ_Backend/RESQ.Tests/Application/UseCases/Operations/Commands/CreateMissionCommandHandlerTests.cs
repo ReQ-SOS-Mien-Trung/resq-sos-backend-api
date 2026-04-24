@@ -1010,6 +1010,7 @@ public class CreateMissionCommandHandlerTests
         public Task<decimal> GetConsumableTransferVolumeAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<(int AvailableCount, int InUseCount)> GetReusableItemCountsAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> GetConsumableInventoryRowCountAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(int depotId, CancellationToken cancellationToken = default) => Task.FromResult((0m, 0m));
         public Task<bool> IsManagerActiveElsewhereAsync(Guid managerId, int excludeDepotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<System.Collections.Generic.List<RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure.ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<System.Collections.Generic.List<RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure.ClosureInventoryLotItemDto>> GetLotDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
