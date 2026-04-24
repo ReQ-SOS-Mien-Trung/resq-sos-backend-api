@@ -316,6 +316,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             return ([], 0);
 
         var resolvedCategoryCodes = ResolveAgentSearchCategoryCodes(categoryKeyword, typeKeyword);
+        var typeCategoryCodes = ResolveAgentTypeCategoryCodes(typeKeyword);
 
         var consumableQuery = from dsi in _unitOfWork.Set<SupplyInventory>()
                               join ri in _unitOfWork.Set<ItemModel>() on dsi.ItemModelId equals ri.Id
@@ -400,7 +401,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var allFilteredRows = consumableRows
             .Concat(reusableRows)
             .Where(row => MatchesAgentCategory(row, categoryKeyword, resolvedCategoryCodes))
-            .Where(row => MatchesAgentType(row, typeKeyword))
+            .Where(row => MatchesAgentType(row, typeKeyword, typeCategoryCodes))
             .ToList();
 
         var mergedRows = allFilteredRows
@@ -535,6 +536,13 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         ["medicine"] = ["thuoc", "y te", "medical", "so cuu"],
         ["medical supplies"] = ["thuoc", "y te", "medical", "so cuu"],
         ["common medicine"] = ["thuoc"],
+        ["thuc pham"] = ["food", "thuc pham", "luong thuc", "do an"],
+        ["luong thuc"] = ["food", "thuc pham", "luong thuc", "do an"],
+        ["do an"] = ["food", "thuc pham", "luong thuc", "do an"],
+        ["food"] = ["food", "thuc pham", "luong thuc", "do an"],
+        ["nuoc"] = ["water", "nuoc", "nuoc uong"],
+        ["nuoc uong"] = ["water", "nuoc", "nuoc uong"],
+        ["water"] = ["water", "nuoc", "nuoc uong"],
         ["first aid"] = ["so cuu", "bo so cuu", "bang", "bong", "betadine", "khau trang"],
         ["chan man"] = ["chan", "men", "giu nhiet", "suoi"],
         ["blanket"] = ["chan", "men", "giu nhiet", "suoi"],
@@ -589,11 +597,21 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             || normalizedCategoryCode.Contains(normalizedKeyword, StringComparison.Ordinal);
     }
 
-    private static bool MatchesAgentType(AgentInventorySearchRow row, string? typeKeyword)
+    private static bool MatchesAgentType(
+        AgentInventorySearchRow row,
+        string? typeKeyword,
+        IReadOnlyCollection<string> typeCategoryCodes)
     {
         var normalizedType = NormalizeAgentSearchText(typeKeyword);
         if (string.IsNullOrWhiteSpace(normalizedType))
             return true;
+
+        if (typeCategoryCodes.Count > 0
+            && !string.IsNullOrWhiteSpace(row.CategoryCode)
+            && typeCategoryCodes.Contains(row.CategoryCode))
+        {
+            return true;
+        }
 
         var tokens = ResolveAgentTypeTokens(normalizedType);
         var normalizedItemName = NormalizeAgentSearchText(row.ItemName);
@@ -633,6 +651,31 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         }
 
         return tokens;
+    }
+
+    private static HashSet<string> ResolveAgentTypeCategoryCodes(string? typeKeyword)
+    {
+        var resolved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var normalizedKeyword = NormalizeAgentSearchText(typeKeyword);
+        if (string.IsNullOrWhiteSpace(normalizedKeyword))
+            return resolved;
+
+        foreach (var (alias, categoryCodes) in AgentSearchAliasCategoryCodes)
+        {
+            if (!MatchesTypeCategoryAlias(normalizedKeyword, alias))
+                continue;
+
+            foreach (var categoryCode in categoryCodes)
+                resolved.Add(categoryCode);
+        }
+
+        return resolved;
+    }
+
+    private static bool MatchesTypeCategoryAlias(string normalizedKeyword, string alias)
+    {
+        var normalizedAlias = NormalizeAgentSearchText(alias);
+        return string.Equals(normalizedKeyword, normalizedAlias, StringComparison.Ordinal);
     }
 
     private static bool MatchesAlias(string normalizedKeyword, string alias)

@@ -1948,6 +1948,8 @@ public partial class RescueMissionSuggestionService
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnsureInventoryBackedTransportSuppliesAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);
+        await ReconcileInventoryBackedSuppliesAsync(result, cancellationToken);
+        await CanonicalizeSupplyItemMetadataAsync(result.SuggestedActivities, cancellationToken);
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnrichActivitiesWithAssemblyPointsAsync(result, sosLookup, cancellationToken);
