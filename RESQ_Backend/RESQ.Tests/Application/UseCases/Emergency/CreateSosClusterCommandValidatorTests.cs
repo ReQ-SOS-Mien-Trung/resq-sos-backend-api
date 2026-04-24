@@ -30,6 +30,19 @@ public class CreateSosClusterCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_Fails_WhenSosRequestIdsExceedClusterLimit()
+    {
+        var command = new CreateSosClusterCommand([1, 2, 3, 4, 5, 6], Guid.NewGuid());
+
+        var result = _validator.Validate(command);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e =>
+            e.PropertyName == nameof(CreateSosClusterCommand.SosRequestIds)
+            && e.ErrorMessage.Contains("5 SOS request", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Validate_Passes_WhenSosRequestIdsAreDistinct()
     {
         var command = new CreateSosClusterCommand([1, 2, 3], Guid.NewGuid());

@@ -1268,6 +1268,18 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void BuildMixedRescueReliefWarning_IgnoresCollectOnlyRescueGear()
+    {
+        var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
+        [
+            new SuggestedActivityDto { Step = 1, ActivityType = "COLLECT_SUPPLIES", SosRequestId = 15 },
+            new SuggestedActivityDto { Step = 2, ActivityType = "RESCUE", SosRequestId = 15 }
+        ]);
+
+        Assert.True(string.IsNullOrWhiteSpace(warning));
+    }
+
+    [Fact]
     public void HydrateReturnSuppliesFromCollectSnapshots_CopiesReusableUnitsFromPlannedPickup()
     {
         var activities = new List<SuggestedActivityDto>

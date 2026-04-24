@@ -15,12 +15,18 @@ public class CreateSosClusterCommandHandlerTests
 {
     private static readonly Guid CoordinatorId = Guid.Parse("dddddddd-0000-0000-0000-000000000001");
 
-    private static SosRequestModel BuildPendingSos(int id, double lat, double lon, int? clusterId = null)
+    private static SosRequestModel BuildPendingSos(
+        int id,
+        double lat,
+        double lon,
+        int? clusterId = null,
+        string? structuredData = null)
     {
         var sos = SosRequestModel.Create(Guid.NewGuid(), new GeoLocation(lat, lon), "Cần cứu trợ");
         sos.Id = id;
         sos.Status = SosRequestStatus.Pending;
         sos.ClusterId = clusterId;
+        sos.StructuredData = structuredData;
         return sos;
     }
 
@@ -36,6 +42,17 @@ public class CreateSosClusterCommandHandlerTests
             new StubAdminRealtimeHubService(),
             new StubUnitOfWork(),
             NullLogger<CreateSosClusterCommandHandler>.Instance);
+    }
+
+    private static string PeopleCountJson(int adult = 0, int child = 0, int elderly = 0)
+    {
+        return "{\"incident\":{\"people_count\":{\"adult\":"
+            + adult
+            + ",\"child\":"
+            + child
+            + ",\"elderly\":"
+            + elderly
+            + "}}}";
     }
 
     // -- Not Found --------------------------------------------------------------
@@ -167,6 +184,46 @@ public class CreateSosClusterCommandHandlerTests
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
             handler.Handle(new CreateSosClusterCommand([1, 2], CoordinatorId), CancellationToken.None));
+    }
+
+    // -- Capacity validation -----------------------------------------------------
+
+    [Fact]
+    public async Task Handle_ThrowsBadRequest_WhenKnownPeopleCountExceedsClusterLimit()
+    {
+        var sos1 = BuildPendingSos(1, 10.0, 106.0, structuredData: PeopleCountJson(adult: 50));
+        var sos2 = BuildPendingSos(2, 10.01, 106.0, structuredData: PeopleCountJson(adult: 51));
+
+        var repo = new StubSosRequestRepository(new Dictionary<int, SosRequestModel>
+        {
+            [1] = sos1,
+            [2] = sos2
+        });
+        var handler = BuildHandler(repo, new StubSosClusterRepository());
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(new CreateSosClusterCommand([1, 2], CoordinatorId), CancellationToken.None));
+
+        Assert.Contains("100", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Handle_Succeeds_WhenAtClusterRequestAndPeopleLimits()
+    {
+        var requests = Enumerable.Range(1, 5)
+            .Select(id => BuildPendingSos(id, 10.0 + (id * 0.001), 106.0, structuredData: PeopleCountJson(adult: 20)))
+            .ToDictionary(request => request.Id);
+        var repo = new StubSosRequestRepository(requests);
+        var clusterRepo = new StubSosClusterRepository(returnedClusterId: 9);
+        var handler = BuildHandler(repo, clusterRepo);
+
+        var response = await handler.Handle(new CreateSosClusterCommand([1, 2, 3, 4, 5], CoordinatorId), CancellationToken.None);
+
+        Assert.Equal(9, response.ClusterId);
+        Assert.Equal(5, response.SosRequestCount);
+        Assert.NotNull(clusterRepo.LastCreatedCluster);
+        Assert.Equal(100, clusterRepo.LastCreatedCluster!.VictimEstimated);
+        Assert.Equal([1, 2, 3, 4, 5], clusterRepo.LastCreatedCluster.SosRequestIds);
     }
 
     // -- Response shape ---------------------------------------------------------

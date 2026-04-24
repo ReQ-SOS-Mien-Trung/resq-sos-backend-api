@@ -332,8 +332,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Không tạo `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không có activity nào dùng số hàng đó.
 
             ## QUY TẮC TỪNG LOẠI ACTIVITY
-            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Nếu kho có xe/phương tiện/reusable phù hợp thì đưa thẳng vào đây như một inventory-backed item.
-            - `DELIVER_SUPPLIES`: giao đúng các vật phẩm vừa lấy từ kho đã chọn cho SOS tương ứng.
+            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Có thể chứa cả `Consumable` và `Reusable` theo `item_type` tool trả về.
+            - `DELIVER_SUPPLIES`: chỉ chứa vật phẩm `Consumable` được bàn giao/cấp phát trực tiếp cho SOS request. Không đưa item `Reusable` vào `DELIVER_SUPPLIES` trong mọi trường hợp.
+            - Item `Reusable` là đồ đội cứu hộ mang theo để thao tác hiện trường như xe, xuồng, áo phao, cáng, dây, thiết bị cứu hộ, thiết bị y tế dùng lại. Các item này đi trong `COLLECT_SUPPLIES`, được dùng ở `RESCUE`/`MEDICAL_AID`/`EVACUATE`, rồi được đưa vào `RETURN_SUPPLIES`.
+            - Nếu `COLLECT_SUPPLIES` có cả `Consumable` và `Reusable`, `DELIVER_SUPPLIES.supplies_to_collect` chỉ được chứa phần `Consumable`; `RETURN_SUPPLIES.supplies_to_collect` chỉ chứa phần `Reusable` cần trả kho. Nếu tất cả item đã lấy là `Reusable`, không tạo `DELIVER_SUPPLIES` chỉ để mô tả đội mang thiết bị tới hiện trường.
             - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
             - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
             - `EVACUATE`: không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
@@ -345,11 +347,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Với `RESCUE` hoặc `EVACUATE`, bắt buộc gọi `getAssemblyPoints` và chọn `assembly_point_id` gần nạn nhân nhất.
 
             ## QUY TẮC AN TOÀN MISSION GHÉP CỨU HỘ + CỨU TRỢ
-            - Nếu mission có cả nhánh `RESCUE|EVACUATE|MEDICAL_AID` và nhánh `COLLECT_SUPPLIES|DELIVER_SUPPLIES`, backend sẽ tự thêm cảnh báo an toàn sau khi parse kết quả.
+            - Nếu mission có cả nhánh `RESCUE|EVACUATE|MEDICAL_AID` và nhánh `DELIVER_SUPPLIES`, backend sẽ tự thêm cảnh báo an toàn sau khi parse kết quả.
             - Không tạo `warnings[]`, không tạo warning code riêng, không chèn warning schema mới vào JSON.
             - Cảnh báo mixed mission không phải là lý do để bỏ trống `activities`. Khi đã trả mission JSON, `activities` phải là execution plan cụ thể.
             - Nếu cluster mixed có SOS rescue khẩn cấp cần đưa về nơi an toàn ngay, hãy giữ route an toàn nhất có thể và cảnh báo coordinator thật rõ.
-            - Nếu SOS rescue không cần cứu gấp và có thể chờ mission kết hợp, có thể xếp route `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước rồi mới chuyển sang rescue branch.
+            - Nếu SOS rescue không cần cứu gấp và có thể chờ mission kết hợp, chỉ xếp route `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước rescue khi đó là nhánh cấp phát `Consumable` thật sự; nếu chỉ là thiết bị `Reusable` cho đội thì dùng `COLLECT_SUPPLIES -> RESCUE`.
             - Nếu SOS rescue khẩn cấp, ưu tiên xử lý nhánh rescue trước phần việc không liên quan. Có thể `COLLECT_SUPPLIES` trước rescue nếu route thực tế cần lấy vật phẩm hoặc thiết bị từ kho để triển khai ngoài hiện trường.
             - Nếu route mixed hiện tại không an toàn, hãy rewrite lại thứ tự hoạt động. Không được thay route bằng `activities = []`.
 
@@ -1401,8 +1403,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static bool HasReliefBranch(IEnumerable<SuggestedActivityDto> activities) =>
         activities.Any(activity =>
-            string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
+            string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase));
 
     private static bool HasMixedClusterRouteExpectation(IReadOnlyCollection<SosRequestSummary> sosRequests) =>
         sosRequests.Any(sos => SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType))
@@ -3549,7 +3550,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     {
         var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(result.SuggestedActivities);
         if (string.IsNullOrWhiteSpace(warning))
+        {
+            result.MixedRescueReliefWarning = string.Empty;
             return;
+        }
 
         result.NeedsManualReview = true;
         result.MixedRescueReliefWarning = warning;

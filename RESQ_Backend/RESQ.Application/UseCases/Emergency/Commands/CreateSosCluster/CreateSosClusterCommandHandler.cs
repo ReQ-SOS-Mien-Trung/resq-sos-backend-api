@@ -55,6 +55,8 @@ public class CreateSosClusterCommandHandler(
         if (resolvedRequests.Count == 0)
             throw new BadRequestException("Không có SOS request hợp lệ để tạo cluster");
 
+        ValidateClusterRequestCount(resolvedRequests);
+
         var clusterGroupingConfig = await _sosClusterGroupingConfigRepository.GetAsync(cancellationToken);
         var maxClusterSpreadKm = clusterGroupingConfig?.MaximumDistanceKm > 0
             ? clusterGroupingConfig.MaximumDistanceKm
@@ -102,6 +104,7 @@ public class CreateSosClusterCommandHandler(
         }
 
         var aggregate = SosClusterAggregateBuilder.Build(resolvedRequests);
+        ValidateClusterCapacity(aggregate);
 
         // Create cluster
         var cluster = new SosClusterModel
@@ -144,6 +147,31 @@ public class CreateSosClusterCommandHandler(
             SeverityLevel = aggregate.SeverityLevel,
             CreatedAt = cluster.CreatedAt
         };
+    }
+
+    private static void ValidateClusterCapacity(SosClusterAggregateSnapshot aggregate)
+    {
+        if (aggregate.VictimEstimated > SosClusterCapacityLimits.MaxVictimEstimated)
+        {
+            throw new BadRequestException(
+                $"Một cluster chỉ có thể chứa tối đa {SosClusterCapacityLimits.MaxVictimEstimated} người. " +
+                $"Tổng số người hiện tại: {aggregate.VictimEstimated}.");
+        }
+    }
+
+    private static void ValidateClusterRequestCount(IReadOnlyCollection<SosRequestModel> sosRequests)
+    {
+        var uniqueRequestCount = sosRequests
+            .Select(sosRequest => sosRequest.Id)
+            .Distinct()
+            .Count();
+
+        if (uniqueRequestCount > SosClusterCapacityLimits.MaxSosRequests)
+        {
+            throw new BadRequestException(
+                $"Một cluster chỉ có thể chứa tối đa {SosClusterCapacityLimits.MaxSosRequests} SOS request. " +
+                $"Tổng số SOS request hiện tại: {uniqueRequestCount}.");
+        }
     }
 
     /// <summary>
