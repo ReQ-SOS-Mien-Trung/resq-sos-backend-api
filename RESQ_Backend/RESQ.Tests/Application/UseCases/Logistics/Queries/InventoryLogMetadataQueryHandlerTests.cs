@@ -19,6 +19,9 @@ public class InventoryLogMetadataQueryHandlerTests
             result.Select(x => x.Key).ToArray());
         Assert.DoesNotContain(result, x => string.IsNullOrWhiteSpace(x.Value));
         Assert.Contains(result, x => x.Key == InventoryActionType.Return.ToString() && x.Value == "Hoàn trả");
+        Assert.Contains(result, x => x.Key == InventoryActionType.Reserve.ToString() && x.Value == "Đặt trữ");
+        Assert.Contains(result, x => x.Key == InventoryActionType.MissionPickup.ToString() && x.Value == "Xuất cho hoạt động nhiệm vụ");
+        Assert.Contains(result, x => x.Key == InventoryActionType.DepotClosureExternalDisposal.ToString() && x.Value == "Xuất xử lý bên ngoài khi đóng kho");
     }
 
     [Fact]
@@ -36,5 +39,7 @@ public class InventoryLogMetadataQueryHandlerTests
         Assert.Contains(result, x => x.Key == InventorySourceType.Expired.ToString() && x.Value == "Hết hạn");
         Assert.Contains(result, x => x.Key == InventorySourceType.Damaged.ToString() && x.Value == "Hư hỏng");
         Assert.Contains(result, x => x.Key == InventorySourceType.Disposed.ToString() && x.Value == "Thanh lý");
+        Assert.Contains(result, x => x.Key == InventorySourceType.MissionActivity.ToString() && x.Value == "Hoạt động nhiệm vụ");
+        Assert.Contains(result, x => x.Key == InventorySourceType.DepotClosure.ToString() && x.Value == "Đóng kho");
     }
 }

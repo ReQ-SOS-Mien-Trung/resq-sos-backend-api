@@ -393,7 +393,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                 await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
                 {
                     DepotSupplyInventoryId = inventory.Id,
-                    ActionType = "Reserve",
+                    ActionType = InventoryActionType.Reserve.ToString(),
                     QuantityChange = ci.Quantity,
                     SourceType = InventorySourceType.Transfer.ToString(),
                     SourceId = supplyRequestId,
@@ -458,7 +458,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                     newInventoryLogs.Add(new InventoryLog
                     {
                         ReusableItemId = unit.Id,
-                        ActionType = "Reserve",
+                        ActionType = InventoryActionType.Reserve.ToString(),
                         QuantityChange = 1,
                         SourceType = InventorySourceType.Transfer.ToString(),
                         SourceId = supplyRequestId,

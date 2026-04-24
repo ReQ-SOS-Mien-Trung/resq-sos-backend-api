@@ -337,6 +337,11 @@ public class MissionContextServiceTests
         public Task<DepotStatus?> GetStatusByIdAsync(int depotId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<(decimal PendingInboundVolume, decimal PendingInboundWeight)> GetPendingInboundLoadAsync(
+            int depotId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult((0m, 0m));
+
         public Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 

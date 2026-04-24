@@ -17,6 +17,7 @@ public class DepotClosureExternalItemRepository(IUnitOfWork unitOfWork) : IDepot
             {
                 DepotId = dto.DepotId,
                 ClosureId = dto.ClosureId,
+                ItemModelId = dto.ItemModelId,
                 ItemName = dto.ItemName,
                 CategoryName = dto.CategoryName,
                 ItemType = dto.ItemType,

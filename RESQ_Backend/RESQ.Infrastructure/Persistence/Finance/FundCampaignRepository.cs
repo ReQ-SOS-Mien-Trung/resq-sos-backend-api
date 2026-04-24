@@ -52,6 +52,18 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
         return new PagedResult<FundCampaignModel>(models, totalCount, pageNumber, pageSize);
     }
 
+    public async Task<List<FundCampaignModel>> GetActiveAsync(CancellationToken cancellationToken = default)
+    {
+        var activeStatus = FundCampaignStatus.Active.ToString();
+
+        var entities = await _unitOfWork.Set<FundCampaign>()
+            .Where(x => !x.IsDeleted && x.Status == activeStatus)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(FundCampaignMapper.ToModel).ToList();
+    }
+
     public async Task CreateAsync(FundCampaignModel model, CancellationToken cancellationToken = default)
     {
         var entity = FundCampaignMapper.ToEntity(model);

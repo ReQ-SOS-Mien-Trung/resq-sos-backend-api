@@ -21,9 +21,9 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         CancellationToken cancellationToken = default)
     {
         // Rule: chỉ 1 active event (Status != Completed) per AP
-        var completedStatus = AssemblyEventStatus.Completed.ToString();
+        var gatheringStatus = AssemblyEventStatus.Gathering.ToString();
         var hasActive = await _unitOfWork.Set<AssemblyEvent>()
-            .AnyAsync(e => e.AssemblyPointId == assemblyPointId && e.Status != completedStatus, cancellationToken);
+            .AnyAsync(e => e.AssemblyPointId == assemblyPointId && e.Status == gatheringStatus, cancellationToken);
 
         if (hasActive)
             throw new InvalidOperationException(
@@ -350,10 +350,10 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
     public async Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(
         int assemblyPointId, CancellationToken cancellationToken = default)
     {
-        var completedStatus = AssemblyEventStatus.Completed.ToString();
+        var gatheringStatus = AssemblyEventStatus.Gathering.ToString();
 
         var evt = await _unitOfWork.Set<AssemblyEvent>()
-            .Where(e => e.AssemblyPointId == assemblyPointId && e.Status != completedStatus)
+            .Where(e => e.AssemblyPointId == assemblyPointId && e.Status == gatheringStatus)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -619,8 +619,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken)
             ?? throw new InvalidOperationException($"Không tìm thấy sự kiện tập trung id = {eventId}");
 
-        // Idempotent
-        if (evt.Status == AssemblyEventStatus.Completed.ToString()) return;
+        if (evt.Status != AssemblyEventStatus.Gathering.ToString()) return;
 
         evt.Status = AssemblyEventStatus.Completed.ToString();
         evt.UpdatedAt = DateTime.UtcNow;

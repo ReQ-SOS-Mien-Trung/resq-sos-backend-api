@@ -4,6 +4,7 @@
 public record CreateClosureExternalItemDto(
     int DepotId,
     int? ClosureId,
+    int? ItemModelId,
     string ItemName,
     string? CategoryName,
     string ItemType,

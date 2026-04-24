@@ -15,6 +15,8 @@ public class ExternalResolutionItemDto
 {
     /// <summary>Số thứ tự dòng.</summary>
     public int RowNumber { get; set; }
+    public int? ItemModelId { get; set; }
+    public int? LotId { get; set; }
 
     public string ItemName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;

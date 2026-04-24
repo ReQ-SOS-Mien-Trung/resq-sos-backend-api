@@ -1,12 +1,13 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
@@ -50,7 +51,9 @@ public class UploadExternalResolutionCommandHandler(
 
         var activeCount = await depotRepository.GetActiveDepotCountExcludingAsync(depotId, cancellationToken);
         if (activeCount == 0)
+        {
             throw new ConflictException("Không thể đóng kho duy nhất còn đang hoạt động trong hệ thống.");
+        }
 
         var existingClosure = await closureRepository.GetActiveClosureByDepotIdAsync(depotId, cancellationToken)
             ?? throw new ConflictException(
@@ -64,7 +67,9 @@ public class UploadExternalResolutionCommandHandler(
 
         var items = request.Items;
         if (items == null || items.Count == 0)
+        {
             throw new BadRequestException("Danh sách hàng tồn kho rỗng. Vui lòng cung cấp ít nhất một dòng.");
+        }
 
         var invalidRows = items.Where(i => string.IsNullOrWhiteSpace(i.HandlingMethod)).ToList();
         if (invalidRows.Count > 0)
@@ -102,9 +107,13 @@ public class UploadExternalResolutionCommandHandler(
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
+            var actualInventoryItems = await depotRepository.GetLotDetailedInventoryForClosureAsync(depotId, cancellationToken);
+            ValidateUploadedItemsAgainstCurrentInventory(items, actualInventoryItems);
+
             var externalItems = items.Select(p => new CreateClosureExternalItemDto(
                 DepotId: depotId,
                 ClosureId: closureRecord.Id,
+                ItemModelId: p.ItemModelId,
                 ItemName: p.ItemName,
                 CategoryName: p.CategoryName,
                 ItemType: p.ItemType,
@@ -158,8 +167,12 @@ public class UploadExternalResolutionCommandHandler(
                     closureRecord.Id);
             }
 
-            var actualConsumables = items.Where(i => i.ItemType == "Consumable").Sum(i => i.Quantity);
-            var actualReusables = items.Where(i => i.ItemType == "Reusable").Sum(i => i.Quantity);
+            var actualConsumables = actualInventoryItems
+                .Where(i => string.Equals(i.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
+                .Sum(i => i.Quantity);
+            var actualReusables = actualInventoryItems
+                .Where(i => string.Equals(i.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+                .Sum(i => i.Quantity);
             closureRecord.RecordActualInventory(actualConsumables, actualReusables);
             closureRecord.Complete(now);
 
@@ -206,4 +219,192 @@ public class UploadExternalResolutionCommandHandler(
             Message = $"Đã ghi nhận {items.Count} dòng xử lý bên ngoài và xóa toàn bộ tồn kho còn lại. Kho vẫn giữ trạng thái Closing, chờ xác nhận đóng kho."
         };
     }
+
+    private static void ValidateUploadedItemsAgainstCurrentInventory(
+        IReadOnlyCollection<ExternalResolutionItemDto> uploadedItems,
+        IReadOnlyCollection<ClosureInventoryLotItemDto> actualItems)
+    {
+        if (actualItems.Count == 0)
+        {
+            throw new ConflictException(
+                "Kho hiện không còn hàng tồn để xử lý bên ngoài. Vui lòng tải lại template mới nhất.");
+        }
+
+        var invalidIdentityMessages = uploadedItems
+            .Select(GetIdentityValidationMessage)
+            .Where(message => !string.IsNullOrWhiteSpace(message))
+            .ToList();
+
+        if (invalidIdentityMessages.Count > 0)
+        {
+            throw new BadRequestException(
+                "File xử lý bên ngoài thiếu hoặc sai khóa kỹ thuật. Vui lòng tải lại template mới nhất. Chi tiết: "
+                + string.Join(" | ", invalidIdentityMessages));
+        }
+
+        var duplicateUploadKeys = uploadedItems
+            .GroupBy(item => BuildInventoryRowKey(item.ItemModelId!.Value, item.ItemType, item.LotId))
+            .Where(group => group.Count() > 1)
+            .Select(group => string.Join(", ", group.Select(item => item.RowNumber).OrderBy(x => x)))
+            .ToList();
+
+        if (duplicateUploadKeys.Count > 0)
+        {
+            throw new BadRequestException(
+                $"File upload có dòng trùng khóa kỹ thuật: {string.Join(" | ", duplicateUploadKeys)}.");
+        }
+
+        var actualLookup = actualItems.ToDictionary(
+            item => BuildInventoryRowKey(item.ItemModelId, item.ItemType, item.LotId),
+            item => item,
+            StringComparer.OrdinalIgnoreCase);
+
+        var uploadedLookup = uploadedItems.ToDictionary(
+            item => BuildInventoryRowKey(item.ItemModelId!.Value, item.ItemType, item.LotId),
+            item => item,
+            StringComparer.OrdinalIgnoreCase);
+
+        var issues = new List<string>();
+
+        foreach (var uploaded in uploadedItems.OrderBy(item => item.RowNumber))
+        {
+            var key = BuildInventoryRowKey(uploaded.ItemModelId!.Value, uploaded.ItemType, uploaded.LotId);
+            if (!actualLookup.TryGetValue(key, out var actual))
+            {
+                issues.Add(
+                    $"dòng {uploaded.RowNumber}: không còn tồn thực tế tương ứng với ItemModelId={uploaded.ItemModelId}, LotId={(uploaded.LotId?.ToString() ?? "null")} ({uploaded.ItemName}).");
+                continue;
+            }
+
+            if (!MatchesPreFilledInventoryData(uploaded, actual))
+            {
+                issues.Add(DescribePreFilledMismatch(uploaded, actual));
+            }
+        }
+
+        var missingActualRows = actualItems
+            .Where(item => !uploadedLookup.ContainsKey(BuildInventoryRowKey(item.ItemModelId, item.ItemType, item.LotId)))
+            .Take(5)
+            .Select(item => $"{item.ItemName} (ItemModelId={item.ItemModelId}, LotId={item.LotId?.ToString() ?? "null"})")
+            .ToList();
+
+        if (missingActualRows.Count > 0)
+        {
+            issues.Add($"file upload đang thiếu dòng tồn thực tế, ví dụ: {string.Join("; ", missingActualRows)}.");
+        }
+
+        if (issues.Count > 0)
+        {
+            throw new ConflictException(
+                $"File xử lý bên ngoài không còn khớp với tồn thực tế của kho. Vui lòng tải lại template mới nhất. Chi tiết: {string.Join(" | ", issues.Take(8))}");
+        }
+    }
+
+    private static string? GetIdentityValidationMessage(ExternalResolutionItemDto item)
+    {
+        var reasons = new List<string>();
+
+        if (!item.ItemModelId.HasValue || item.ItemModelId.Value <= 0)
+        {
+            reasons.Add("thiếu hoặc sai ItemModelId");
+        }
+
+        if (!string.Equals(item.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(item.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase))
+        {
+            reasons.Add("ItemType không hợp lệ");
+        }
+        else if (string.Equals(item.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase) && !item.LotId.HasValue)
+        {
+            reasons.Add("đồ tiêu thụ bắt buộc phải có LotId");
+        }
+        else if (string.Equals(item.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase) && item.LotId.HasValue)
+        {
+            reasons.Add("đồ tái sử dụng không được có LotId");
+        }
+
+        return reasons.Count == 0
+            ? null
+            : $"dòng {item.RowNumber}: {string.Join(", ", reasons)}";
+    }
+
+    private static bool MatchesPreFilledInventoryData(
+        ExternalResolutionItemDto uploaded,
+        ClosureInventoryLotItemDto actual)
+    {
+        return string.Equals(Normalize(uploaded.ItemName), Normalize(actual.ItemName), StringComparison.OrdinalIgnoreCase)
+               && string.Equals(Normalize(uploaded.CategoryName), Normalize(actual.CategoryName), StringComparison.OrdinalIgnoreCase)
+               && string.Equals(Normalize(uploaded.TargetGroup), Normalize(actual.TargetGroup), StringComparison.OrdinalIgnoreCase)
+               && string.Equals(Normalize(uploaded.ItemType), Normalize(actual.ItemType), StringComparison.OrdinalIgnoreCase)
+               && string.Equals(Normalize(uploaded.Unit), Normalize(actual.Unit), StringComparison.OrdinalIgnoreCase)
+               && uploaded.Quantity == actual.Quantity
+               && SameDate(uploaded.ReceivedDate, actual.ReceivedDate)
+               && SameDate(uploaded.ExpiredDate, actual.ExpiredDate);
+    }
+
+    private static string DescribePreFilledMismatch(
+        ExternalResolutionItemDto uploaded,
+        ClosureInventoryLotItemDto actual)
+    {
+        var differences = new List<string>();
+
+        if (!string.Equals(Normalize(uploaded.ItemName), Normalize(actual.ItemName), StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add($"Tên vật phẩm hiện tại là '{actual.ItemName}'");
+        }
+
+        if (!string.Equals(Normalize(uploaded.CategoryName), Normalize(actual.CategoryName), StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add($"Danh mục hiện tại là '{actual.CategoryName}'");
+        }
+
+        if (!string.Equals(Normalize(uploaded.TargetGroup), Normalize(actual.TargetGroup), StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add($"Nhóm đối tượng hiện tại là '{actual.TargetGroup}'");
+        }
+
+        if (!string.Equals(Normalize(uploaded.ItemType), Normalize(actual.ItemType), StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add($"Loại vật phẩm hiện tại là '{actual.ItemType}'");
+        }
+
+        if (!string.Equals(Normalize(uploaded.Unit), Normalize(actual.Unit), StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add($"Đơn vị hiện tại là '{actual.Unit}'");
+        }
+
+        if (uploaded.Quantity != actual.Quantity)
+        {
+            differences.Add($"Số lượng hiện tại là {actual.Quantity}, file gửi {uploaded.Quantity}");
+        }
+
+        if (!SameDate(uploaded.ReceivedDate, actual.ReceivedDate))
+        {
+            differences.Add($"Ngày nhập hiện tại là {FormatNullableDate(actual.ReceivedDate)}, file gửi {FormatNullableDate(uploaded.ReceivedDate)}");
+        }
+
+        if (!SameDate(uploaded.ExpiredDate, actual.ExpiredDate))
+        {
+            differences.Add($"Hạn sử dụng hiện tại là {FormatNullableDate(actual.ExpiredDate)}, file gửi {FormatNullableDate(uploaded.ExpiredDate)}");
+        }
+
+        if (differences.Count == 0)
+        {
+            differences.Add("dữ liệu tiền điền đã thay đổi so với tồn thực tế");
+        }
+
+        return $"dòng {uploaded.RowNumber}: {string.Join("; ", differences)}.";
+    }
+
+    private static string BuildInventoryRowKey(int itemModelId, string itemType, int? lotId)
+        => $"{itemModelId}:{itemType.Trim().ToUpperInvariant()}:{(lotId.HasValue ? lotId.Value.ToString() : "NULL")}";
+
+    private static bool SameDate(DateTime? left, DateTime? right)
+        => left?.Date == right?.Date;
+
+    private static string FormatNullableDate(DateTime? value)
+        => value.HasValue ? value.Value.ToString("dd/MM/yyyy") : "trống";
+
+    private static string Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
 }

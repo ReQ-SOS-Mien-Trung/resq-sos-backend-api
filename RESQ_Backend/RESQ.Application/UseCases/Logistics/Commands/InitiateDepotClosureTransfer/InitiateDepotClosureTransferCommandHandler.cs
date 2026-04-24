@@ -161,6 +161,10 @@ public class InitiateDepotClosureTransferCommandHandler(
         foreach (var targetGroup in normalizedAssignments.GroupBy(x => x.TargetDepotId))
         {
             var targetDepot = targetDepots[targetGroup.Key];
+            var (pendingInboundVolume, pendingInboundWeight) = await depotRepository.GetPendingInboundLoadAsync(
+                targetDepot.Id,
+                cancellationToken);
+
             var requiredVolume = targetGroup
                 .Sum(x =>
                 {
@@ -168,7 +172,7 @@ public class InitiateDepotClosureTransferCommandHandler(
                     return ResolveVolumePerUnit(item) * x.Quantity;
                 });
 
-            var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
+            var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization - pendingInboundVolume;
             if (requiredVolume > availableVolumeCapacity)
             {
                 throw new ConflictException(
@@ -183,7 +187,7 @@ public class InitiateDepotClosureTransferCommandHandler(
                     return ResolveWeightPerUnit(item) * x.Quantity;
                 });
 
-            var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization;
+            var availableWeightCapacity = targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization - pendingInboundWeight;
             if (requiredWeight > availableWeightCapacity)
             {
                 throw new ConflictException(

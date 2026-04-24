@@ -10,6 +10,7 @@ using RESQ.Application.UseCases.Finance.Commands.ExtendCampaign;
 using RESQ.Application.UseCases.Finance.Commands.IncreaseTargetAmount;
 using RESQ.Application.UseCases.Finance.Commands.UpdateCampaignInfo;
 using RESQ.Application.UseCases.Finance.Queries.GetCampaignTransactions;
+using RESQ.Application.UseCases.Finance.Queries.GetActiveCampaignsForDonation;
 using RESQ.Application.UseCases.Finance.Queries.ViewAllCampaigns;
 using RESQ.Application.UseCases.Finance.Queries.ViewCampaignMetadata;
 using RESQ.Application.Common.Constants;
@@ -44,6 +45,15 @@ public class FundCampaignController(IMediator mediator) : ControllerBase
     {
         var query = new ViewCampaignMetadataQuery();
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>Lấy danh sách chiến dịch đang Active để donor chọn khi tạo donation.</summary>
+    [HttpGet("active")]
+    [ProducesResponseType(typeof(List<ActiveCampaignForDonationDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetActiveCampaigns()
+    {
+        var result = await _mediator.Send(new GetActiveCampaignsForDonationQuery());
         return Ok(result);
     }
 

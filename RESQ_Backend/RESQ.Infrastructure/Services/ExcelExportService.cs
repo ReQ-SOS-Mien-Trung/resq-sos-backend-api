@@ -1007,6 +1007,7 @@ public class ExcelExportService : IExcelExportService
     //  Depot Closure - External Resolution Template
     // ---------------------------------------------------------------------------
 
+    /*
     private static readonly string[] ClosureTemplateHeaders =
     [
         "STT",               // A
@@ -1023,9 +1024,32 @@ public class ExcelExportService : IExcelExportService
         "Hình thức xử lý",  // L  ← manager điền (dropdown, cho phép nhập tay)
         "Người nhận",        // M  ← manager điền
         "Ghi chú"            // N  ← manager điền
+        "ItemModelId (ẩn)", // O  ← technical key
+        "LotId (ẩn)"        // P  ← technical key
     ];
 
-    private const int ClosureCols = 14; // A..N
+    */
+    private static readonly string[] ClosureTemplateHeaders =
+    [
+        "STT",               // A
+        "Tên vật phẩm",      // B
+        "Danh mục",          // C
+        "Đối tượng",         // D
+        "Loại vật phẩm",     // E
+        "Đơn vị",            // F
+        "Ngày nhập",         // G
+        "Hạn sử dụng",       // H
+        "Số lượng",          // I
+        "Đơn giá (VNĐ)",     // J
+        "Thành tiền (VNĐ)",  // K
+        "Hình thức xử lý",   // L
+        "Người nhận",        // M
+        "Ghi chú",           // N
+        "ItemModelId (ẩn)",  // O
+        "LotId (ẩn)"         // P
+    ];
+
+    private const int ClosureCols = 16; // A..P
     private const int ClosurePreFilledCols = 9; // A..I (pre-filled)
     private static readonly string[] ClosureHandlingMethodOptions = Enum
         .GetValues<ExternalDispositionType>()
@@ -1137,6 +1161,11 @@ public class ExcelExportService : IExcelExportService
             dataRow.Style.Border.InsideBorder = XLBorderStyleValues.Hair;
             dataRow.Style.Border.OutsideBorderColor = XLColor.FromHtml("#BDBDBD");
             dataRow.Style.Border.InsideBorderColor = XLColor.FromHtml("#E0E0E0");
+            ws.Cell(r, 15).Value = item.ItemModelId;
+            if (item.LotId.HasValue)
+            {
+                ws.Cell(r, 16).Value = item.LotId.Value;
+            }
         }
 
         // --- Column widths ---------------------------------------------------
@@ -1154,6 +1183,9 @@ public class ExcelExportService : IExcelExportService
         ws.Column(12).Width = 22;  // Hình thức xử lý
         ws.Column(13).Width = 25;  // Người nhận
         ws.Column(14).Width = 30;  // Ghi chú
+
+        ws.Column(15).Hide();
+        ws.Column(16).Hide();
 
         // --- Protect pre-filled columns --------------------------------------
         ws.SheetView.FreezeRows(headerRow);
