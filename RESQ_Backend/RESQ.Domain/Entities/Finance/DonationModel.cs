@@ -30,6 +30,7 @@ public class DonationModel
 
     public bool IsPrivate { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public DateTime? ResponseDeadline { get; set; }
     
     // View/Logic properties
     public string? FundCampaignName { get; set; }
@@ -53,6 +54,12 @@ public class DonationModel
         if (Status == Status.Failed)
         {
             if (newStatus == Status.Failed) return;
+            if (newStatus == Status.Succeed)
+            {
+                Status = newStatus;
+                return;
+            }
+
             throw new InvalidPaymentStatusException(Status.ToString(), newStatus.ToString());
         }
 

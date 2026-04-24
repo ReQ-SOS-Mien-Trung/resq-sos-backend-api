@@ -21,6 +21,7 @@ public class DepotFundModel
     public decimal Balance { get; private set; }
 
     public DateTime LastUpdatedAt { get; private set; }
+    public uint RowVersion { get; private set; }
 
     // -- Nguồn quỹ (mỗi quỹ kho gắn với 1 nguồn cụ thể) -------------
 
@@ -57,7 +58,7 @@ public class DepotFundModel
     /// <summary>Reconstitute from DB.</summary>
     public static DepotFundModel Reconstitute(
         int id, int depotId, decimal balance,
-        DateTime lastUpdatedAt, FundSourceType? sourceType = null, int? sourceId = null)
+        DateTime lastUpdatedAt, FundSourceType? sourceType = null, int? sourceId = null, uint rowVersion = 0)
     {
         return new DepotFundModel
         {
@@ -66,7 +67,8 @@ public class DepotFundModel
             Balance = balance,
             LastUpdatedAt = lastUpdatedAt,
             FundSourceType = sourceType,
-            FundSourceId = sourceId
+            FundSourceId = sourceId,
+            RowVersion = rowVersion
         };
     }
 

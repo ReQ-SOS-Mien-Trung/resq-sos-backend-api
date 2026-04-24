@@ -475,9 +475,9 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             Quantity     = lot.RemainingQuantity
         }).ToList();
 
-        // Reusable items: nhóm theo item_model (không có lot)
+        // Reusable items: trả theo từng unit để giữ serial number khi xử lý bên ngoài
         var reusableItems = await _unitOfWork.Set<ReusableItem>()
-            .Where(ri => ri.DepotId == depotId && ri.Status != "Decommissioned")
+            .Where(ri => ri.DepotId == depotId && ri.Status == "Available")
             .Include(ri => ri.ItemModel!)
                 .ThenInclude(im => im.Category)
             .Include(ri => ri.ItemModel!)
@@ -485,26 +485,24 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
             .ToListAsync(cancellationToken);
 
         var reusables = reusableItems
-            .GroupBy(ri => ri.ItemModelId ?? 0)
-            .Select(g =>
+            .Select(item => new ClosureInventoryLotItemDto
             {
-                var first = g.First();
-                return new ClosureInventoryLotItemDto
-                {
-                    ItemModelId  = g.Key,
-                    ItemName     = first.ItemModel?.Name ?? "N/A",
-                    CategoryName = first.ItemModel?.Category?.Name ?? "N/A",
-                    TargetGroup  = TargetGroupTranslations.JoinAsVietnamese(
-                        first.ItemModel?.TargetGroups.Select(tg => tg.Name) ?? []),
-                    ItemType     = "Reusable",
-                    Unit         = first.ItemModel?.Unit ?? "N/A",
-                    LotId        = null,
-                    ReceivedDate = g.Min(item => item.CreatedAt),
-                    ExpiredDate  = null,
-                    Quantity     = g.Count()
-                };
+                ItemModelId = item.ItemModelId ?? 0,
+                ReusableItemId = item.Id,
+                ItemName = item.ItemModel?.Name ?? "N/A",
+                CategoryName = item.ItemModel?.Category?.Name ?? "N/A",
+                TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
+                    item.ItemModel?.TargetGroups.Select(tg => tg.Name) ?? []),
+                ItemType = "Reusable",
+                Unit = item.ItemModel?.Unit ?? "N/A",
+                SerialNumber = item.SerialNumber,
+                LotId = null,
+                ReceivedDate = item.CreatedAt,
+                ExpiredDate = null,
+                Quantity = 1
             })
             .OrderBy(x => x.ItemName)
+            .ThenBy(x => x.SerialNumber)
             .ToList();
 
         return [.. consumables, .. reusables];

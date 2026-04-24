@@ -74,13 +74,8 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
     public async Task UpdateAsync(FundCampaignModel model, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<FundCampaign>();
-        var entity = await repo.GetByPropertyAsync(x => x.Id == model.Id);
-        
-        if (entity != null)
-        {
-            FundCampaignMapper.UpdateEntity(entity, model);
-            await repo.UpdateAsync(entity);
-        }
+        var entity = FundCampaignMapper.ToEntity(model);
+        await repo.UpdateAsync(entity);
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)

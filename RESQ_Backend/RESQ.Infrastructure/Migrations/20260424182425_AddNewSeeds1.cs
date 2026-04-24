@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace RESQ.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddNewSeeds : Migration
+    public partial class AddNewSeeds1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -459,7 +459,8 @@ namespace RESQ.Infrastructure.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     balance = table.Column<decimal>(type: "numeric", nullable: false),
-                    last_updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    last_updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -653,7 +654,8 @@ namespace RESQ.Infrastructure.Migrations
                     balance = table.Column<decimal>(type: "numeric", nullable: false),
                     last_updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     fund_source_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    fund_source_id = table.Column<int>(type: "integer", nullable: true)
+                    fund_source_id = table.Column<int>(type: "integer", nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -776,7 +778,6 @@ namespace RESQ.Infrastructure.Migrations
                     activity_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggestion_phase = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_activities = table.Column<string>(type: "jsonb", nullable: true),
-                    confidence_score = table.Column<double>(type: "double precision", nullable: true),
                     suggestion_scope = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     adopted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
@@ -803,7 +804,6 @@ namespace RESQ.Infrastructure.Migrations
                     analysis_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_severity_level = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_mission_types = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    confidence_score = table.Column<double>(type: "double precision", nullable: true),
                     suggestion_scope = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     metadata = table.Column<string>(type: "jsonb", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -836,7 +836,6 @@ namespace RESQ.Infrastructure.Migrations
                     suggested_severity_level = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_primary_team_id = table.Column<int>(type: "integer", nullable: true),
                     suggested_depot_ids = table.Column<string>(type: "jsonb", nullable: true),
-                    confidence_score = table.Column<double>(type: "double precision", nullable: true),
                     suggestion_scope = table.Column<string>(type: "text", nullable: true),
                     metadata = table.Column<string>(type: "jsonb", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -1086,51 +1085,6 @@ namespace RESQ.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "depot_closure_external_items",
-                columns: table => new
-                {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    depot_id = table.Column<int>(type: "integer", nullable: false),
-                    closure_id = table.Column<int>(type: "integer", nullable: true),
-                    item_model_id = table.Column<int>(type: "integer", nullable: true),
-                    item_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    category_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    item_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    unit = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    quantity = table.Column<int>(type: "integer", nullable: false),
-                    unit_price = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
-                    total_price = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
-                    handling_method = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    recipient = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    note = table.Column<string>(type: "text", nullable: true),
-                    image_url = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
-                    processed_by = table.Column<Guid>(type: "uuid", nullable: false),
-                    processed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("depot_closure_external_items_pkey", x => x.id);
-                    table.ForeignKey(
-                        name: "FK_depot_closure_external_items_depot_closures_closure_id",
-                        column: x => x.closure_id,
-                        principalTable: "depot_closures",
-                        principalColumn: "id");
-                    table.ForeignKey(
-                        name: "FK_depot_closure_external_items_depots_depot_id",
-                        column: x => x.depot_id,
-                        principalTable: "depots",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_depot_closure_external_items_item_models_item_model_id",
-                        column: x => x.item_model_id,
-                        principalTable: "item_models",
-                        principalColumn: "id");
-                });
-
-            migrationBuilder.CreateTable(
                 name: "depot_closure_transfers",
                 columns: table => new
                 {
@@ -1327,7 +1281,8 @@ namespace RESQ.Infrastructure.Migrations
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     last_modified_by = table.Column<Guid>(type: "uuid", nullable: true),
                     last_modified_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    is_deleted = table.Column<bool>(type: "boolean", nullable: false)
+                    is_deleted = table.Column<bool>(type: "boolean", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1717,6 +1672,35 @@ namespace RESQ.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "depot_closure_transfer_reusable_items",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transfer_id = table.Column<int>(type: "integer", nullable: false),
+                    reusable_item_id = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("depot_closure_transfer_reusable_items_pkey", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_transfer_reusable_items_depot_closure_transfe~",
+                        column: x => x.transfer_id,
+                        principalTable: "depot_closure_transfers",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_transfer_reusable_items_reusable_items_reusab~",
+                        column: x => x.reusable_item_id,
+                        principalTable: "reusable_items",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "assembly_participants",
                 columns: table => new
                 {
@@ -1775,6 +1759,35 @@ namespace RESQ.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "depot_supply_request_reusable_items",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    supply_request_id = table.Column<int>(type: "integer", nullable: false),
+                    reusable_item_id = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("depot_supply_request_reusable_items_pkey", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_depot_supply_request_reusable_items_depot_supply_requests_s~",
+                        column: x => x.supply_request_id,
+                        principalTable: "depot_supply_requests",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_depot_supply_request_reusable_items_reusable_items_reusable~",
+                        column: x => x.reusable_item_id,
+                        principalTable: "reusable_items",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "donations",
                 columns: table => new
                 {
@@ -1792,7 +1805,8 @@ namespace RESQ.Infrastructure.Migrations
                     note = table.Column<string>(type: "text", nullable: true),
                     payment_audit_info = table.Column<string>(type: "text", nullable: true),
                     is_private = table.Column<bool>(type: "boolean", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    response_deadline = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1986,7 +2000,6 @@ namespace RESQ.Infrastructure.Migrations
                     model_version = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     analysis_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_members = table.Column<string>(type: "jsonb", nullable: true),
-                    confidence_score = table.Column<double>(type: "double precision", nullable: true),
                     suggestion_scope = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     adopted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
@@ -2107,8 +2120,9 @@ namespace RESQ.Infrastructure.Migrations
                     analysis_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_severity_level = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     suggested_priority = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    suggested_priority_score = table.Column<double>(type: "double precision", nullable: true),
+                    agrees_with_rule_base = table.Column<bool>(type: "boolean", nullable: true),
                     explanation = table.Column<string>(type: "text", nullable: true),
-                    confidence_score = table.Column<double>(type: "double precision", nullable: true),
                     suggestion_scope = table.Column<string>(type: "text", nullable: true),
                     metadata = table.Column<string>(type: "jsonb", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -2204,6 +2218,147 @@ namespace RESQ.Infrastructure.Migrations
                         column: x => x.sos_request_id,
                         principalTable: "sos_requests",
                         principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "depot_closure_external_items",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    depot_id = table.Column<int>(type: "integer", nullable: false),
+                    closure_id = table.Column<int>(type: "integer", nullable: true),
+                    item_model_id = table.Column<int>(type: "integer", nullable: true),
+                    lot_id = table.Column<int>(type: "integer", nullable: true),
+                    reusable_item_id = table.Column<int>(type: "integer", nullable: true),
+                    item_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    category_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    item_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    unit = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    serial_number = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    quantity = table.Column<int>(type: "integer", nullable: false),
+                    unit_price = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
+                    total_price = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
+                    handling_method = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    recipient = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    note = table.Column<string>(type: "text", nullable: true),
+                    image_url = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
+                    processed_by = table.Column<Guid>(type: "uuid", nullable: false),
+                    processed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("depot_closure_external_items_pkey", x => x.id);
+                    table.CheckConstraint("CK_ClosureExternalItem_ConsumableOrReusable", "((\"item_type\" = 'Consumable' AND \"lot_id\" IS NOT NULL AND \"reusable_item_id\" IS NULL AND \"serial_number\" IS NULL) OR (\"item_type\" = 'Reusable' AND \"lot_id\" IS NULL AND \"reusable_item_id\" IS NOT NULL AND \"serial_number\" IS NOT NULL))");
+                    table.ForeignKey(
+                        name: "FK_depot_closure_external_items_depot_closures_closure_id",
+                        column: x => x.closure_id,
+                        principalTable: "depot_closures",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "FK_depot_closure_external_items_depots_depot_id",
+                        column: x => x.depot_id,
+                        principalTable: "depots",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_external_items_item_models_item_model_id",
+                        column: x => x.item_model_id,
+                        principalTable: "item_models",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "FK_depot_closure_external_items_reusable_items_reusable_item_id",
+                        column: x => x.reusable_item_id,
+                        principalTable: "reusable_items",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_external_items_supply_inventory_lots_lot_id",
+                        column: x => x.lot_id,
+                        principalTable: "supply_inventory_lots",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "depot_closure_transfer_consumable_reservations",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transfer_id = table.Column<int>(type: "integer", nullable: false),
+                    supply_inventory_id = table.Column<int>(type: "integer", nullable: false),
+                    supply_inventory_lot_id = table.Column<int>(type: "integer", nullable: true),
+                    item_model_id = table.Column<int>(type: "integer", nullable: false),
+                    reserved_quantity = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    received_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    expired_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("depot_closure_transfer_consumable_reservations_pkey", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_transfer_consumable_reservations_depot_closur~",
+                        column: x => x.transfer_id,
+                        principalTable: "depot_closure_transfers",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_transfer_consumable_reservations_supply_inven~",
+                        column: x => x.supply_inventory_id,
+                        principalTable: "supply_inventory",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_depot_closure_transfer_consumable_reservations_supply_inve~1",
+                        column: x => x.supply_inventory_lot_id,
+                        principalTable: "supply_inventory_lots",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "depot_supply_request_consumable_reservations",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    supply_request_id = table.Column<int>(type: "integer", nullable: false),
+                    supply_inventory_id = table.Column<int>(type: "integer", nullable: false),
+                    supply_inventory_lot_id = table.Column<int>(type: "integer", nullable: true),
+                    item_model_id = table.Column<int>(type: "integer", nullable: false),
+                    reserved_quantity = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    received_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    expired_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("depot_supply_request_consumable_reservations_pkey", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_depot_supply_request_consumable_reservations_depot_supply_r~",
+                        column: x => x.supply_request_id,
+                        principalTable: "depot_supply_requests",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_depot_supply_request_consumable_reservations_supply_invento~",
+                        column: x => x.supply_inventory_id,
+                        principalTable: "supply_inventory",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_depot_supply_request_consumable_reservations_supply_invent~1",
+                        column: x => x.supply_inventory_lot_id,
+                        principalTable: "supply_inventory_lots",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -2797,9 +2952,50 @@ namespace RESQ.Infrastructure.Migrations
                 column: "item_model_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_depot_closure_external_items_lot_id",
+                table: "depot_closure_external_items",
+                column: "lot_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_closure_external_items_reusable_item_id",
+                table: "depot_closure_external_items",
+                column: "reusable_item_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_closure_transfer_consumable_reservations_inventory_id",
+                table: "depot_closure_transfer_consumable_reservations",
+                column: "supply_inventory_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_closure_transfer_consumable_reservations_lot_id",
+                table: "depot_closure_transfer_consumable_reservations",
+                column: "supply_inventory_lot_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_closure_transfer_consumable_reservations_transfer_id",
+                table: "depot_closure_transfer_consumable_reservations",
+                column: "transfer_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_depot_closure_transfer_items_transfer_id",
                 table: "depot_closure_transfer_items",
                 column: "transfer_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_closure_transfer_reusable_items_reusable_item_id",
+                table: "depot_closure_transfer_reusable_items",
+                column: "reusable_item_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_closure_transfer_reusable_items_transfer_id",
+                table: "depot_closure_transfer_reusable_items",
+                column: "transfer_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_depot_closure_transfer_reusable_items_transfer_reusable",
+                table: "depot_closure_transfer_reusable_items",
+                columns: new[] { "transfer_id", "reusable_item_id" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "uix_depot_closure_transfers_active",
@@ -2856,6 +3052,21 @@ namespace RESQ.Infrastructure.Migrations
                 columns: new[] { "status", "next_attempt_at" });
 
             migrationBuilder.CreateIndex(
+                name: "ix_depot_supply_request_consumable_reservations_inventory_id",
+                table: "depot_supply_request_consumable_reservations",
+                column: "supply_inventory_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_supply_request_consumable_reservations_lot_id",
+                table: "depot_supply_request_consumable_reservations",
+                column: "supply_inventory_lot_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_supply_request_consumable_reservations_supply_request_id",
+                table: "depot_supply_request_consumable_reservations",
+                column: "supply_request_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_depot_supply_request_items_depot_supply_request_id",
                 table: "depot_supply_request_items",
                 column: "depot_supply_request_id");
@@ -2864,6 +3075,22 @@ namespace RESQ.Infrastructure.Migrations
                 name: "IX_depot_supply_request_items_item_model_id",
                 table: "depot_supply_request_items",
                 column: "item_model_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_supply_request_reusable_items_reusable_item_id",
+                table: "depot_supply_request_reusable_items",
+                column: "reusable_item_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_depot_supply_request_reusable_items_supply_request_id",
+                table: "depot_supply_request_reusable_items",
+                column: "supply_request_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ux_depot_supply_request_reusable_items_request_reusable",
+                table: "depot_supply_request_reusable_items",
+                columns: new[] { "supply_request_id", "reusable_item_id" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_depot_supply_requests_requested_by",
@@ -3412,7 +3639,13 @@ namespace RESQ.Infrastructure.Migrations
                 name: "depot_closure_external_items");
 
             migrationBuilder.DropTable(
+                name: "depot_closure_transfer_consumable_reservations");
+
+            migrationBuilder.DropTable(
                 name: "depot_closure_transfer_items");
+
+            migrationBuilder.DropTable(
+                name: "depot_closure_transfer_reusable_items");
 
             migrationBuilder.DropTable(
                 name: "depot_fund_transactions");
@@ -3424,7 +3657,13 @@ namespace RESQ.Infrastructure.Migrations
                 name: "depot_realtime_outbox");
 
             migrationBuilder.DropTable(
+                name: "depot_supply_request_consumable_reservations");
+
+            migrationBuilder.DropTable(
                 name: "depot_supply_request_items");
+
+            migrationBuilder.DropTable(
+                name: "depot_supply_request_reusable_items");
 
             migrationBuilder.DropTable(
                 name: "disbursement_items");

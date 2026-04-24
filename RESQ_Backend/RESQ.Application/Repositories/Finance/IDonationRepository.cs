@@ -13,8 +13,9 @@ public interface IDonationRepository
         CancellationToken cancellationToken = default);
 
     Task<DonationModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<DonationModel?> GetTrackedByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<DonationModel?> GetByOrderIdAsync(string? orderId, CancellationToken cancellationToken = default);
-    Task<List<DonationModel>> GetPendingDonationsOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default);
+    Task<List<DonationModel>> GetPendingDonationsPastDeadlineAsync(DateTime currentTimeUtc, CancellationToken cancellationToken = default);
     Task CreateAsync(DonationModel model, CancellationToken cancellationToken = default);
     Task UpdateAsync(DonationModel model, CancellationToken cancellationToken = default);
 }

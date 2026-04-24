@@ -80,7 +80,7 @@ public class UploadExternalResolutionCommandHandler(
 
         var invalidHandlingMethodRows = items
             .Where(i => !string.IsNullOrWhiteSpace(i.HandlingMethod)
-                     && !ExternalDispositionMetadata.Parse(i.HandlingMethod).HasValue)
+                        && !ExternalDispositionMetadata.Parse(i.HandlingMethod).HasValue)
             .ToList();
         if (invalidHandlingMethodRows.Count > 0)
         {
@@ -90,7 +90,7 @@ public class UploadExternalResolutionCommandHandler(
 
         var otherRowsMissingNote = items
             .Where(i => ExternalDispositionMetadata.Parse(i.HandlingMethod) == ExternalDispositionType.Other
-                     && string.IsNullOrWhiteSpace(i.Note))
+                        && string.IsNullOrWhiteSpace(i.Note))
             .ToList();
         if (otherRowsMissingNote.Count > 0)
         {
@@ -102,7 +102,8 @@ public class UploadExternalResolutionCommandHandler(
         var now = DateTime.UtcNow;
         var liquidationRevenue = items
             .Where(p => ExternalDispositionMetadata.Parse(p.HandlingMethod) == ExternalDispositionType.Liquidated
-                     && p.TotalPrice.HasValue && p.TotalPrice.Value > 0)
+                        && p.TotalPrice.HasValue
+                        && p.TotalPrice.Value > 0)
             .Sum(p => p.TotalPrice!.Value);
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -114,10 +115,13 @@ public class UploadExternalResolutionCommandHandler(
                 DepotId: depotId,
                 ClosureId: closureRecord.Id,
                 ItemModelId: p.ItemModelId,
+                LotId: p.LotId,
+                ReusableItemId: p.ReusableItemId,
                 ItemName: p.ItemName,
                 CategoryName: p.CategoryName,
                 ItemType: p.ItemType,
                 Unit: p.Unit,
+                SerialNumber: p.SerialNumber,
                 Quantity: p.Quantity,
                 UnitPrice: p.UnitPrice,
                 TotalPrice: p.TotalPrice,
@@ -126,8 +130,8 @@ public class UploadExternalResolutionCommandHandler(
                 Note: p.Note,
                 ImageUrl: p.ImageUrl,
                 ProcessedBy: request.ManagerUserId,
-                ProcessedAt: now
-            ));
+                ProcessedAt: now));
+
             await externalItemRepository.CreateBulkAsync(externalItems, cancellationToken);
 
             await inventoryRepository.ZeroOutForClosureAsync(
@@ -153,7 +157,7 @@ public class UploadExternalResolutionCommandHandler(
                     DepotFundId = depotFund.Id,
                     TransactionType = DepotFundTransactionType.LiquidationRevenue,
                     Amount = liquidationRevenue,
-                    ReferenceType = "DepotClosure",
+                    ReferenceType = DepotFundReferenceType.DepotClosure.ToString(),
                     ReferenceId = closureRecord.Id,
                     Note = $"Tiền thanh lý tài sản khi đóng kho #{depotId} - {liquidationRevenue:N0} VNĐ",
                     CreatedBy = request.ManagerUserId,
@@ -243,7 +247,7 @@ public class UploadExternalResolutionCommandHandler(
         }
 
         var duplicateUploadKeys = uploadedItems
-            .GroupBy(item => BuildInventoryRowKey(item.ItemModelId!.Value, item.ItemType, item.LotId))
+            .GroupBy(item => BuildInventoryRowKey(item.ItemModelId!.Value, item.ItemType, item.LotId, item.ReusableItemId))
             .Where(group => group.Count() > 1)
             .Select(group => string.Join(", ", group.Select(item => item.RowNumber).OrderBy(x => x)))
             .ToList();
@@ -255,12 +259,12 @@ public class UploadExternalResolutionCommandHandler(
         }
 
         var actualLookup = actualItems.ToDictionary(
-            item => BuildInventoryRowKey(item.ItemModelId, item.ItemType, item.LotId),
+            item => BuildInventoryRowKey(item.ItemModelId, item.ItemType, item.LotId, item.ReusableItemId),
             item => item,
             StringComparer.OrdinalIgnoreCase);
 
         var uploadedLookup = uploadedItems.ToDictionary(
-            item => BuildInventoryRowKey(item.ItemModelId!.Value, item.ItemType, item.LotId),
+            item => BuildInventoryRowKey(item.ItemModelId!.Value, item.ItemType, item.LotId, item.ReusableItemId),
             item => item,
             StringComparer.OrdinalIgnoreCase);
 
@@ -268,11 +272,11 @@ public class UploadExternalResolutionCommandHandler(
 
         foreach (var uploaded in uploadedItems.OrderBy(item => item.RowNumber))
         {
-            var key = BuildInventoryRowKey(uploaded.ItemModelId!.Value, uploaded.ItemType, uploaded.LotId);
+            var key = BuildInventoryRowKey(uploaded.ItemModelId!.Value, uploaded.ItemType, uploaded.LotId, uploaded.ReusableItemId);
             if (!actualLookup.TryGetValue(key, out var actual))
             {
                 issues.Add(
-                    $"dòng {uploaded.RowNumber}: không còn tồn thực tế tương ứng với ItemModelId={uploaded.ItemModelId}, LotId={(uploaded.LotId?.ToString() ?? "null")} ({uploaded.ItemName}).");
+                    $"dòng {uploaded.RowNumber}: không còn tồn thực tế tương ứng với ItemModelId={uploaded.ItemModelId}, LotId={(uploaded.LotId?.ToString() ?? "null")}, ReusableItemId={(uploaded.ReusableItemId?.ToString() ?? "null")} ({uploaded.ItemName}{(string.IsNullOrWhiteSpace(uploaded.SerialNumber) ? string.Empty : $" - serial {uploaded.SerialNumber}")}).");
                 continue;
             }
 
@@ -283,9 +287,9 @@ public class UploadExternalResolutionCommandHandler(
         }
 
         var missingActualRows = actualItems
-            .Where(item => !uploadedLookup.ContainsKey(BuildInventoryRowKey(item.ItemModelId, item.ItemType, item.LotId)))
+            .Where(item => !uploadedLookup.ContainsKey(BuildInventoryRowKey(item.ItemModelId, item.ItemType, item.LotId, item.ReusableItemId)))
             .Take(5)
-            .Select(item => $"{item.ItemName} (ItemModelId={item.ItemModelId}, LotId={item.LotId?.ToString() ?? "null"})")
+            .Select(item => $"{item.ItemName} (ItemModelId={item.ItemModelId}, LotId={item.LotId?.ToString() ?? "null"}, ReusableItemId={item.ReusableItemId?.ToString() ?? "null"}, Serial={item.SerialNumber ?? "trống"})")
             .ToList();
 
         if (missingActualRows.Count > 0)
@@ -314,13 +318,34 @@ public class UploadExternalResolutionCommandHandler(
         {
             reasons.Add("ItemType không hợp lệ");
         }
-        else if (string.Equals(item.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase) && !item.LotId.HasValue)
+        else if (string.Equals(item.ItemType, "Consumable", StringComparison.OrdinalIgnoreCase))
         {
-            reasons.Add("đồ tiêu thụ bắt buộc phải có LotId");
+            if (!item.LotId.HasValue)
+            {
+                reasons.Add("đồ tiêu thụ bắt buộc phải có LotId");
+            }
+
+            if (item.ReusableItemId.HasValue)
+            {
+                reasons.Add("đồ tiêu thụ không được có ReusableItemId");
+            }
         }
-        else if (string.Equals(item.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase) && item.LotId.HasValue)
+        else
         {
-            reasons.Add("đồ tái sử dụng không được có LotId");
+            if (item.LotId.HasValue)
+            {
+                reasons.Add("đồ tái sử dụng không được có LotId");
+            }
+
+            if (!item.ReusableItemId.HasValue || item.ReusableItemId.Value <= 0)
+            {
+                reasons.Add("đồ tái sử dụng bắt buộc phải có ReusableItemId");
+            }
+
+            if (string.IsNullOrWhiteSpace(item.SerialNumber))
+            {
+                reasons.Add("đồ tái sử dụng bắt buộc phải có SerialNumber");
+            }
         }
 
         return reasons.Count == 0
@@ -337,6 +362,7 @@ public class UploadExternalResolutionCommandHandler(
                && string.Equals(Normalize(uploaded.TargetGroup), Normalize(actual.TargetGroup), StringComparison.OrdinalIgnoreCase)
                && string.Equals(Normalize(uploaded.ItemType), Normalize(actual.ItemType), StringComparison.OrdinalIgnoreCase)
                && string.Equals(Normalize(uploaded.Unit), Normalize(actual.Unit), StringComparison.OrdinalIgnoreCase)
+               && string.Equals(Normalize(uploaded.SerialNumber), Normalize(actual.SerialNumber), StringComparison.OrdinalIgnoreCase)
                && uploaded.Quantity == actual.Quantity
                && SameDate(uploaded.ReceivedDate, actual.ReceivedDate)
                && SameDate(uploaded.ExpiredDate, actual.ExpiredDate);
@@ -373,6 +399,11 @@ public class UploadExternalResolutionCommandHandler(
             differences.Add($"Đơn vị hiện tại là '{actual.Unit}'");
         }
 
+        if (!string.Equals(Normalize(uploaded.SerialNumber), Normalize(actual.SerialNumber), StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add($"Serial hiện tại là '{actual.SerialNumber ?? "trống"}'");
+        }
+
         if (uploaded.Quantity != actual.Quantity)
         {
             differences.Add($"Số lượng hiện tại là {actual.Quantity}, file gửi {uploaded.Quantity}");
@@ -396,8 +427,8 @@ public class UploadExternalResolutionCommandHandler(
         return $"dòng {uploaded.RowNumber}: {string.Join("; ", differences)}.";
     }
 
-    private static string BuildInventoryRowKey(int itemModelId, string itemType, int? lotId)
-        => $"{itemModelId}:{itemType.Trim().ToUpperInvariant()}:{(lotId.HasValue ? lotId.Value.ToString() : "NULL")}";
+    private static string BuildInventoryRowKey(int itemModelId, string itemType, int? lotId, int? reusableItemId)
+        => $"{itemModelId}:{itemType.Trim().ToUpperInvariant()}:{(lotId.HasValue ? lotId.Value.ToString() : "NULL")}:{(reusableItemId.HasValue ? reusableItemId.Value.ToString() : "NULL")}";
 
     private static bool SameDate(DateTime? left, DateTime? right)
         => left?.Date == right?.Date;

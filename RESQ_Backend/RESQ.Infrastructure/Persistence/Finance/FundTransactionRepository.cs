@@ -66,6 +66,19 @@ public class FundTransactionRepository(IUnitOfWork unitOfWork) : IFundTransactio
         await repo.AddAsync(entity);
     }
 
+    public async Task<bool> ExistsByReferenceAsync(
+        TransactionReferenceType referenceType,
+        int referenceId,
+        CancellationToken cancellationToken = default)
+    {
+        var referenceTypeString = referenceType.ToString();
+
+        return await _unitOfWork.Set<FundTransaction>()
+            .AnyAsync(
+                x => x.ReferenceType == referenceTypeString && x.ReferenceId == referenceId,
+                cancellationToken);
+    }
+
     /// <inheritdoc/>
     public async Task<List<(DateTime Period, decimal TotalIn, decimal TotalOut)>> GetPeriodFundFlowAsync(
         int campaignId,

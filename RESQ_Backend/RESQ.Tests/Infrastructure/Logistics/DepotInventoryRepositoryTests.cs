@@ -107,7 +107,7 @@ public class DepotInventoryRepositoryTests
     }
 
     [Fact]
-    public async Task GetLotDetailedInventoryForClosureAsync_WithReusableItems_ReturnsEarliestReceivedDate()
+    public async Task GetLotDetailedInventoryForClosureAsync_WithReusableItems_ReturnsRowsPerReusableUnit()
     {
         await using var context = CreateContext();
         context.Categories.Add(new Category { Id = 1, Code = "OTHERS", Name = "Khác" });
@@ -158,11 +158,20 @@ public class DepotInventoryRepositoryTests
 
         var result = await repository.GetLotDetailedInventoryForClosureAsync(1);
 
-        var reusableRow = Assert.Single(result);
-        Assert.Equal("Reusable", reusableRow.ItemType);
-        Assert.Equal(2, reusableRow.Quantity);
-        Assert.Null(reusableRow.LotId);
-        Assert.Equal(firstReceivedAt, reusableRow.ReceivedDate);
+        Assert.Equal(2, result.Count);
+
+        var firstRow = result[0];
+        Assert.Equal("Reusable", firstRow.ItemType);
+        Assert.Equal(1, firstRow.Quantity);
+        Assert.Null(firstRow.LotId);
+        Assert.Equal(1, firstRow.ReusableItemId);
+        Assert.Equal("HEADLAMP-001", firstRow.SerialNumber);
+        Assert.Equal(firstReceivedAt, firstRow.ReceivedDate);
+
+        var secondRow = result[1];
+        Assert.Equal(2, secondRow.ReusableItemId);
+        Assert.Equal("HEADLAMP-002", secondRow.SerialNumber);
+        Assert.Equal(secondReceivedAt, secondRow.ReceivedDate);
     }
 
     private static ResQDbContext CreateContext()

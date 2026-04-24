@@ -13,8 +13,8 @@ using RESQ.Infrastructure.Persistence.Context;
 namespace RESQ.Infrastructure.Migrations
 {
     [DbContext(typeof(ResQDbContext))]
-    [Migration("20260422054032_AddNewSeeds")]
-    partial class AddNewSeeds
+    [Migration("20260424182425_AddNewSeeds1")]
+    partial class AddNewSeeds1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -54,10 +54,6 @@ namespace RESQ.Infrastructure.Migrations
                     b.Property<int?>("ClusterId")
                         .HasColumnType("integer")
                         .HasColumnName("cluster_id");
-
-                    b.Property<double?>("ConfidenceScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("confidence_score");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -118,10 +114,6 @@ namespace RESQ.Infrastructure.Migrations
                     b.Property<int?>("ClusterId")
                         .HasColumnType("integer")
                         .HasColumnName("cluster_id");
-
-                    b.Property<double?>("ConfidenceScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("confidence_score");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -188,10 +180,6 @@ namespace RESQ.Infrastructure.Migrations
                     b.Property<int?>("ClusterId")
                         .HasColumnType("integer")
                         .HasColumnName("cluster_id");
-
-                    b.Property<double?>("ConfidenceScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("confidence_score");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -275,10 +263,6 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("cluster_id");
 
-                    b.Property<double?>("ConfidenceScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("confidence_score");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -323,14 +307,14 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("adopted_at");
 
+                    b.Property<bool?>("AgreesWithRuleBase")
+                        .HasColumnType("boolean")
+                        .HasColumnName("agrees_with_rule_base");
+
                     b.Property<string>("AnalysisType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("analysis_type");
-
-                    b.Property<double?>("ConfidenceScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("confidence_score");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -362,6 +346,10 @@ namespace RESQ.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("suggested_priority");
+
+                    b.Property<double?>("SuggestedPriorityScore")
+                        .HasColumnType("double precision")
+                        .HasColumnName("suggested_priority_score");
 
                     b.Property<string>("SuggestedSeverityLevel")
                         .HasMaxLength(50)
@@ -806,6 +794,12 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_updated_at");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id")
                         .HasName("depot_funds_pkey");
 
@@ -996,6 +990,10 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("payment_method_code");
 
+                    b.Property<DateTime?>("ResponseDeadline")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("response_deadline");
+
                     b.Property<string>("Status")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -1068,6 +1066,12 @@ namespace RESQ.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("region");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
@@ -1325,6 +1329,12 @@ namespace RESQ.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("system_funds_pkey");
@@ -2428,6 +2438,10 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("item_type");
 
+                    b.Property<int?>("LotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("lot_id");
+
                     b.Property<string>("Note")
                         .HasColumnType("text")
                         .HasColumnName("note");
@@ -2448,6 +2462,15 @@ namespace RESQ.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("recipient");
+
+                    b.Property<int?>("ReusableItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("reusable_item_id");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("serial_number");
 
                     b.Property<decimal?>("TotalPrice")
                         .HasColumnType("numeric(18,2)")
@@ -2473,7 +2496,15 @@ namespace RESQ.Infrastructure.Migrations
 
                     b.HasIndex("ItemModelId");
 
-                    b.ToTable("depot_closure_external_items");
+                    b.HasIndex("LotId");
+
+                    b.HasIndex("ReusableItemId")
+                        .HasDatabaseName("ix_depot_closure_external_items_reusable_item_id");
+
+                    b.ToTable("depot_closure_external_items", t =>
+                        {
+                            t.HasCheckConstraint("CK_ClosureExternalItem_ConsumableOrReusable", "((\"item_type\" = 'Consumable' AND \"lot_id\" IS NOT NULL AND \"reusable_item_id\" IS NULL AND \"serial_number\" IS NULL) OR (\"item_type\" = 'Reusable' AND \"lot_id\" IS NULL AND \"reusable_item_id\" IS NOT NULL AND \"serial_number\" IS NOT NULL))");
+                        });
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransfer", b =>
@@ -2565,6 +2596,72 @@ namespace RESQ.Infrastructure.Migrations
                     b.ToTable("depot_closure_transfers");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransferConsumableReservation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("ExpiredDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expired_date");
+
+                    b.Property<int>("ItemModelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_model_id");
+
+                    b.Property<DateTime?>("ReceivedDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_date");
+
+                    b.Property<int>("ReservedQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("reserved_quantity");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SupplyInventoryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("supply_inventory_id");
+
+                    b.Property<int?>("SupplyInventoryLotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("supply_inventory_lot_id");
+
+                    b.Property<int>("TransferId")
+                        .HasColumnType("integer")
+                        .HasColumnName("transfer_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("depot_closure_transfer_consumable_reservations_pkey");
+
+                    b.HasIndex("SupplyInventoryId")
+                        .HasDatabaseName("ix_depot_closure_transfer_consumable_reservations_inventory_id");
+
+                    b.HasIndex("SupplyInventoryLotId")
+                        .HasDatabaseName("ix_depot_closure_transfer_consumable_reservations_lot_id");
+
+                    b.HasIndex("TransferId")
+                        .HasDatabaseName("ix_depot_closure_transfer_consumable_reservations_transfer_id");
+
+                    b.ToTable("depot_closure_transfer_consumable_reservations");
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransferItem", b =>
                 {
                     b.Property<int>("Id")
@@ -2609,6 +2706,53 @@ namespace RESQ.Infrastructure.Migrations
                         .HasDatabaseName("ix_depot_closure_transfer_items_transfer_id");
 
                     b.ToTable("depot_closure_transfer_items");
+                });
+
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransferReusableItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("ReusableItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("reusable_item_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("TransferId")
+                        .HasColumnType("integer")
+                        .HasColumnName("transfer_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("depot_closure_transfer_reusable_items_pkey");
+
+                    b.HasIndex("ReusableItemId")
+                        .HasDatabaseName("ix_depot_closure_transfer_reusable_items_reusable_item_id");
+
+                    b.HasIndex("TransferId")
+                        .HasDatabaseName("ix_depot_closure_transfer_reusable_items_transfer_id");
+
+                    b.HasIndex("TransferId", "ReusableItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_depot_closure_transfer_reusable_items_transfer_reusable");
+
+                    b.ToTable("depot_closure_transfer_reusable_items");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotManager", b =>
@@ -2775,6 +2919,72 @@ namespace RESQ.Infrastructure.Migrations
                     b.ToTable("depot_supply_requests");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequestConsumableReservation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("ExpiredDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expired_date");
+
+                    b.Property<int>("ItemModelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_model_id");
+
+                    b.Property<DateTime?>("ReceivedDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_date");
+
+                    b.Property<int>("ReservedQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("reserved_quantity");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SupplyInventoryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("supply_inventory_id");
+
+                    b.Property<int?>("SupplyInventoryLotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("supply_inventory_lot_id");
+
+                    b.Property<int>("SupplyRequestId")
+                        .HasColumnType("integer")
+                        .HasColumnName("supply_request_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("depot_supply_request_consumable_reservations_pkey");
+
+                    b.HasIndex("SupplyInventoryId")
+                        .HasDatabaseName("ix_depot_supply_request_consumable_reservations_inventory_id");
+
+                    b.HasIndex("SupplyInventoryLotId")
+                        .HasDatabaseName("ix_depot_supply_request_consumable_reservations_lot_id");
+
+                    b.HasIndex("SupplyRequestId")
+                        .HasDatabaseName("ix_depot_supply_request_consumable_reservations_supply_request_id");
+
+                    b.ToTable("depot_supply_request_consumable_reservations");
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequestItem", b =>
                 {
                     b.Property<int>("Id")
@@ -2803,6 +3013,53 @@ namespace RESQ.Infrastructure.Migrations
                     b.HasIndex("ItemModelId");
 
                     b.ToTable("depot_supply_request_items");
+                });
+
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequestReusableItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("ReusableItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("reusable_item_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SupplyRequestId")
+                        .HasColumnType("integer")
+                        .HasColumnName("supply_request_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("depot_supply_request_reusable_items_pkey");
+
+                    b.HasIndex("ReusableItemId")
+                        .HasDatabaseName("ix_depot_supply_request_reusable_items_reusable_item_id");
+
+                    b.HasIndex("SupplyRequestId")
+                        .HasDatabaseName("ix_depot_supply_request_reusable_items_supply_request_id");
+
+                    b.HasIndex("SupplyRequestId", "ReusableItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_depot_supply_request_reusable_items_request_reusable");
+
+                    b.ToTable("depot_supply_request_reusable_items");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.InventoryLog", b =>
@@ -5824,11 +6081,25 @@ namespace RESQ.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ItemModelId");
 
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.SupplyInventoryLot", "Lot")
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.ReusableItem", "ReusableItem")
+                        .WithMany()
+                        .HasForeignKey("ReusableItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Depot");
 
                     b.Navigation("DepotClosure");
 
                     b.Navigation("ItemModel");
+
+                    b.Navigation("Lot");
+
+                    b.Navigation("ReusableItem");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransfer", b =>
@@ -5842,6 +6113,33 @@ namespace RESQ.Infrastructure.Migrations
                     b.Navigation("Closure");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransferConsumableReservation", b =>
+                {
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.SupplyInventory", "SupplyInventory")
+                        .WithMany("ClosureTransferReservations")
+                        .HasForeignKey("SupplyInventoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.SupplyInventoryLot", "SupplyInventoryLot")
+                        .WithMany("ClosureTransferReservations")
+                        .HasForeignKey("SupplyInventoryLotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_depot_closure_transfer_consumable_reservations_supply_inve~1");
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransfer", "Transfer")
+                        .WithMany("ConsumableReservations")
+                        .HasForeignKey("TransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SupplyInventory");
+
+                    b.Navigation("SupplyInventoryLot");
+
+                    b.Navigation("Transfer");
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransferItem", b =>
                 {
                     b.HasOne("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransfer", "Transfer")
@@ -5849,6 +6147,25 @@ namespace RESQ.Infrastructure.Migrations
                         .HasForeignKey("TransferId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Transfer");
+                });
+
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransferReusableItem", b =>
+                {
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.ReusableItem", "ReusableItem")
+                        .WithMany("DepotClosureTransferItems")
+                        .HasForeignKey("ReusableItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransfer", "Transfer")
+                        .WithMany("ReusableItems")
+                        .HasForeignKey("TransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReusableItem");
 
                     b.Navigation("Transfer");
                 });
@@ -5895,6 +6212,33 @@ namespace RESQ.Infrastructure.Migrations
                     b.Navigation("SourceDepot");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequestConsumableReservation", b =>
+                {
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.SupplyInventory", "SupplyInventory")
+                        .WithMany("SupplyRequestReservations")
+                        .HasForeignKey("SupplyInventoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.SupplyInventoryLot", "SupplyInventoryLot")
+                        .WithMany("SupplyRequestReservations")
+                        .HasForeignKey("SupplyInventoryLotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_depot_supply_request_consumable_reservations_supply_invent~1");
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequest", "SupplyRequest")
+                        .WithMany("ConsumableReservations")
+                        .HasForeignKey("SupplyRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SupplyInventory");
+
+                    b.Navigation("SupplyInventoryLot");
+
+                    b.Navigation("SupplyRequest");
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequestItem", b =>
                 {
                     b.HasOne("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequest", "DepotSupplyRequest")
@@ -5912,6 +6256,25 @@ namespace RESQ.Infrastructure.Migrations
                     b.Navigation("DepotSupplyRequest");
 
                     b.Navigation("ItemModel");
+                });
+
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequestReusableItem", b =>
+                {
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.ReusableItem", "ReusableItem")
+                        .WithMany("SupplyRequestItems")
+                        .HasForeignKey("ReusableItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequest", "SupplyRequest")
+                        .WithMany("ReusableItems")
+                        .HasForeignKey("SupplyRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReusableItem");
+
+                    b.Navigation("SupplyRequest");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.InventoryLog", b =>
@@ -6617,12 +6980,20 @@ namespace RESQ.Infrastructure.Migrations
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotClosureTransfer", b =>
                 {
+                    b.Navigation("ConsumableReservations");
+
                     b.Navigation("Items");
+
+                    b.Navigation("ReusableItems");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.DepotSupplyRequest", b =>
                 {
+                    b.Navigation("ConsumableReservations");
+
                     b.Navigation("Items");
+
+                    b.Navigation("ReusableItems");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.ItemModel", b =>
@@ -6645,16 +7016,31 @@ namespace RESQ.Infrastructure.Migrations
                     b.Navigation("OrganizationReliefItems");
                 });
 
+            modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.ReusableItem", b =>
+                {
+                    b.Navigation("DepotClosureTransferItems");
+
+                    b.Navigation("SupplyRequestItems");
+                });
+
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.SupplyInventory", b =>
                 {
+                    b.Navigation("ClosureTransferReservations");
+
                     b.Navigation("InventoryLogs");
 
                     b.Navigation("Lots");
+
+                    b.Navigation("SupplyRequestReservations");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.SupplyInventoryLot", b =>
                 {
+                    b.Navigation("ClosureTransferReservations");
+
                     b.Navigation("InventoryLogs");
+
+                    b.Navigation("SupplyRequestReservations");
                 });
 
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.VatInvoice", b =>

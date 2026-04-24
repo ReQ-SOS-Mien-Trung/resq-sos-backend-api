@@ -12,13 +12,15 @@ public static class SystemFundMapper
             entity.Id,
             entity.Name,
             entity.Balance,
-            entity.LastUpdatedAt);
+            entity.LastUpdatedAt,
+            entity.RowVersion);
     }
 
     public static void UpdateEntity(SystemFund entity, SystemFundModel model)
     {
         entity.Balance = model.Balance;
         entity.LastUpdatedAt = model.LastUpdatedAt;
+        entity.RowVersion = model.RowVersion;
     }
 
     public static SystemFundTransactionModel ToTransactionModel(SystemFundTransaction entity)

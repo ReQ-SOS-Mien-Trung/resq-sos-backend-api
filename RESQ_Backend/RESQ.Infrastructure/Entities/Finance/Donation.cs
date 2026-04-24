@@ -59,6 +59,9 @@ public partial class Donation
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
+    [Column("response_deadline", TypeName = "timestamp with time zone")]
+    public DateTime? ResponseDeadline { get; set; }
+
     [ForeignKey("FundCampaignId")]
     [InverseProperty("Donations")]
     public virtual FundCampaign? FundCampaign { get; set; }

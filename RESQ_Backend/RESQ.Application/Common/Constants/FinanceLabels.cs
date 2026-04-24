@@ -48,8 +48,11 @@ public static class FinanceLabels
 
     public static readonly Dictionary<string, string> DepotFundReferenceTypeLabels = new()
     {
-        ["CampaignDisbursement"] = "Cấp phát từ chiến dịch",
-        ["VatInvoice"] = "Hóa đơn VAT"
+        [DepotFundReferenceType.CampaignDisbursement.ToString()] = "Cấp phát từ chiến dịch",
+        [DepotFundReferenceType.VatInvoice.ToString()] = "Hóa đơn VAT",
+        [DepotFundReferenceType.FundingRequest.ToString()] = "Yêu cầu cấp quỹ",
+        [DepotFundReferenceType.SystemFund.ToString()] = "Quỹ hệ thống",
+        [DepotFundReferenceType.DepotClosure.ToString()] = "Đóng kho"
     };
 
     public static readonly Dictionary<string, string> FundSourceTypeLabels = new()

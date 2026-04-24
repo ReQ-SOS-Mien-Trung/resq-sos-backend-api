@@ -31,6 +31,7 @@ public class FundCampaignModel
     public Guid? LastModifiedBy { get; private set; }
     public DateTime? LastModifiedAt { get; private set; }
     public bool IsDeleted { get; private set; }
+    public uint RowVersion { get; private set; }
 
     // Constructor for creating NEW campaigns
     public FundCampaignModel(string name, string region, decimal targetAmount, DateOnly startDate, DateOnly endDate, Guid createdBy)
@@ -68,7 +69,8 @@ public class FundCampaignModel
         string? suspendReason,
         Guid? createdBy, DateTime? createdAt, 
         Guid? lastModifiedBy, DateTime? lastModifiedAt, 
-        bool isDeleted)
+        bool isDeleted,
+        uint rowVersion = 0)
     {
         var model = new FundCampaignModel
         {
@@ -85,7 +87,8 @@ public class FundCampaignModel
             CreatedAt = createdAt,
             LastModifiedBy = lastModifiedBy,
             LastModifiedAt = lastModifiedAt,
-            IsDeleted = isDeleted
+            IsDeleted = isDeleted,
+            RowVersion = rowVersion
         };
         
         if (startDate.HasValue && endDate.HasValue)

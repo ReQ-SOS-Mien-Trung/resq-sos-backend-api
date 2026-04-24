@@ -5,8 +5,8 @@ namespace RESQ.Infrastructure.Entities.Logistics;
 
 /// <summary>
 /// Bản ghi kiểm toán cho từng dòng hàng tồn kho được xử lý bên ngoài khi đóng kho.
-/// Mỗi dòng tương ứng với một loại vật phẩm (item_model) mà depot manager đã xử lý
-/// và ghi nhận vào file Excel, rồi upload lên server.
+/// Mỗi dòng tương ứng với một lot consumable hoặc một reusable unit mà depot manager đã xử lý
+/// và ghi nhận vào file Excel rồi upload lên server.
 /// </summary>
 [Table("depot_closure_external_items")]
 public class DepotClosureExternalItem
@@ -15,17 +15,20 @@ public class DepotClosureExternalItem
     [Column("id")]
     public int Id { get; set; }
 
-    /// <summary>FK đến depot đang đóng.</summary>
     [Column("depot_id")]
     public int DepotId { get; set; }
 
-    /// <summary>FK đến bản ghi đóng kho (tạo sau khi upload thành công).</summary>
     [Column("closure_id")]
     public int? ClosureId { get; set; }
 
-    /// <summary>FK đến item_model - nullable nếu item không khớp model nào.</summary>
     [Column("item_model_id")]
     public int? ItemModelId { get; set; }
+
+    [Column("lot_id")]
+    public int? LotId { get; set; }
+
+    [Column("reusable_item_id")]
+    public int? ReusableItemId { get; set; }
 
     [Column("item_name")]
     [StringLength(255)]
@@ -35,7 +38,6 @@ public class DepotClosureExternalItem
     [StringLength(255)]
     public string? CategoryName { get; set; }
 
-    /// <summary>"Consumable" hoặc "Reusable".</summary>
     [Column("item_type")]
     [StringLength(50)]
     public string ItemType { get; set; } = string.Empty;
@@ -44,23 +46,23 @@ public class DepotClosureExternalItem
     [StringLength(50)]
     public string? Unit { get; set; }
 
+    [Column("serial_number")]
+    [StringLength(100)]
+    public string? SerialNumber { get; set; }
+
     [Column("quantity")]
     public int Quantity { get; set; }
 
-    /// <summary>Đơn giá vật phẩm (nếu thanh lý/bán).</summary>
     [Column("unit_price", TypeName = "numeric(18,2)")]
     public decimal? UnitPrice { get; set; }
 
-    /// <summary>Thành tiền = Số lượng × Đơn giá.</summary>
     [Column("total_price", TypeName = "numeric(18,2)")]
     public decimal? TotalPrice { get; set; }
 
-    /// <summary>Cách xử lý: Donated, Disposed, Sold, ReturnedToSupplier (hoặc nhập tay nếu có hình thức khác).</summary>
     [Column("handling_method")]
     [StringLength(100)]
     public string HandlingMethod { get; set; } = string.Empty;
 
-    /// <summary>Người / tổ chức nhận hàng (nếu có).</summary>
     [Column("recipient")]
     [StringLength(255)]
     public string? Recipient { get; set; }
@@ -68,12 +70,10 @@ public class DepotClosureExternalItem
     [Column("note")]
     public string? Note { get; set; }
 
-    /// <summary>URL ảnh bằng chứng (upload riêng, không có trong Excel).</summary>
     [Column("image_url")]
     [StringLength(2048)]
     public string? ImageUrl { get; set; }
 
-    /// <summary>Ai đã upload / xử lý bản ghi này.</summary>
     [Column("processed_by")]
     public Guid ProcessedBy { get; set; }
 
@@ -83,13 +83,18 @@ public class DepotClosureExternalItem
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Navigation properties
-    [ForeignKey("DepotId")]
+    [ForeignKey(nameof(DepotId))]
     public virtual Depot? Depot { get; set; }
 
-    [ForeignKey("ItemModelId")]
+    [ForeignKey(nameof(ItemModelId))]
     public virtual ItemModel? ItemModel { get; set; }
 
-    [ForeignKey("ClosureId")]
+    [ForeignKey(nameof(ClosureId))]
     public virtual DepotClosure? DepotClosure { get; set; }
+
+    [ForeignKey(nameof(LotId))]
+    public virtual SupplyInventoryLot? Lot { get; set; }
+
+    [ForeignKey(nameof(ReusableItemId))]
+    public virtual ReusableItem? ReusableItem { get; set; }
 }

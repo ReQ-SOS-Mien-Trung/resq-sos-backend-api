@@ -63,6 +63,8 @@ public partial class FundCampaign
     [Column("is_deleted")]
     public bool IsDeleted { get; set; } = false;
 
+    public uint RowVersion { get; set; }
+
     [ForeignKey("CreatedBy")]
     [InverseProperty("FundCampaigns")]
     public virtual User? CreatedByUser { get; set; }

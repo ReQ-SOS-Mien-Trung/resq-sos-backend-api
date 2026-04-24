@@ -50,11 +50,6 @@ public class DepotFundRepository : IDepotFundRepository
             };
 
             await _unitOfWork.GetRepository<DepotFund>().AddAsync(entity);
-            await _unitOfWork.SaveAsync();
-
-            entity = await _unitOfWork.SetTracked<DepotFund>()
-                .Include(x => x.Depot)
-                .FirstAsync(x => x.Id == entity.Id, cancellationToken);
         }
 
         var model = DepotFundMapper.ToModel(entity);
@@ -116,11 +111,6 @@ public class DepotFundRepository : IDepotFundRepository
             };
 
             await _unitOfWork.GetRepository<DepotFund>().AddAsync(entity);
-            await _unitOfWork.SaveAsync();
-
-            entity = await _unitOfWork.SetTracked<DepotFund>()
-                .Include(x => x.Depot)
-                .FirstAsync(x => x.Id == entity.Id, cancellationToken);
         }
 
         var model = DepotFundMapper.ToModel(entity);
@@ -156,13 +146,8 @@ public class DepotFundRepository : IDepotFundRepository
 
     public async Task UpdateAsync(DepotFundModel model, CancellationToken cancellationToken = default)
     {
-        var entity = await _unitOfWork.SetTracked<DepotFund>()
-            .FirstOrDefaultAsync(x => x.Id == model.Id, cancellationToken);
-
-        if (entity != null)
-        {
-            DepotFundMapper.UpdateEntity(entity, model);
-        }
+        var entity = DepotFundMapper.ToEntity(model);
+        await _unitOfWork.GetRepository<DepotFund>().UpdateAsync(entity);
     }
 
     public async Task CreateTransactionAsync(DepotFundTransactionModel transaction, CancellationToken cancellationToken = default)

@@ -12,6 +12,7 @@ public class SystemFundModel
     public string Name { get; private set; } = "Quỹ hệ thống";
     public decimal Balance { get; private set; }
     public DateTime LastUpdatedAt { get; private set; }
+    public uint RowVersion { get; private set; }
 
     private SystemFundModel() { }
 
@@ -27,14 +28,15 @@ public class SystemFundModel
     }
 
     /// <summary>Reconstitute từ DB.</summary>
-    public static SystemFundModel Reconstitute(int id, string name, decimal balance, DateTime lastUpdatedAt)
+    public static SystemFundModel Reconstitute(int id, string name, decimal balance, DateTime lastUpdatedAt, uint rowVersion = 0)
     {
         return new SystemFundModel
         {
             Id = id,
             Name = name,
             Balance = balance,
-            LastUpdatedAt = lastUpdatedAt
+            LastUpdatedAt = lastUpdatedAt,
+            RowVersion = rowVersion
         };
     }
 

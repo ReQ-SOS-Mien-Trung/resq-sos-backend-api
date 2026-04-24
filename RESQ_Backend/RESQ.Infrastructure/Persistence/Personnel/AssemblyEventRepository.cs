@@ -40,7 +40,6 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         };
 
         await _unitOfWork.GetRepository<AssemblyEvent>().AddAsync(entity);
-        await _unitOfWork.SaveAsync();
         return entity.Id;
     }
 

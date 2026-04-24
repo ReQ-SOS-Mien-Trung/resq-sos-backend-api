@@ -53,6 +53,14 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         return entity == null ? null : DonationMapper.ToModel(entity);
     }
 
+    public async Task<DonationModel?> GetTrackedByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var repo = _unitOfWork.GetRepository<Donation>();
+        var entity = await repo.GetByPropertyAsync(x => x.Id == id, tracked: true, includeProperties: "FundCampaign");
+
+        return entity == null ? null : DonationMapper.ToModel(entity);
+    }
+
     public async Task<DonationModel?> GetByOrderIdAsync(string? orderId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(orderId)) return null;
@@ -63,14 +71,16 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         return entity == null ? null : DonationMapper.ToModel(entity);
     }
 
-    public async Task<List<DonationModel>> GetPendingDonationsOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default)
+    public async Task<List<DonationModel>> GetPendingDonationsPastDeadlineAsync(DateTime currentTimeUtc, CancellationToken cancellationToken = default)
     {
-        var repo = _unitOfWork.GetRepository<Donation>();
         var pendingStatus = Status.Pending.ToString();
+        var fallbackThreshold = currentTimeUtc.AddMinutes(-RESQ.Application.Common.Constants.DonationPaymentConstants.PaymentTimeoutMinutes);
 
-        var entities = await repo.GetAllByPropertyAsync(
-            x => x.Status == pendingStatus && x.CreatedAt < threshold
-        );
+        var entities = await _unitOfWork.Set<Donation>()
+            .Where(x => x.Status == pendingStatus &&
+                        ((x.ResponseDeadline.HasValue && x.ResponseDeadline <= currentTimeUtc) ||
+                         (!x.ResponseDeadline.HasValue && x.CreatedAt <= fallbackThreshold)))
+            .ToListAsync(cancellationToken);
 
         return entities.Select(DonationMapper.ToModel).ToList();
     }

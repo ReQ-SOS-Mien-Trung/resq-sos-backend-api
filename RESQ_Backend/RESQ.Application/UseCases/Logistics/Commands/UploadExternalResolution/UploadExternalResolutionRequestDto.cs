@@ -10,19 +10,21 @@ public class UploadExternalResolutionRequestDto
     public List<ExternalResolutionItemDto> Items { get; set; } = [];
 }
 
-/// <summary>Một dòng hàng tồn kho đã xử lý, tương ứng với một row trong Excel template.</summary>
+/// <summary> Một dòng hàng tồn kho đã xử lý, tương ứng với một row trong Excel template.</summary>
 public class ExternalResolutionItemDto
 {
     /// <summary>Số thứ tự dòng.</summary>
     public int RowNumber { get; set; }
     public int? ItemModelId { get; set; }
     public int? LotId { get; set; }
+    public int? ReusableItemId { get; set; }
 
     public string ItemName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
     public string? TargetGroup { get; set; }
     public string ItemType { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
+    public string? SerialNumber { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateTime? ExpiredDate { get; set; }
     public int Quantity { get; set; }

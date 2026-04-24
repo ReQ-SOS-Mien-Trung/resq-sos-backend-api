@@ -84,7 +84,6 @@ public class OrganizationMetadataRepository(IUnitOfWork unitOfWork) : IOrganizat
         };
 
         await repo.AddAsync(organizationEntity);
-        await _unitOfWork.SaveAsync();
 
         return new OrganizationModel
         {
