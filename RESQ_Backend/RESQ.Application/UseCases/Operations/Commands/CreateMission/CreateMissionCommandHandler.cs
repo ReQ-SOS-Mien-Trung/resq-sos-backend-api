@@ -136,7 +136,6 @@ public class CreateMissionCommandHandler(
             request.ClusterId,
             activities,
             request.IgnoreMixedMissionWarning,
-            request.OverrideReason,
             cancellationToken);
 
         await ValidateReturnAssemblyPointActivitiesAsync(activities, cancellationToken);
@@ -167,7 +166,9 @@ public class CreateMissionCommandHandler(
             ? MissionManualOverrideJsonHelper.Serialize(new MissionManualOverrideInfo
             {
                 IgnoreMixedMissionWarning = true,
-                OverrideReason = request.OverrideReason?.Trim(),
+                OverrideReason = string.IsNullOrWhiteSpace(request.OverrideReason)
+                    ? null
+                    : request.OverrideReason.Trim(),
                 OverriddenBy = request.CreatedById,
                 OverriddenAt = DateTime.UtcNow
             })
@@ -412,7 +413,6 @@ public class CreateMissionCommandHandler(
         int clusterId,
         List<CreateActivityItemDto> activities,
         bool ignoreMixedMissionWarning,
-        string? overrideReason,
         CancellationToken cancellationToken)
     {
         var hasRescueBranch = activities.Any(IsRescueReliefActivity);
@@ -452,11 +452,8 @@ public class CreateMissionCommandHandler(
             {
                 throw new BadRequestException(
                     "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát nhưng backend chưa xác định rõ SOS rescue và SOS relief trong cluster. " +
-                    "Vui lòng tách mission hoặc gửi IgnoreMixedMissionWarning=true kèm OverrideReason nếu coordinator chủ động chấp nhận rủi ro.");
+                    "Vui lòng tách mission hoặc gửi IgnoreMixedMissionWarning=true nếu coordinator chủ động chấp nhận rủi ro.");
             }
-
-            if (string.IsNullOrWhiteSpace(overrideReason))
-                throw new BadRequestException("OverrideReason bắt buộc khi bỏ qua cảnh báo mixed mission.");
 
             return true;
         }
@@ -493,11 +490,6 @@ public class CreateMissionCommandHandler(
                 missingAnalysisIds));
         }
 
-        if (string.IsNullOrWhiteSpace(overrideReason))
-        {
-            throw new BadRequestException("OverrideReason bắt buộc khi bỏ qua cảnh báo mixed mission.");
-        }
-
         return true;
     }
 
@@ -530,7 +522,7 @@ public class CreateMissionCommandHandler(
         }
 
         parts.Add(
-            "Nếu coordinator vẫn muốn tiếp tục, hãy gửi IgnoreMixedMissionWarning=true kèm OverrideReason.");
+            "Nếu coordinator vẫn muốn tiếp tục, hãy gửi IgnoreMixedMissionWarning=true.");
 
         return string.Join(" ", parts);
     }

@@ -21,10 +21,6 @@ public class CreateMissionCommandValidator : AbstractValidator<CreateMissionComm
             .When(x => x.MissionType != null);
 
         RuleFor(x => x.OverrideReason)
-            .NotEmpty().WithMessage("OverrideReason không được để trống khi bỏ qua cảnh báo mixed mission")
-            .When(x => x.IgnoreMixedMissionWarning);
-
-        RuleFor(x => x.OverrideReason)
             .MaximumLength(1000).WithMessage("OverrideReason không được vượt quá 1000 ký tự")
             .When(x => x.OverrideReason != null);
 
