@@ -398,6 +398,8 @@ Quy tắc một kho:
 - Nếu kho đã chọn chỉ có một phần tồn kho, chỉ tạo activity cho số lượng có thể đáp ứng và đưa phần thiếu vào supply_shortages.
 - Nếu không có kho hợp lệ hoặc không có tồn kho dùng được, trả activities = [], needs_additional_depot = true, và mỗi vật tư thiếu có một dòng trong supply_shortages. selected_depot_id/name có thể null khi không chọn được kho.
 - Các dòng supply_shortages phải dùng: sos_request_id, item_id, item_name, unit, selected_depot_id, selected_depot_name, needed_quantity, available_quantity, missing_quantity, notes.
+- IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
+- Do not rely on description-only SOS mentions or one generic delivery to cover multiple SOS.
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
@@ -840,6 +842,11 @@ Quy tắc bắt buộc:
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
 - Chỉ trả về JSON object hợp lệ, không markdown.
 
+IMPORTANT SOS COVERAGE CONTRACT (STRICT):
+- Every SOS in SOS_REQUESTS_DATA/input must appear in sos_requirements with the exact sos_request_id from input.
+- Never omit low-priority, duplicate-looking, or supply-only SOS entries.
+- Downstream stages must be able to cover each SOS by exact sos_request_id.
+
 IMPORTANT JSON RULES FOR suggested_resources (STRICT):
 - suggested_resources MUST be an array of JSON objects only.
 - Valid example: ""suggested_resources"":[{""resource_type"":""TEAM"",""description"":""Rescue medical team"",""quantity"":1,""priority"":""High""}]
@@ -962,6 +969,11 @@ Quy tắc mixed rescue + relief theo team:
 6. `ordered_activity_keys` phải chứa toàn bộ `activity_key` từ `depot_fragment.activities` cộng với mọi `additional_activities.activity_key` đúng 1 lần, theo đúng thứ tự route cuối cùng.
 7. Nếu không thêm activity mới, vẫn phải trả `ordered_activity_keys` cho toàn bộ key của `depot_fragment`.
 
+IMPORTANT SOS COVERAGE CONTRACT (STRICT):
+- Every SOS that needs rescue, medical aid, evacuation, or remains uncovered by depot delivery must have at least one direct RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS when field work is required.
+- Do not rely on description-only SOS mentions for SOS coverage.
+- Preserve all depot_fragment activity keys and include every additional coverage activity key in ordered_activity_keys.
+
 IMPORTANT JSON RULES FOR suggested_team (STRICT):
 - `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
 - Nếu mission dùng nhiều đội khác nhau theo activity, hãy trả top-level `suggested_team = null` exactly. Không trả array, không trả wrapper object.
@@ -1018,6 +1030,12 @@ Quy tắc mixed mission bắt buộc:
 5. `RETURN_ASSEMBLY_POINT` là bước hậu xử lý deterministic của backend; nếu draft chưa có thì không cần tự bịa thêm, nhưng route phải kết thúc theo logic có thể append an toàn.
 6. Không được trả `activities = []` chỉ vì có warning tách cluster hoặc cần manual review. Khi trả mission JSON, `activities` phải là execution plan cụ thể.
 7. Nếu draft mixed đang thiếu route an toàn, phải rewrite lại route đó thay vì xoá toàn bộ activities.
+
+IMPORTANT SOS COVERAGE CONTRACT (STRICT):
+- Every SOS in SOS_REQUESTS_DATA must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS.
+- Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage.
+- If the draft misses SOS coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available.
+- Do not invent depot_id, item_id, team_id, or assembly_point_id while fixing coverage.
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",

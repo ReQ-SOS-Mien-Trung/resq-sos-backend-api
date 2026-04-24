@@ -111,6 +111,80 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void DeserializePipelineFragment_Requirements_CoercesLooseAiScalars()
+    {
+        var fragment = DeserializePipelineFragment<MissionRequirementsFragment>(
+            """
+            {
+              "suggested_mission_title": "Rescue for fracture and hypothermia",
+              "suggested_mission_type": "RESCUE",
+              "suggested_priority_score": "8.5/10",
+              "suggested_severity_level": "Severe",
+              "needs_additional_depot": "false",
+              "split_cluster_recommended": "false",
+              "suggested_resources": [
+                {
+                  "resource_type": { "value": "EQUIPMENT" },
+                  "description": ["stretcher", "thermal blanket"],
+                  "quantity": "2 items",
+                  "priority": "High"
+                }
+              ],
+              "sos_requirements": [
+                {
+                  "sos_request_id": "SOS #191",
+                  "summary": { "text": "Adult victim has fracture and hypothermia risk" },
+                  "priority": "Critical",
+                  "needs_immediate_safe_transfer": "true",
+                  "can_wait_for_combined_mission": "false",
+                  "required_supplies": [
+                    {
+                      "item_name": { "text": "thermal blanket" },
+                      "quantity": "1 bo",
+                      "unit": { "value": "bo" },
+                      "category": "medical",
+                      "notes": ["fracture", "hypothermia"]
+                    }
+                  ],
+                  "required_teams": [
+                    {
+                      "team_type": { "name": "Medical rescue" },
+                      "quantity": "one",
+                      "reason": ["fracture first aid"]
+                    }
+                  ]
+                }
+              ]
+            }
+            """);
+
+        Assert.Equal(8.5, fragment.SuggestedPriorityScore);
+        Assert.False(fragment.NeedsAdditionalDepot);
+        Assert.False(fragment.SplitClusterRecommended);
+
+        var resource = Assert.Single(fragment.SuggestedResources);
+        Assert.Equal("EQUIPMENT", resource.ResourceType);
+        Assert.Equal(2, resource.Quantity);
+
+        var requirement = Assert.Single(fragment.SosRequirements);
+        Assert.Equal(191, requirement.SosRequestId);
+        Assert.True(requirement.NeedsImmediateSafeTransfer);
+        Assert.False(requirement.CanWaitForCombinedMission);
+        Assert.Equal("Adult victim has fracture and hypothermia risk", requirement.Summary);
+
+        var supply = Assert.Single(requirement.RequiredSupplies);
+        Assert.Equal("thermal blanket", supply.ItemName);
+        Assert.Equal(1, supply.Quantity);
+        Assert.Equal("bo", supply.Unit);
+        Assert.Equal("fracture, hypothermia", supply.Notes);
+
+        var team = Assert.Single(requirement.RequiredTeams);
+        Assert.Equal("Medical rescue", team.TeamType);
+        Assert.Equal(1, team.Quantity);
+        Assert.Equal("fracture first aid", team.Reason);
+    }
+
+    [Fact]
     public void DeserializePipelineFragment_Depot_WrapsSingletonActivityAndSupplyObject()
     {
         var fragment = DeserializePipelineFragment<MissionDepotFragment>(
@@ -1047,6 +1121,92 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.True(result.NeedsManualReview);
         Assert.Contains("Kho A", result.SpecialNotes);
         Assert.Contains("Kho B", result.SpecialNotes);
+    }
+
+    [Fact]
+    public void ApplySosCoverageReview_FlagsManualReviewWhenClusterSosIsMissingDirectActivity()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto { Step = 1, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 1 }
+            ]
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "ApplySosCoverageReview",
+            result,
+            new List<SosRequestSummary>
+            {
+                new() { Id = 1 },
+                new() { Id = 2 }
+            });
+
+        Assert.True(result.NeedsManualReview);
+        Assert.Contains("SOS #2", result.SpecialNotes);
+        Assert.Contains("DELIVER_SUPPLIES/RESCUE/MEDICAL_AID/EVACUATE", result.SpecialNotes);
+    }
+
+    [Fact]
+    public void ApplySosCoverageReview_DoesNotWarnWhenEverySosHasDirectCoverageActivity()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto { Step = 1, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 1 },
+                new SuggestedActivityDto { Step = 2, ActivityType = "RESCUE", SosRequestId = 2 }
+            ]
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "ApplySosCoverageReview",
+            result,
+            new List<SosRequestSummary>
+            {
+                new() { Id = 1 },
+                new() { Id = 2 }
+            });
+
+        Assert.False(result.NeedsManualReview);
+        Assert.True(string.IsNullOrWhiteSpace(result.SpecialNotes));
+    }
+
+    [Fact]
+    public void ApplySosCoverageReview_IgnoresCollectReturnAndDescriptionOnlySosMentions()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    SosRequestId = 1,
+                    Description = "Giao vat tu cho SOS ID 1 va SOS ID 2"
+                },
+                new SuggestedActivityDto { Step = 2, ActivityType = "COLLECT_SUPPLIES", SosRequestId = 2 },
+                new SuggestedActivityDto { Step = 3, ActivityType = "RETURN_SUPPLIES", SosRequestId = 2 },
+                new SuggestedActivityDto { Step = 4, ActivityType = "RETURN_ASSEMBLY_POINT", SosRequestId = 2 }
+            ]
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "ApplySosCoverageReview",
+            result,
+            new List<SosRequestSummary>
+            {
+                new() { Id = 1 },
+                new() { Id = 2 }
+            });
+
+        Assert.True(result.NeedsManualReview);
+        Assert.Contains("SOS #2", result.SpecialNotes);
     }
 
     [Fact]

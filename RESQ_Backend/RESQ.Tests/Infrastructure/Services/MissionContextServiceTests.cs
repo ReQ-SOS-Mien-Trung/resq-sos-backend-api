@@ -48,6 +48,57 @@ public class MissionContextServiceTests
     }
 
     [Fact]
+    public void ExtractNeededSupplies_ToleratesNullGroupNeedsAndReadsIncidentVictimPayload()
+    {
+        var method = typeof(MissionContextService).GetMethod(
+            "ExtractNeededSupplies",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 362,
+                SosType = "RESCUE",
+                RawMessage = "[CUU HO] Tinh trang: Mac ket. Bi thuong: gay xuong. Ba gia Chu dang bi mat nhiet.",
+                StructuredData =
+                    """
+                    {
+                      "group_needs": null,
+                      "incident": {
+                        "additional_description": "Ba gia Chu dang bi mat nhiet. Can cuu gap!",
+                        "need_medical": true,
+                        "has_injured": true,
+                        "situation": "TRAPPED"
+                      },
+                      "victims": [
+                        {
+                          "incident_status": {
+                            "is_injured": true,
+                            "medical_issues": ["FRACTURE"],
+                            "severity": "MODERATE"
+                          },
+                          "personal_needs": {
+                            "clothing": { "needed": false },
+                            "diet": { "has_special_diet": false }
+                          }
+                        }
+                      ]
+                    }
+                    """
+            }
+        };
+
+        var needed = (HashSet<string>)method!.Invoke(null, [sosRequests])!;
+
+        Assert.Contains("MEDICINE", needed);
+        Assert.Contains("RESCUE_EQUIPMENT", needed);
+        Assert.Contains("CLOTHING", needed);
+    }
+
+    [Fact]
     public async Task PrepareContextAsync_MapsLatestAiAnalysisIntoSosSummary()
     {
         var cluster = new SosClusterModel

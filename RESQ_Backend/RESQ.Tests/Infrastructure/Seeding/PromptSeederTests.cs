@@ -63,6 +63,36 @@ public class PromptSeederTests
     }
 
     [Fact]
+    public void CreatePrompts_ActiveMissionSuggestionPrompts_ContainSosCoverageContract()
+    {
+        var prompts = SystemSeeder.CreatePrompts()
+            .Where(item => item.IsActive)
+            .ToArray();
+
+        var requirements = prompts.Single(item => item.PromptType == "MissionRequirementsAssessment");
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var team = prompts.Single(item => item.PromptType == "MissionTeamPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", requirements.SystemPrompt);
+        Assert.Contains("exact sos_request_id", requirements.SystemPrompt);
+
+        Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", depot.SystemPrompt);
+        Assert.Contains("DELIVER_SUPPLIES", depot.SystemPrompt);
+        Assert.Contains("supply_shortages", depot.SystemPrompt);
+        Assert.Contains("exact sos_request_id", depot.SystemPrompt);
+
+        Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", team.SystemPrompt);
+        Assert.Contains("RESCUE, MEDICAL_AID, or EVACUATE", team.SystemPrompt);
+        Assert.Contains("description-only SOS mentions", team.SystemPrompt);
+
+        Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", validation.SystemPrompt);
+        Assert.Contains("DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE", validation.SystemPrompt);
+        Assert.Contains("COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT", validation.SystemPrompt);
+        Assert.Contains("description-only SOS mentions", validation.SystemPrompt);
+    }
+
+    [Fact]
     public void CreatePrompts_ActiveAiPrompts_DoNotRequestDeprecatedScoreField()
     {
         var prompts = SystemSeeder.CreatePrompts()

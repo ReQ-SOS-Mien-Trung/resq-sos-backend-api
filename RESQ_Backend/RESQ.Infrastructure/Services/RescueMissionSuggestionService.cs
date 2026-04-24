@@ -42,6 +42,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private const string DefaultInventoryBackedCollectEstimatedTime = "30 phút";
     private const string TransportationInventoryCategory = "transportation";
     private const string RescueInventoryCategory = "rescue";
+    private const int MaxPeoplePerSosRequest = 50;
+    private const string SosValidationStageName = "sos_validation";
 
     private static readonly string[] OnSiteActivityTypes = ["DELIVER_SUPPLIES", "RESCUE", "MEDICAL_AID", "EVACUATE"];
     private static readonly Regex SosIdRegex = new(@"SOS\s*ID\s*(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -1354,6 +1356,42 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static bool IsOnSiteActivity(SuggestedActivityDto activity) =>
         OnSiteActivityTypes.Contains(activity.ActivityType ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsDirectSosCoverageActivity(SuggestedActivityDto activity) =>
+        activity.SosRequestId is > 0 && IsOnSiteActivity(activity);
+
+    private static void ApplySosCoverageReview(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var requiredSosIds = sosRequests
+            .Select(sos => sos.Id)
+            .Where(id => id > 0)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+        if (requiredSosIds.Count == 0)
+            return;
+
+        var coveredSosIds = result.SuggestedActivities
+            .Where(IsDirectSosCoverageActivity)
+            .Select(activity => activity.SosRequestId!.Value)
+            .ToHashSet();
+
+        var missingSosIds = requiredSosIds
+            .Where(id => !coveredSosIds.Contains(id))
+            .ToList();
+
+        if (missingSosIds.Count == 0)
+            return;
+
+        var missingLabel = string.Join(", ", missingSosIds.Select(id => $"SOS #{id}"));
+        result.NeedsManualReview = true;
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            $"Mission suggestion chưa cover đầy đủ SOS trong cluster. Thiếu activity phục vụ trực tiếp cho {missingLabel}. Mỗi SOS cần ít nhất một activity DELIVER_SUPPLIES/RESCUE/MEDICAL_AID/EVACUATE với sos_request_id tương ứng.");
+    }
 
     private static bool HasRescueBranch(IEnumerable<SuggestedActivityDto> activities) =>
         activities.Any(activity =>
@@ -3765,6 +3803,20 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     {
         var availableNearbyTeams = nearbyTeams ?? [];
 
+        var invalidSosResult = CreateInvalidSosRequestFailureResult(sosRequests);
+        if (invalidSosResult is not null)
+        {
+            _logger.LogWarning(
+                "Mission suggestion blocked by invalid SOS request. ClusterId={clusterId}, Reason={reason}",
+                clusterId,
+                invalidSosResult.ErrorMessage);
+
+            yield return Error(
+                invalidSosResult.ErrorMessage ?? "Mission suggestion SOS validation failed.",
+                invalidSosResult);
+            yield break;
+        }
+
         if (options.PromptOverride is not null
             && !IsPipelinePromptType(options.PromptOverride.PromptType))
         {
@@ -3834,6 +3886,252 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             yield return Error(failedMessage ?? "Mission suggestion pipeline failed.", failedResult);
 
         yield break;
+    }
+
+    private static RescueMissionSuggestionResult? CreateInvalidSosRequestFailureResult(
+        List<SosRequestSummary> sosRequests)
+    {
+        var validationErrors = ValidateSosRequestsForMissionSuggestion(sosRequests);
+        if (validationErrors.Count == 0)
+            return null;
+
+        var reason = string.Join("; ", validationErrors);
+        var message =
+            $"Không thể tạo gợi ý nhiệm vụ vì SOS request không hợp lệ: {reason}. Vui lòng coordinator kiểm tra/cập nhật số lượng người trước khi chạy AI suggestion.";
+        var pipelineMetadata = new MissionSuggestionPipelineMetadata
+        {
+            ExecutionMode = "pipeline",
+            PipelineStatus = "failed",
+            FinalResultSource = "failed",
+            FailedStage = SosValidationStageName,
+            FailureReason = message,
+            UsedLegacyFallback = false,
+            LegacyFallbackReason = null,
+            Stages =
+            {
+                [SosValidationStageName] = new MissionSuggestionStageSnapshot
+                {
+                    Status = "failed",
+                    Error = message
+                }
+            }
+        };
+
+        return CreateFailureResult(message, pipelineMetadata: pipelineMetadata);
+    }
+
+    private static List<string> ValidateSosRequestsForMissionSuggestion(List<SosRequestSummary> sosRequests)
+    {
+        if (sosRequests.Count == 0)
+            return ["cluster không có SOS request nào để tạo gợi ý nhiệm vụ"];
+
+        var errors = new List<string>();
+        foreach (var sos in sosRequests)
+        {
+            var error = ValidateSosRequestForMissionSuggestion(sos);
+            if (!string.IsNullOrWhiteSpace(error))
+                errors.Add($"SOS #{sos.Id} {error}");
+        }
+
+        return errors;
+    }
+
+    private static string? ValidateSosRequestForMissionSuggestion(SosRequestSummary sos)
+    {
+        if (string.IsNullOrWhiteSpace(sos.StructuredData))
+            return "thiếu structured_data để xác định số người cần hỗ trợ";
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(sos.StructuredData);
+        }
+        catch (JsonException)
+        {
+            return "có structured_data không đúng định dạng JSON";
+        }
+
+        using (document)
+        {
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return "có structured_data không phải JSON object";
+
+            if (!TryReadPeopleCount(root, out var peopleCount, out var peopleCountError))
+                return peopleCountError;
+
+            if (!TryReadArrayCount(root, "victims", out var victimsCount, out var victimsError))
+                return victimsError;
+
+            var targetVictimCount = sos.TargetVictims?.Count ?? 0;
+            var totalPeople = peopleCount?.Total ?? Math.Max(victimsCount ?? 0, targetVictimCount);
+
+            if (totalPeople <= 0)
+                return peopleCount is not null
+                    ? $"có tổng số người = {totalPeople}"
+                    : "không có people_count, victims hoặc TargetVictims để xác định ít nhất 1 người cần hỗ trợ";
+
+            if (totalPeople > MaxPeoplePerSosRequest)
+                return $"có tổng số người = {totalPeople}, vượt giới hạn tối đa {MaxPeoplePerSosRequest}";
+
+            if (peopleCount is not null && victimsCount.HasValue && victimsCount.Value > peopleCount.Total)
+            {
+                return
+                    $"có số nạn nhân chi tiết ({victimsCount.Value}) lớn hơn tổng số người ({peopleCount.Total})";
+            }
+
+            return ValidateGroupNeedCount(root, "blanket", "request_count", totalPeople)
+                   ?? ValidateGroupNeedCount(root, "clothing", "needed_people_count", totalPeople);
+        }
+    }
+
+    private static bool TryReadPeopleCount(
+        JsonElement root,
+        out MissionSuggestionPeopleCount? peopleCount,
+        out string? error)
+    {
+        peopleCount = null;
+        error = null;
+
+        if (!TryGetPeopleCountElement(root, out var peopleCountElement)
+            || peopleCountElement.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return true;
+        }
+
+        if (peopleCountElement.ValueKind != JsonValueKind.Object)
+        {
+            error = "có people_count không đúng định dạng object";
+            return false;
+        }
+
+        if (!TryReadOptionalNonNegativeInt(peopleCountElement, "adult", out var adult, out error)
+            || !TryReadOptionalNonNegativeInt(peopleCountElement, "child", out var child, out error)
+            || !TryReadOptionalNonNegativeInt(peopleCountElement, "elderly", out var elderly, out error))
+        {
+            return false;
+        }
+
+        peopleCount = new MissionSuggestionPeopleCount(adult, child, elderly);
+        return true;
+    }
+
+    private static bool TryGetPeopleCountElement(JsonElement root, out JsonElement peopleCountElement)
+    {
+        if (root.TryGetProperty("incident", out var incident)
+            && incident.ValueKind == JsonValueKind.Object
+            && incident.TryGetProperty("people_count", out peopleCountElement))
+        {
+            return true;
+        }
+
+        if (root.TryGetProperty("people_count", out peopleCountElement))
+            return true;
+
+        peopleCountElement = default;
+        return false;
+    }
+
+    private static bool TryReadArrayCount(
+        JsonElement root,
+        string propertyName,
+        out int? count,
+        out string? error)
+    {
+        count = null;
+        error = null;
+
+        if (!root.TryGetProperty(propertyName, out var arrayElement)
+            || arrayElement.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return true;
+        }
+
+        if (arrayElement.ValueKind != JsonValueKind.Array)
+        {
+            error = $"có {propertyName} không đúng định dạng danh sách";
+            return false;
+        }
+
+        count = arrayElement.GetArrayLength();
+        return true;
+    }
+
+    private static string? ValidateGroupNeedCount(
+        JsonElement root,
+        string groupName,
+        string countPropertyName,
+        int totalPeople)
+    {
+        if (!root.TryGetProperty("group_needs", out var groupNeeds)
+            || groupNeeds.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
+            || groupNeeds.ValueKind != JsonValueKind.Object
+            || !groupNeeds.TryGetProperty(groupName, out var group)
+            || group.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        var path = $"group_needs.{groupName}.{countPropertyName}";
+        if (group.ValueKind != JsonValueKind.Object)
+            return $"có group_needs.{groupName} không đúng định dạng object";
+
+        if (!group.TryGetProperty(countPropertyName, out var countElement)
+            || countElement.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        if (!TryReadInt(countElement, out var count))
+            return $"có {path} không phải số nguyên hợp lệ";
+
+        if (count < 1)
+            return $"có {path} = {count}, nhỏ hơn 1";
+
+        return count > totalPeople
+            ? $"có {path} = {count}, vượt tổng số người ({totalPeople})"
+            : null;
+    }
+
+    private static bool TryReadOptionalNonNegativeInt(
+        JsonElement parent,
+        string propertyName,
+        out int value,
+        out string? error)
+    {
+        value = 0;
+        error = null;
+
+        if (!parent.TryGetProperty(propertyName, out var element)
+            || element.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return true;
+        }
+
+        if (!TryReadInt(element, out value))
+        {
+            error = $"có people_count.{propertyName} không phải số nguyên hợp lệ";
+            return false;
+        }
+
+        if (value < 0)
+        {
+            error = $"có people_count.{propertyName} âm ({value})";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryReadInt(JsonElement element, out int value)
+    {
+        value = 0;
+        return element.ValueKind == JsonValueKind.Number && element.TryGetInt32(out value);
+    }
+
+    private sealed record MissionSuggestionPeopleCount(int Adult, int Child, int Elderly)
+    {
+        public int Total => Adult + Child + Elderly;
     }
 
     // --- Tool execution --------------------------------------------------------
