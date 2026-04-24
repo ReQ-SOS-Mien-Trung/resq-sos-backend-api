@@ -286,7 +286,7 @@ public class InitiateDepotClosureTransferCommandHandler(
                 "ClosureTransferReserved",
                 cancellationToken),
             operationalHubService.PushDepotClosureUpdateAsync(
-                new Common.Models.DepotClosureRealtimeUpdate
+                new RESQ.Application.Common.Models.DepotClosureRealtimeUpdate
                 {
                     SourceDepotId = request.DepotId,
                     TargetDepotId = targetDepotIds.Count == 1 ? targetDepotIds[0] : null,
@@ -300,7 +300,7 @@ public class InitiateDepotClosureTransferCommandHandler(
 
         realtimeTasks.AddRange(transferSummaries.Select(transferSummary =>
             operationalHubService.PushDepotClosureUpdateAsync(
-                new Common.Models.DepotClosureRealtimeUpdate
+                new RESQ.Application.Common.Models.DepotClosureRealtimeUpdate
                 {
                     SourceDepotId = request.DepotId,
                     TargetDepotId = transferSummary.TargetDepotId,

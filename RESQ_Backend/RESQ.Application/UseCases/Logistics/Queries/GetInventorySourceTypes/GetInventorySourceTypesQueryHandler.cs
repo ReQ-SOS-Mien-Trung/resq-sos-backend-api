@@ -1,5 +1,6 @@
 using MediatR;
 using RESQ.Application.Common.Models;
+using RESQ.Application.UseCases.Logistics.Common;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Queries.GetInventorySourceTypes;
@@ -8,15 +9,14 @@ public class GetInventorySourceTypesQueryHandler : IRequestHandler<GetInventoryS
 {
     public Task<List<MetadataDto>> Handle(GetInventorySourceTypesQuery request, CancellationToken cancellationToken)
     {
-        return Task.FromResult(new List<MetadataDto>
-        {
-            new() { Key = InventorySourceType.Purchase.ToString(), Value = "Mua hàng" },
-            new() { Key = InventorySourceType.Donation.ToString(), Value = "Quyên góp" },
-            new() { Key = InventorySourceType.Mission.ToString(), Value = "Nhiệm vụ" },
-            new() { Key = InventorySourceType.Adjustment.ToString(), Value = "Điều chỉnh" },
-            new() { Key = InventorySourceType.Transfer.ToString(), Value = "Chuyển kho" },
-            new() { Key = InventorySourceType.System.ToString(), Value = "Hệ thống" },
-            new() { Key = InventorySourceType.Maintenance.ToString(), Value = "Bảo trì" }
-        });
+        var result = Enum.GetValues<InventorySourceType>()
+            .Select(sourceType => new MetadataDto
+            {
+                Key = sourceType.ToString(),
+                Value = InventoryLogMetadataMappings.GetSourceTypeDisplayName(sourceType)
+            })
+            .ToList();
+
+        return Task.FromResult(result);
     }
 }
