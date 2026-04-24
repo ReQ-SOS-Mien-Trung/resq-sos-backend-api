@@ -58,11 +58,32 @@ public class CreateMissionCommandValidatorTests
         Assert.True(result.IsValid);
     }
 
+    [Fact]
+    public void Validate_Passes_WhenIgnoringMixedMissionWarningWithoutOverrideReason()
+    {
+        var result = _validator.Validate(BuildCommand(
+            ignoreMixedMissionWarning: true,
+            overrideReason: null));
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_Fails_WhenOverrideReasonExceedsMaximumLength()
+    {
+        var result = _validator.Validate(BuildCommand(overrideReason: new string('x', 1001)));
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == nameof(CreateMissionCommand.OverrideReason));
+    }
+
     private static CreateMissionCommand BuildCommand(
         int clusterId = 1,
         Guid? createdById = null,
         string? missionType = "Mixed Rescue",
-        List<CreateActivityItemDto>? activities = null)
+        List<CreateActivityItemDto>? activities = null,
+        bool ignoreMixedMissionWarning = false,
+        string? overrideReason = null)
         => new(
             clusterId,
             null,
@@ -79,5 +100,7 @@ public class CreateMissionCommandValidatorTests
                     RescueTeamId = 5
                 }
             ],
-            createdById ?? Guid.NewGuid());
+            createdById ?? Guid.NewGuid(),
+            IgnoreMixedMissionWarning: ignoreMixedMissionWarning,
+            OverrideReason: overrideReason);
 }
