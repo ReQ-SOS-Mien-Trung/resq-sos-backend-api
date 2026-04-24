@@ -13,7 +13,6 @@ namespace RESQ.Application.UseCases.Logistics.Commands.AcceptSupplyRequest;
 public class AcceptSupplyRequestCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     ISupplyRequestRepository supplyRequestRepository,
-    IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
     IFirebaseService firebaseService,
     IOperationalHubService operationalHubService,
@@ -37,20 +36,30 @@ public class AcceptSupplyRequestCommandHandler(
 
         var depotStatus = await depotRepository.GetStatusByIdAsync(managerDepotId, cancellationToken);
         if (depotStatus is DepotStatus.Unavailable or DepotStatus.Closing or DepotStatus.Closed)
-            throw new ConflictException("Kho nguồn ngưng hoạt động hoặc đã đóng. Không thể chấp nhận yêu cầu tiếp tế.");
+            throw new ConflictException("Kho nguồn ngừng hoạt động hoặc đã đóng. Không thể chấp nhận yêu cầu tiếp tế.");
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await supplyRequestRepository.ReserveItemsAsync(
-                sr.SourceDepotId, sr.Items, sr.Id, request.UserId, cancellationToken);
+                sr.SourceDepotId,
+                sr.Items,
+                sr.Id,
+                request.UserId,
+                cancellationToken);
 
-            await supplyRequestRepository.UpdateStatusAsync(sr.Id, "Accepted", "Approved", null, request.UserId, cancellationToken);
+            await supplyRequestRepository.UpdateStatusAsync(
+                sr.Id,
+                nameof(SourceDepotStatus.Accepted),
+                nameof(RequestingDepotStatus.Approved),
+                null,
+                request.UserId,
+                cancellationToken);
         });
 
         await firebaseService.SendNotificationToUserAsync(
             sr.RequestedBy,
             "Yêu cầu tiếp tế được chấp nhận",
-            $"Yêu cầu tiếp tế số {sr.Id} đã được kho nguồn chấp nhận và đang chuẩn bị hàng.",
+            $"Yêu cầu tiếp tế số {sr.Id} đã được kho nguồn chấp nhận.",
             "supply_accepted",
             cancellationToken);
 
@@ -61,11 +70,19 @@ public class AcceptSupplyRequestCommandHandler(
                 RequestingDepotId = sr.RequestingDepotId,
                 SourceDepotId = sr.SourceDepotId,
                 Action = "Accepted",
-                SourceStatus = "Accepted",
-                RequestingStatus = "Approved"
+                SourceStatus = nameof(SourceDepotStatus.Accepted),
+                RequestingStatus = nameof(RequestingDepotStatus.Approved)
             },
             cancellationToken);
 
-        return new AcceptSupplyRequestResponse { Message = $"Đã chấp nhận yêu cầu số {sr.Id}." };
+        await operationalHubService.PushDepotInventoryUpdateAsync(
+            sr.SourceDepotId,
+            "SupplyRequestAccept",
+            cancellationToken);
+
+        return new AcceptSupplyRequestResponse
+        {
+            Message = $"Đã chấp nhận yêu cầu số {sr.Id}."
+        };
     }
 }

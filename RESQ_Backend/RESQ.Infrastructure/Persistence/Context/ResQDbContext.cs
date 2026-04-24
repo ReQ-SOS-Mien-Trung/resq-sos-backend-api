@@ -36,6 +36,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<DepotClosureExternalItem> DepotClosureExternalItems { get; set; }
     public virtual DbSet<DepotClosureTransfer> DepotClosureTransfers { get; set; }
     public virtual DbSet<DepotClosureTransferItem> DepotClosureTransferItems { get; set; }
+    public virtual DbSet<DepotClosureTransferReusableItem> DepotClosureTransferReusableItems { get; set; }
+    public virtual DbSet<DepotClosureTransferConsumableReservation> DepotClosureTransferConsumableReservations { get; set; }
     public virtual DbSet<CampaignDisbursement> CampaignDisbursements { get; set; }
     public virtual DbSet<DisbursementItem> DisbursementItems { get; set; }
     public virtual DbSet<FundingRequest> FundingRequests { get; set; }
@@ -47,6 +49,8 @@ public partial class ResQDbContext : DbContext
     public virtual DbSet<SupplyInventoryLot> SupplyInventoryLots { get; set; }
     public virtual DbSet<DepotSupplyRequest> DepotSupplyRequests { get; set; }
     public virtual DbSet<DepotSupplyRequestItem> DepotSupplyRequestItems { get; set; }
+    public virtual DbSet<DepotSupplyRequestReusableItem> DepotSupplyRequestReusableItems { get; set; }
+    public virtual DbSet<DepotSupplyRequestConsumableReservation> DepotSupplyRequestConsumableReservations { get; set; }
     public virtual DbSet<SupplyRequestPriorityConfig> SupplyRequestPriorityConfigs { get; set; }
     public virtual DbSet<Donation> Donations { get; set; }
     public virtual DbSet<FundCampaign> FundCampaigns { get; set; }
@@ -365,6 +369,114 @@ public partial class ResQDbContext : DbContext
                 .WithMany(t => t.Items)
                 .HasForeignKey(e => e.TransferId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DepotClosureTransferReusableItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_closure_transfer_reusable_items_pkey");
+
+            entity.HasIndex(e => e.TransferId)
+                .HasDatabaseName("ix_depot_closure_transfer_reusable_items_transfer_id");
+
+            entity.HasIndex(e => e.ReusableItemId)
+                .HasDatabaseName("ix_depot_closure_transfer_reusable_items_reusable_item_id");
+
+            entity.HasIndex(e => new { e.TransferId, e.ReusableItemId })
+                .IsUnique()
+                .HasDatabaseName("ux_depot_closure_transfer_reusable_items_transfer_reusable");
+
+            entity.HasOne(e => e.Transfer)
+                .WithMany(t => t.ReusableItems)
+                .HasForeignKey(e => e.TransferId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ReusableItem)
+                .WithMany(r => r.DepotClosureTransferItems)
+                .HasForeignKey(e => e.ReusableItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepotClosureTransferConsumableReservation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_closure_transfer_consumable_reservations_pkey");
+
+            entity.HasIndex(e => e.TransferId)
+                .HasDatabaseName("ix_depot_closure_transfer_consumable_reservations_transfer_id");
+
+            entity.HasIndex(e => e.SupplyInventoryId)
+                .HasDatabaseName("ix_depot_closure_transfer_consumable_reservations_inventory_id");
+
+            entity.HasIndex(e => e.SupplyInventoryLotId)
+                .HasDatabaseName("ix_depot_closure_transfer_consumable_reservations_lot_id");
+
+            entity.HasOne(e => e.Transfer)
+                .WithMany(t => t.ConsumableReservations)
+                .HasForeignKey(e => e.TransferId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.SupplyInventory)
+                .WithMany(i => i.ClosureTransferReservations)
+                .HasForeignKey(e => e.SupplyInventoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SupplyInventoryLot)
+                .WithMany(l => l.ClosureTransferReservations)
+                .HasForeignKey(e => e.SupplyInventoryLotId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepotSupplyRequestReusableItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_supply_request_reusable_items_pkey");
+
+            entity.HasIndex(e => e.SupplyRequestId)
+                .HasDatabaseName("ix_depot_supply_request_reusable_items_supply_request_id");
+
+            entity.HasIndex(e => e.ReusableItemId)
+                .HasDatabaseName("ix_depot_supply_request_reusable_items_reusable_item_id");
+
+            entity.HasIndex(e => new { e.SupplyRequestId, e.ReusableItemId })
+                .IsUnique()
+                .HasDatabaseName("ux_depot_supply_request_reusable_items_request_reusable");
+
+            entity.HasOne(e => e.SupplyRequest)
+                .WithMany(r => r.ReusableItems)
+                .HasForeignKey(e => e.SupplyRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ReusableItem)
+                .WithMany(r => r.SupplyRequestItems)
+                .HasForeignKey(e => e.ReusableItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepotSupplyRequestConsumableReservation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("depot_supply_request_consumable_reservations_pkey");
+
+            entity.HasIndex(e => e.SupplyRequestId)
+                .HasDatabaseName("ix_depot_supply_request_consumable_reservations_supply_request_id");
+
+            entity.HasIndex(e => e.SupplyInventoryId)
+                .HasDatabaseName("ix_depot_supply_request_consumable_reservations_inventory_id");
+
+            entity.HasIndex(e => e.SupplyInventoryLotId)
+                .HasDatabaseName("ix_depot_supply_request_consumable_reservations_lot_id");
+
+            entity.HasOne(e => e.SupplyRequest)
+                .WithMany(r => r.ConsumableReservations)
+                .HasForeignKey(e => e.SupplyRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.SupplyInventory)
+                .WithMany(i => i.SupplyRequestReservations)
+                .HasForeignKey(e => e.SupplyInventoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SupplyInventoryLot)
+                .WithMany(l => l.SupplyRequestReservations)
+                .HasForeignKey(e => e.SupplyInventoryLotId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<SupplyRequestPriorityConfig>(entity =>

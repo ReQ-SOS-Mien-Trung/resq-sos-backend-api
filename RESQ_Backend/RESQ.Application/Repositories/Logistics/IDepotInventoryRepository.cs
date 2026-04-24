@@ -234,9 +234,23 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gọi khi kho nguồn xác nhận đang chuẩn bị hàng (Prepare step):
+    /// - Consumable: cộng TransferReservedQuantity.
+    /// - Reusable: chuyển N đơn vị từ Available → Reserved, gắn marker theo transfer.
+    /// </summary>
+    Task ReserveForClosurePreparationAsync(
+        int sourceDepotId,
+        int transferId,
+        int closureId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    /// <summary>
     /// Gọi khi kho nguồn xác nhận xuất hàng (Ship step):
-    /// - Consumable: cộng TransferReservedQuantity (giữ chỗ, giảm số lượng khả dụng hiển thị).
-    /// - Reusable: chuyển N đơn vị từ Available → InTransit, DepotId = null, ghi log TransferOut.
+    /// - Consumable: không trừ tồn, chỉ kiểm tra reservation còn hợp lệ.
+    /// - Reusable: chuyển N đơn vị từ Reserved → InTransit, DepotId = null, ghi log TransferOut.
     /// </summary>
     Task ReserveForClosureShipmentAsync(
         int sourceDepotId,
@@ -244,7 +258,22 @@ public interface IDepotInventoryRepository
         int closureId,
         Guid performedBy,
         IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    /// <summary>
+    /// Hoàn nguyên phần reservation của closure transfer khi transfer bị hủy trước khi nhận:
+    /// - Consumable: trừ TransferReservedQuantity.
+    /// - Reusable: Reserved/InTransit → Available tại kho nguồn, xóa marker theo transfer.
+    /// </summary>
+    Task ReleaseClosureReservationAsync(
+        int sourceDepotId,
+        int transferId,
+        int closureId,
+        Guid performedBy,
+        IReadOnlyCollection<DepotClosureTransferItemMoveDto> items,
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 
     /// <summary>
     /// Tra cứu userId của quản lý đang được phân công tại kho (ngược với GetActiveDepotIdByManagerAsync).
