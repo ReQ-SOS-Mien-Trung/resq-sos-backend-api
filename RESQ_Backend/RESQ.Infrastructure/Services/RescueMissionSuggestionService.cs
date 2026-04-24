@@ -34,8 +34,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private const int AgentPageSize = 10;
     private const string CollectSuppliesActivityType = "COLLECT_SUPPLIES";
+    private const string DeliverSuppliesActivityType = "DELIVER_SUPPLIES";
     private const string ReturnSuppliesActivityType = "RETURN_SUPPLIES";
     private const string ReturnAssemblyPointActivityType = "RETURN_ASSEMBLY_POINT";
+    private const string ConsumableItemType = "Consumable";
     private const string ReusableItemType = "Reusable";
     private const string SingleTeamExecutionMode = "SingleTeam";
     private const string DefaultReturnAssemblyEstimatedTime = "20 phút";
@@ -1350,6 +1352,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
     private static bool IsCollectActivity(SuggestedActivityDto activity) =>
         string.Equals(activity.ActivityType, CollectSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsDeliverActivity(SuggestedActivityDto activity) =>
+        string.Equals(activity.ActivityType, DeliverSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
+
     private static bool IsReturnActivity(SuggestedActivityDto activity) =>
         string.Equals(activity.ActivityType, ReturnSuppliesActivityType, StringComparison.OrdinalIgnoreCase);
 
@@ -1917,7 +1922,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (itemId.HasValue && itemId.Value > 0)
             return $"item:{itemId.Value}";
 
-        var normalizedName = NormalizeItemName(itemName);
+        var normalizedName = NormalizeItemName(itemName ?? string.Empty);
         return string.IsNullOrWhiteSpace(normalizedName)
             ? "item:unknown"
             : $"name:{normalizedName}";
@@ -2349,10 +2354,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             if (!previewByItem.TryGetValue(supply.ItemId!.Value, out var item))
                 continue;
 
-            if (string.IsNullOrWhiteSpace(supply.ItemName))
+            if (!string.IsNullOrWhiteSpace(item.ItemName))
                 supply.ItemName = item.ItemName;
 
-            supply.Unit ??= item.Unit;
+            if (!string.IsNullOrWhiteSpace(item.Unit))
+                supply.Unit = item.Unit;
 
             if (supply.PlannedPickupLotAllocations is not { Count: > 0 } && item.LotAllocations.Count > 0)
                 supply.PlannedPickupLotAllocations = item.LotAllocations.Select(lot => CloneLot(lot)).ToList();
@@ -2879,13 +2885,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static void BackfillItemIds(List<SuggestedActivityDto> activities, List<DepotSummary> depots)
     {
-        var itemLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var itemLookup = new Dictionary<string, DepotInventoryItemDto>(StringComparer.OrdinalIgnoreCase);
         foreach (var depot in depots)
         {
             foreach (var inventory in depot.Inventories)
             {
                 if (inventory.ItemId.HasValue && !string.IsNullOrWhiteSpace(inventory.ItemName))
-                    itemLookup.TryAdd(NormalizeItemName(inventory.ItemName), inventory.ItemId.Value);
+                    itemLookup.TryAdd(NormalizeItemName(inventory.ItemName), inventory);
             }
         }
 
@@ -2903,23 +2909,37 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     continue;
 
                 var normalized = NormalizeItemName(supply.ItemName);
-                if (itemLookup.TryGetValue(normalized, out var exactId))
+                if (itemLookup.TryGetValue(normalized, out var exactItem))
                 {
-                    supply.ItemId = exactId;
+                    ApplyDepotInventorySupplyMatch(supply, exactItem);
                     continue;
                 }
 
-                foreach (var (key, id) in itemLookup)
+                foreach (var (key, item) in itemLookup)
                 {
                     if (normalized.Contains(key, StringComparison.OrdinalIgnoreCase)
                         || key.Contains(normalized, StringComparison.OrdinalIgnoreCase))
                     {
-                        supply.ItemId = id;
+                        ApplyDepotInventorySupplyMatch(supply, item);
                         break;
                     }
                 }
             }
         }
+    }
+
+    private static void ApplyDepotInventorySupplyMatch(
+        SupplyToCollectDto supply,
+        DepotInventoryItemDto item)
+    {
+        if (item.ItemId.HasValue)
+            supply.ItemId ??= item.ItemId.Value;
+
+        if (!string.IsNullOrWhiteSpace(item.ItemName))
+            supply.ItemName = item.ItemName;
+
+        if (!string.IsNullOrWhiteSpace(item.Unit))
+            supply.Unit = item.Unit;
     }
 
     private async Task BackfillInventoryBackedItemIdsAsync(
@@ -2968,7 +2988,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             foreach (var entry in group)
             {
                 entry.Supply.ItemId ??= matchedItem.ItemId;
-                entry.Supply.Unit ??= matchedItem.Unit;
+                if (!string.IsNullOrWhiteSpace(matchedItem.ItemName))
+                    entry.Supply.ItemName = matchedItem.ItemName;
+                if (!string.IsNullOrWhiteSpace(matchedItem.Unit))
+                    entry.Supply.Unit = matchedItem.Unit;
                 entry.Activity.DepotName ??= matchedItem.DepotName;
                 entry.Activity.DepotAddress ??= matchedItem.DepotAddress;
 
@@ -2979,6 +3002,364 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     entry.Activity.DestinationLongitude ??= matchedItem.DepotLongitude;
                 }
             }
+        }
+    }
+
+    private async Task ReconcileInventoryBackedSuppliesAsync(
+        RescueMissionSuggestionResult result,
+        CancellationToken cancellationToken)
+    {
+        var entries = result.SuggestedActivities
+            .Where(activity => activity.DepotId.HasValue && activity.SuppliesToCollect is { Count: > 0 })
+            .SelectMany(activity => activity.SuppliesToCollect!
+                .Where(supply => supply.ItemId.HasValue || !string.IsNullOrWhiteSpace(supply.ItemName))
+                .Select(supply => new
+                {
+                    Activity = activity,
+                    Supply = supply,
+                    DepotId = activity.DepotId!.Value
+                }))
+            .ToList();
+
+        if (entries.Count == 0)
+            return;
+
+        var itemIds = entries
+            .Where(entry => entry.Supply.ItemId.HasValue)
+            .Select(entry => entry.Supply.ItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        Dictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup = [];
+        if (itemIds.Count > 0)
+            itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
+
+        var inventorySearchCache = new Dictionary<(int DepotId, string SearchTerm), List<AgentInventoryItem>>();
+        var warnings = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var entry in entries)
+        {
+            entry.Supply.ItemName = entry.Supply.ItemName?.Trim() ?? string.Empty;
+
+            RESQ.Domain.Entities.Logistics.ItemModelRecord? currentMetadata = null;
+            if (entry.Supply.ItemId.HasValue)
+                itemLookup.TryGetValue(entry.Supply.ItemId.Value, out currentMetadata);
+
+            var candidates = await SearchSupplyInventoryCandidatesAsync(
+                entry.DepotId,
+                BuildSupplyInventorySearchTerms(entry.Supply, currentMetadata),
+                inventorySearchCache,
+                cancellationToken);
+
+            var currentDepotMatch = entry.Supply.ItemId.HasValue
+                ? candidates.FirstOrDefault(item =>
+                    item.ItemId == entry.Supply.ItemId.Value
+                    && item.DepotId == entry.DepotId
+                    && IsSupplyInventoryCandidateAllowedForActivity(item, entry.Activity))
+                : null;
+
+            if (currentDepotMatch is not null)
+            {
+                ApplyAgentInventorySupplyMatch(entry.Activity, entry.Supply, currentDepotMatch);
+                continue;
+            }
+
+            var bestMatch = SelectBestSupplyInventoryMatch(
+                candidates,
+                entry.Activity,
+                entry.Supply,
+                currentMetadata);
+
+            if (bestMatch is not null)
+            {
+                ApplyAgentInventorySupplyMatch(entry.Activity, entry.Supply, bestMatch);
+                continue;
+            }
+
+            if (entry.Supply.ItemId.HasValue)
+            {
+                var itemLabel = string.IsNullOrWhiteSpace(entry.Supply.ItemName)
+                    ? $"item_id {entry.Supply.ItemId.Value}"
+                    : $"'{entry.Supply.ItemName}'";
+
+                warnings.Add(
+                    $"[CẦN REVIEW THỦ CÔNG] Activity step {entry.Activity.Step} ({entry.Activity.ActivityType}) dùng {itemLabel} nhưng không tìm thấy item khả dụng trong kho #{entry.DepotId}; backend đã bỏ item_id AI trả về để tránh lấy nhầm hàng.");
+                entry.Supply.ItemId = null;
+            }
+            else if (!string.IsNullOrWhiteSpace(entry.Supply.ItemName))
+            {
+                warnings.Add(
+                    $"[CẦN REVIEW THỦ CÔNG] Activity step {entry.Activity.Step} ({entry.Activity.ActivityType}) chưa map được '{entry.Supply.ItemName}' với item khả dụng trong kho #{entry.DepotId}.");
+            }
+        }
+
+        if (warnings.Count == 0)
+            return;
+
+        result.NeedsManualReview = true;
+        result.SpecialNotes = AppendSpecialNote(
+            result.SpecialNotes,
+            string.Join(Environment.NewLine, warnings));
+    }
+
+    private async Task<List<AgentInventoryItem>> SearchSupplyInventoryCandidatesAsync(
+        int depotId,
+        IReadOnlyCollection<string> searchTerms,
+        Dictionary<(int DepotId, string SearchTerm), List<AgentInventoryItem>> cache,
+        CancellationToken cancellationToken)
+    {
+        var candidates = new Dictionary<int, AgentInventoryItem>();
+
+        foreach (var term in searchTerms)
+        {
+            var normalizedTerm = NormalizeItemName(term);
+            if (string.IsNullOrWhiteSpace(normalizedTerm))
+                continue;
+
+            var key = (depotId, normalizedTerm);
+            if (!cache.TryGetValue(key, out var cachedItems))
+            {
+                var (items, _) = await _depotInventoryRepository.SearchForAgentAsync(
+                    string.Empty,
+                    term,
+                    page: 1,
+                    pageSize: AgentPageSize * 10,
+                    allowedDepotIds: [depotId],
+                    ct: cancellationToken);
+
+                cachedItems = items
+                    .Where(item => item.DepotId == depotId && item.AvailableQuantity > 0)
+                    .ToList();
+                cache[key] = cachedItems;
+            }
+
+            foreach (var item in cachedItems)
+                candidates[item.ItemId] = item;
+        }
+
+        return candidates.Values.ToList();
+    }
+
+    private static List<string> BuildSupplyInventorySearchTerms(
+        SupplyToCollectDto supply,
+        RESQ.Domain.Entities.Logistics.ItemModelRecord? currentMetadata)
+    {
+        var terms = new List<string>();
+        AddSupplyInventorySearchTerm(terms, supply.ItemName);
+        AddSupplyInventorySearchTerm(terms, currentMetadata?.Name);
+
+        var normalizedName = NormalizeItemName(supply.ItemName);
+        if (ContainsOperationalKeyword(normalizedName, "nuoc", "water"))
+            AddSupplyInventorySearchTerm(terms, "nuoc");
+        if (ContainsOperationalKeyword(normalizedName, "thuc pham", "luong thuc", "do an", "khau phan", "suat", "food"))
+            AddSupplyInventorySearchTerm(terms, "thuc pham");
+        if (ContainsOperationalKeyword(normalizedName, "sua", "milk"))
+            AddSupplyInventorySearchTerm(terms, "sua");
+        if (ContainsOperationalKeyword(normalizedName, "so cuu", "y te", "thuoc", "medical", "first aid"))
+            AddSupplyInventorySearchTerm(terms, "y te");
+        if (ContainsOperationalKeyword(normalizedName, "chan", "giu am", "blanket"))
+            AddSupplyInventorySearchTerm(terms, "chan");
+        if (ContainsOperationalKeyword(normalizedName, "pin", "sac", "power bank"))
+            AddSupplyInventorySearchTerm(terms, "pin");
+        if (ContainsOperationalKeyword(normalizedName, "xuong", "thuyen", "ca no", "cano", "boat"))
+            AddSupplyInventorySearchTerm(terms, "xuong");
+        if (ContainsOperationalKeyword(normalizedName, "ao phao", "life jacket", "lifejacket"))
+            AddSupplyInventorySearchTerm(terms, "ao phao");
+
+        return terms;
+    }
+
+    private static void AddSupplyInventorySearchTerm(List<string> terms, string? term)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return;
+
+        var normalizedTerm = NormalizeItemName(term);
+        if (string.IsNullOrWhiteSpace(normalizedTerm))
+            return;
+
+        if (terms.Any(existing => string.Equals(NormalizeItemName(existing), normalizedTerm, StringComparison.Ordinal)))
+            return;
+
+        terms.Add(term.Trim());
+    }
+
+    private static AgentInventoryItem? SelectBestSupplyInventoryMatch(
+        IEnumerable<AgentInventoryItem> candidates,
+        SuggestedActivityDto activity,
+        SupplyToCollectDto supply,
+        RESQ.Domain.Entities.Logistics.ItemModelRecord? currentMetadata)
+    {
+        return candidates
+            .Where(item => item.DepotId == activity.DepotId)
+            .Where(item => item.AvailableQuantity > 0)
+            .Where(item => IsSupplyInventoryCandidateAllowedForActivity(item, activity))
+            .OrderByDescending(item => ScoreSupplyInventoryMatch(item, activity, supply, currentMetadata))
+            .ThenByDescending(item => item.AvailableQuantity >= Math.Max(supply.Quantity, 1))
+            .ThenByDescending(item => item.AvailableQuantity)
+            .ThenByDescending(item => item.GoodAvailableCount ?? 0)
+            .ThenBy(item => item.ItemName)
+            .FirstOrDefault();
+    }
+
+    private static int ScoreSupplyInventoryMatch(
+        AgentInventoryItem item,
+        SuggestedActivityDto activity,
+        SupplyToCollectDto supply,
+        RESQ.Domain.Entities.Logistics.ItemModelRecord? currentMetadata)
+    {
+        var normalizedSupplyName = NormalizeItemName(supply.ItemName);
+        var normalizedItemName = NormalizeItemName(item.ItemName);
+        var normalizedCategoryName = NormalizeItemName(item.CategoryName);
+        var score = 0;
+
+        if (supply.ItemId == item.ItemId)
+            score += 300;
+
+        if (currentMetadata is not null)
+        {
+            if (currentMetadata.Id == item.ItemId)
+                score += 300;
+
+            var normalizedMetadataName = NormalizeItemName(currentMetadata.Name);
+            if (!string.IsNullOrWhiteSpace(normalizedMetadataName))
+            {
+                if (string.Equals(normalizedItemName, normalizedMetadataName, StringComparison.Ordinal))
+                    score += 120;
+                else if (normalizedItemName.Contains(normalizedMetadataName, StringComparison.Ordinal)
+                    || normalizedMetadataName.Contains(normalizedItemName, StringComparison.Ordinal))
+                    score += 80;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedSupplyName))
+        {
+            if (string.Equals(normalizedItemName, normalizedSupplyName, StringComparison.Ordinal))
+                score += 120;
+            else if (normalizedItemName.Contains(normalizedSupplyName, StringComparison.Ordinal)
+                || normalizedSupplyName.Contains(normalizedItemName, StringComparison.Ordinal))
+                score += 80;
+
+            foreach (var token in normalizedSupplyName.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (token.Length < 3)
+                    continue;
+
+                if (normalizedItemName.Contains(token, StringComparison.Ordinal))
+                    score += 12;
+                if (normalizedCategoryName.Contains(token, StringComparison.Ordinal))
+                    score += 8;
+            }
+        }
+
+        if (ContainsOperationalKeyword(normalizedSupplyName, "nuoc", "water")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "nuoc", "water", "do uong"))
+            score += 80;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "thuc pham", "luong thuc", "do an", "khau phan", "suat", "food")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "thuc pham", "luong thuc", "do an", "food"))
+            score += 80;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "sua", "milk")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "sua", "milk"))
+            score += 90;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "so cuu", "y te", "thuoc", "medical", "first aid")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "so cuu", "y te", "thuoc", "medical"))
+            score += 80;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "chan", "giu am", "blanket")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "chan", "giu am", "blanket"))
+            score += 80;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "pin", "sac", "power bank")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "pin", "sac", "power bank"))
+            score += 80;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "xuong", "thuyen", "ca no", "cano", "boat")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "xuong", "thuyen", "ca no", "cano", "boat"))
+            score += 100;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "ao phao", "life jacket", "lifejacket")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "ao phao", "phao", "life jacket", "lifejacket"))
+            score += 100;
+
+        if (IsDeliverActivity(activity) && string.Equals(item.ItemType, ConsumableItemType, StringComparison.OrdinalIgnoreCase))
+            score += 80;
+        if (IsReturnActivity(activity) && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase))
+            score += 100;
+        if (IsCollectActivity(activity) && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase))
+            score += ContainsOperationalKeyword(normalizedSupplyName, "xuong", "thuyen", "ca no", "cano", "boat", "phao", "cang", "day") ? 80 : 0;
+
+        return score;
+    }
+
+    private static bool IsSupplyInventoryCandidateAllowedForActivity(
+        AgentInventoryItem item,
+        SuggestedActivityDto activity)
+    {
+        if (IsDeliverActivity(activity))
+            return !string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase);
+
+        if (IsReturnActivity(activity))
+            return !string.Equals(item.ItemType, ConsumableItemType, StringComparison.OrdinalIgnoreCase);
+
+        return true;
+    }
+
+    private static void ApplyAgentInventorySupplyMatch(
+        SuggestedActivityDto activity,
+        SupplyToCollectDto supply,
+        AgentInventoryItem item)
+    {
+        supply.ItemId = item.ItemId;
+
+        if (!string.IsNullOrWhiteSpace(item.ItemName))
+            supply.ItemName = item.ItemName;
+
+        if (!string.IsNullOrWhiteSpace(item.Unit))
+            supply.Unit = item.Unit;
+
+        activity.DepotId = item.DepotId;
+
+        if (!string.IsNullOrWhiteSpace(item.DepotName))
+            activity.DepotName = item.DepotName;
+
+        if (!string.IsNullOrWhiteSpace(item.DepotAddress))
+            activity.DepotAddress = item.DepotAddress;
+
+        if (IsCollectActivity(activity) || IsReturnActivity(activity))
+        {
+            activity.DestinationName = item.DepotName;
+            activity.DestinationLatitude = item.DepotLatitude;
+            activity.DestinationLongitude = item.DepotLongitude;
+        }
+    }
+
+    private async Task CanonicalizeSupplyItemMetadataAsync(
+        List<SuggestedActivityDto> activities,
+        CancellationToken cancellationToken)
+    {
+        var supplies = activities
+            .SelectMany(activity => activity.SuppliesToCollect ?? [])
+            .Where(supply => supply.ItemId.HasValue)
+            .ToList();
+
+        if (supplies.Count == 0)
+            return;
+
+        var itemIds = supplies
+            .Select(supply => supply.ItemId!.Value)
+            .Distinct()
+            .ToList();
+        var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(itemIds, cancellationToken);
+
+        foreach (var supply in supplies)
+        {
+            if (!supply.ItemId.HasValue || !itemLookup.TryGetValue(supply.ItemId.Value, out var item))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(item.Name))
+                supply.ItemName = item.Name;
+
+            if (!string.IsNullOrWhiteSpace(item.Unit))
+                supply.Unit = item.Unit;
+
+            if (string.IsNullOrWhiteSpace(supply.ImageUrl))
+                supply.ImageUrl = item.ImageUrl;
         }
     }
 

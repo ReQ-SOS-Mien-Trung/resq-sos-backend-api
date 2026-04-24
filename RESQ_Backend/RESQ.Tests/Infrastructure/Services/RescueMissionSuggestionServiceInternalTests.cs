@@ -366,6 +366,54 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void BackfillItemIds_CanonicalizesGenericSupplyNameToInventoryName()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                Step = 1,
+                ActivityType = "COLLECT_SUPPLIES",
+                DepotId = 1,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto
+                    {
+                        ItemName = "Nuoc",
+                        Quantity = 10
+                    }
+                ]
+            }
+        };
+
+        var depots = new List<DepotSummary>
+        {
+            new()
+            {
+                Id = 1,
+                Name = "Kho A",
+                Inventories =
+                [
+                    new DepotInventoryItemDto
+                    {
+                        ItemId = 15,
+                        ItemName = "Nuoc khoang Lavie 500ml",
+                        Unit = "chai",
+                        AvailableQuantity = 100
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "BackfillItemIds", activities, depots);
+
+        var supply = Assert.Single(activities[0].SuppliesToCollect!);
+        Assert.Equal(15, supply.ItemId);
+        Assert.Equal("Nuoc khoang Lavie 500ml", supply.ItemName);
+        Assert.Equal("chai", supply.Unit);
+    }
+
+    [Fact]
     public void AssessMissionActivityRoute_AllowsCollectBeforeUrgentRescueWithoutRequiresSupplyFlag()
     {
         var team = new SuggestedTeamDto { TeamId = 21, TeamName = "Team A" };
