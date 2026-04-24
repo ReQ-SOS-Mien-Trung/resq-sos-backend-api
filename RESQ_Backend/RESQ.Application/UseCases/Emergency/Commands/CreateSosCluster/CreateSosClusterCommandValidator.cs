@@ -1,4 +1,5 @@
 using FluentValidation;
+using RESQ.Application.UseCases.Emergency.Shared;
 
 namespace RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
 
@@ -8,6 +9,8 @@ public class CreateSosClusterCommandValidator : AbstractValidator<CreateSosClust
     {
         RuleFor(x => x.SosRequestIds)
             .NotEmpty().WithMessage("Phải chọn ít nhất một SOS request để tạo cluster")
+            .Must(ids => ids.Distinct().Count() <= SosClusterCapacityLimits.MaxSosRequests)
+            .WithMessage($"Một cluster chỉ có thể chứa tối đa {SosClusterCapacityLimits.MaxSosRequests} SOS request")
             .Must(ids => ids.Distinct().Count() == ids.Count)
             .WithMessage("Danh sách SOS request không được có ID trùng lặp");
     }

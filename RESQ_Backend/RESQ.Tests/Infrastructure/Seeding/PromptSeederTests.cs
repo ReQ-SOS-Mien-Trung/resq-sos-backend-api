@@ -78,6 +78,8 @@ public class PromptSeederTests
         Assert.Contains("exact sos_request_id", requirements.SystemPrompt);
 
         Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", depot.SystemPrompt);
+        Assert.Contains("IMPORTANT ITEM TYPE CONTRACT (STRICT):", depot.SystemPrompt);
+        Assert.Contains("Never put Reusable items in DELIVER_SUPPLIES", depot.SystemPrompt);
         Assert.Contains("DELIVER_SUPPLIES", depot.SystemPrompt);
         Assert.Contains("supply_shortages", depot.SystemPrompt);
         Assert.Contains("exact sos_request_id", depot.SystemPrompt);
@@ -87,6 +89,8 @@ public class PromptSeederTests
         Assert.Contains("description-only SOS mentions", team.SystemPrompt);
 
         Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", validation.SystemPrompt);
+        Assert.Contains("IMPORTANT ITEM TYPE CONTRACT (STRICT):", validation.SystemPrompt);
+        Assert.Contains("Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES", validation.SystemPrompt);
         Assert.Contains("DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE", validation.SystemPrompt);
         Assert.Contains("COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT", validation.SystemPrompt);
         Assert.Contains("description-only SOS mentions", validation.SystemPrompt);

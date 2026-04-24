@@ -90,6 +90,7 @@ COLLECT_SUPPLIES — Di chuyển đến kho, lấy vật phẩm:
 
 DELIVER_SUPPLIES — Di chuyển đến nạn nhân, giao vật phẩm (đã lấy từ bước COLLECT trước):
   → Điền: sos_request_id (ID của SOS được giao hàng), depot_id/depot_name/depot_address của kho nguồn, supplies_to_collect (có item_id) = vật phẩm đang giao.
+  → Chỉ giao item_type = Consumable. Không đưa item_type = Reusable vào DELIVER_SUPPLIES; Reusable là đồ đội dùng ở hiện trường và phải trả kho.
   → description mẫu: ""Di chuyển đến [địa điểm nạn nhân]. Giao vật phẩm (lấy từ kho [tên]): [vật phẩm A] x[sl] [đv] cho [đối tượng].""
 
 RESCUE — Di chuyển đến hiện trường, thực hiện cứu người:
@@ -117,7 +118,8 @@ QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
 2a. Nếu COLLECT_SUPPLIES có vật phẩm reusable thì cuối kế hoạch PHẢI có RETURN_SUPPLIES tương ứng để trả đúng số vật phẩm reusable đó về đúng kho nguồn.
 2b. Mỗi cặp kho + đội phải có RETURN_SUPPLIES riêng. Không gộp nhiều kho hoặc nhiều đội vào cùng một bước trả.
 2c. Chỉ được chọn MỘT KHO cho toàn bộ mission. Nếu kho đã chọn không đủ vật phẩm thì vẫn chỉ lấy từ kho đó và báo thiếu hụt; không được chuyển sang kho thứ hai.
-3. FOOD, WATER, MEDICAL_KIT, thuốc, sữa, lương thực → PHẢI là supplies_to_collect trong COLLECT_SUPPLIES. KHÔNG vào mảng resources.
+3. FOOD, WATER, MEDICAL_KIT, thuốc, sữa, lương thực → nếu là item_type = Consumable thì PHẢI là supplies_to_collect trong COLLECT_SUPPLIES và phần giao tương ứng nằm trong DELIVER_SUPPLIES. KHÔNG vào mảng resources.
+3a. Xe, xuồng, áo phao, cáng, dây, thiết bị cứu hộ hoặc thiết bị y tế item_type = Reusable → chỉ nằm trong COLLECT_SUPPLIES và RETURN_SUPPLIES, không nằm trong DELIVER_SUPPLIES.
 4. resources[] = CHỈ ĐƯỢC CHỨA: TEAM, VEHICLE, BOAT, EQUIPMENT (công cụ/phương tiện). Tuyệt đối không có FOOD/WATER/MEDICAL_KIT trong resources.
 5. Mỗi bước mô tả ĐI ĐÂU và LÀM GÌ cụ thể.
 6. Mỗi activity phải có estimated_time theo format ""X phút"" hoặc ""Y giờ Z phút"". estimated_duration của mission phải là tổng tuần tự các activities theo cùng format.
@@ -216,9 +218,9 @@ Tổng số SOS: {{total_count}}
 QUAN TRỌNG — LÀM THEO ĐÚNG THỨ TỰ NÀY:
 1. Xác định tổng vật phẩm cần thiết từ tất cả SOS.
 2. Đối chiếu với dữ liệu kho và chọn đúng MỘT kho phù hợp nhất cho toàn mission.
-3. vật phẩm nào kho đã chọn có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES lấy từ kho đó, rồi DELIVER_SUPPLIES tương ứng.
+3. Vật phẩm nào kho đã chọn có (so_luong_kha_dung > 0) → tạo bước COLLECT_SUPPLIES lấy từ kho đó. Chỉ tạo DELIVER_SUPPLIES cho phần item_type = Consumable cần bàn giao/cấp phát cho SOS.
 4. Thêm các bước RESCUE / EVACUATE / MEDICAL_AID cho hành động cứu hộ trực tiếp.
-4a. Nếu có COLLECT_SUPPLIES chứa vật phẩm reusable, thêm RETURN_SUPPLIES ở cuối kế hoạch để trả đúng số vật phẩm reusable đó về kho nguồn.
+4a. Nếu có COLLECT_SUPPLIES chứa item_type = Reusable, thêm RETURN_SUPPLIES ở cuối kế hoạch để trả đúng số vật phẩm reusable đó về kho nguồn; không đưa Reusable vào DELIVER_SUPPLIES.
 5. Nếu kho đã chọn không đủ hoặc không có vật phẩm, đặt needs_additional_depot=true, ghi từng dòng thiếu vào supply_shortages, và tóm tắt lại trong special_notes để coordinator biết cần bổ sung thêm kho/nguồn cấp phát.
 6. resources[] = chỉ TEAM, VEHICLE, BOAT, EQUIPMENT.
 
@@ -398,7 +400,9 @@ Quy tắc một kho:
 - Nếu kho đã chọn chỉ có một phần tồn kho, chỉ tạo activity cho số lượng có thể đáp ứng và đưa phần thiếu vào supply_shortages.
 - Nếu không có kho hợp lệ hoặc không có tồn kho dùng được, trả activities = [], needs_additional_depot = true, và mỗi vật tư thiếu có một dòng trong supply_shortages. selected_depot_id/name có thể null khi không chọn được kho.
 - Các dòng supply_shortages phải dùng: sos_request_id, item_id, item_name, unit, selected_depot_id, selected_depot_name, needed_quantity, available_quantity, missing_quantity, notes.
-- IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
+- IMPORTANT ITEM TYPE CONTRACT (STRICT): use searchInventory item_type as the source of truth. DELIVER_SUPPLIES.supplies_to_collect must contain only Consumable items intended for handover/cap phat to SOS requests. Never put Reusable items in DELIVER_SUPPLIES.
+- If COLLECT_SUPPLIES contains both Consumable and Reusable items, DELIVER_SUPPLIES contains only the Consumable subset and RETURN_SUPPLIES contains the Reusable subset. If all collected items are Reusable, do not create DELIVER_SUPPLIES just to describe the team carrying equipment to the scene.
+- IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
 - Do not rely on description-only SOS mentions or one generic delivery to cover multiple SOS.
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
@@ -839,6 +843,7 @@ Quy tắc bắt buộc:
 - Với SOS rescue khẩn cấp như trên, tuyệt đối không coi là waitable.
 - Nếu `ai_analysis.has_ai_analysis = false`, hãy suy luận thận trọng từ tin nhắn/raw_message; khi cluster đang mixed rescue + relief thì nêu rõ cần manual review trong `special_notes`.
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn, vật tư trú ẩn phải nằm trong `required_supplies`, không đưa vào `suggested_resources`.
+- Put only consumable items intended for handover/cap phat into `required_supplies`. Reusable operational gear for the rescue team belongs in `required_teams`, `suggested_resources`, or `handling_reason` unless downstream inventory search maps it to a concrete Reusable item.
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
 - Chỉ trả về JSON object hợp lệ, không markdown.
 
@@ -857,7 +862,7 @@ IMPORTANT JSON RULES FOR suggested_resources (STRICT):
 - quantity must be an integer number or null (no unit text, no decimals, no words).
 - priority must be one of Critical|High|Medium|Low or null.
 - If no non-consumable resource is required, return suggested_resources as [] exactly.
-- Never put consumable supplies in suggested_resources; put them in required_supplies only.
+- Never put consumable relief supplies in suggested_resources; put them in required_supplies only. Reusable rescue/medical/field gear must not create a DELIVER_SUPPLIES branch.
 
 IMPORTANT JSON RULES FOR sos_requirements (STRICT):
 - sos_requirements MUST be an array of objects.
@@ -962,7 +967,7 @@ Schema đầu ra:
 
 Quy tắc mixed rescue + relief theo team:
 1. Nếu `requirements_fragment.split_cluster_recommended = true`, vẫn có thể trả fragment nhưng `special_notes` phải warning rõ cluster nên tách vì đang có rescue cần đưa về nơi an toàn gấp.
-2. Nếu mission mixed nhưng rescue còn chờ được, cùng một team phải hoàn tất nhánh `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` tương ứng trước khi thêm `RESCUE`, `MEDICAL_AID`, `EVACUATE`.
+2. Nếu mission mixed nhưng rescue còn chờ được, cùng một team chỉ hoàn tất nhánh `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước rescue khi đó là nhánh cấp phát `Consumable` thật sự; nếu chỉ là thiết bị `Reusable` cho đội thì route là `COLLECT_SUPPLIES -> RESCUE/MEDICAL_AID/EVACUATE`.
 3. Nếu bất kỳ SOS rescue nào có `urgent_rescue_requires_immediate_safe_transfer = true` hoặc `can_wait_for_combined_mission = false`, route của team đó phải ưu tiên `RESCUE -> EVACUATE` an toàn trước công việc không liên quan.
 4. Khi cùng một team đã bắt đầu nhánh đưa nạn nhân rời vùng nguy hiểm, không được tạo activity khiến team đó quay lại `DELIVER_SUPPLIES` cho SOS khác.
 5. Hãy giữ `coordination_group_key`/`coordination_notes` đủ rõ để backend có thể sắp route theo team.
@@ -970,7 +975,7 @@ Quy tắc mixed rescue + relief theo team:
 7. Nếu không thêm activity mới, vẫn phải trả `ordered_activity_keys` cho toàn bộ key của `depot_fragment`.
 
 IMPORTANT SOS COVERAGE CONTRACT (STRICT):
-- Every SOS that needs rescue, medical aid, evacuation, or remains uncovered by depot delivery must have at least one direct RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS when field work is required.
+- Every SOS that needs rescue, medical aid, evacuation, or field work with depot-backed Reusable gear must have at least one direct RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS when field work is required.
 - Do not rely on description-only SOS mentions for SOS coverage.
 - Preserve all depot_fragment activity keys and include every additional coverage activity key in ordered_activity_keys.
 
@@ -1023,13 +1028,16 @@ Nhiệm vụ:
 - Không tự bịa item_id, depot_id, team_id hoặc assembly_point_id.
 
 Quy tắc mixed mission bắt buộc:
-1. Nếu cùng một team đang làm mission mixed waitable, thứ tự phải là `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước rồi mới tới `RESCUE/MEDICAL_AID/EVACUATE`.
+1. Nếu cùng một team đang làm mission mixed waitable, chỉ áp thứ tự `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước `RESCUE/MEDICAL_AID/EVACUATE` cho nhánh cấp phát `Consumable` thật sự. Nếu chỉ là thiết bị `Reusable` cho đội, route là `COLLECT_SUPPLIES -> RESCUE/MEDICAL_AID/EVACUATE -> RETURN_SUPPLIES`.
 2. Nếu draft có tình huống cứu hộ xong rồi team đó còn tiếp tục `DELIVER_SUPPLIES` cho SOS khác, phải rewrite lại cho an toàn hoặc loại bỏ kế hoạch đó khỏi route của team đó.
 3. Nếu draft vẫn đang ghép rescue khẩn cấp cần đưa về nơi an toàn ngay với nhánh cứu trợ khác, phải giữ cảnh báo tách cluster trong `special_notes`.
 4. Không được tạo route khiến nạn nhân đã cứu bị chở đi khắp nơi làm nhiệm vụ cứu trợ.
 5. `RETURN_ASSEMBLY_POINT` là bước hậu xử lý deterministic của backend; nếu draft chưa có thì không cần tự bịa thêm, nhưng route phải kết thúc theo logic có thể append an toàn.
 6. Không được trả `activities = []` chỉ vì có warning tách cluster hoặc cần manual review. Khi trả mission JSON, `activities` phải là execution plan cụ thể.
 7. Nếu draft mixed đang thiếu route an toàn, phải rewrite lại route đó thay vì xoá toàn bộ activities.
+
+IMPORTANT ITEM TYPE CONTRACT (STRICT):
+- DELIVER_SUPPLIES may include only Consumable supplies intended for handover/cap phat to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered.
 
 IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 - Every SOS in SOS_REQUESTS_DATA must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS.
