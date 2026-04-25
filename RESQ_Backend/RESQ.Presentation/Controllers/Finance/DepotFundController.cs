@@ -15,6 +15,7 @@ using RESQ.Application.UseCases.Finance.Queries.GetFundTransactionsByFundId;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotAdvanceTransactions;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFund;
 using RESQ.Application.UseCases.Finance.Queries.GetMyDepotFundTransactions;
+using RESQ.Application.UseCases.Finance.Queries.GetDepotFundMultiLineChart;
 using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
 
@@ -270,6 +271,30 @@ public class DepotFundController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(
             new RESQ.Application.UseCases.Finance.Queries.GetDepotFundMovementChart.GetDepotFundMovementChartQuery
+            {
+                DepotId = depotId,
+                From    = from,
+                To      = to
+            }, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [Admin] Biểu đồ biến động quỹ kho multi-line – mỗi quỹ kho trong depot là một đường line.
+    /// Dùng cho admin xem tổng quan biến động tất cả quỹ của một kho.
+    /// </summary>
+    [HttpGet("{depotId}/chart/fund-movement/multi-line")]
+    [Authorize(Policy = PermissionConstants.SystemConfigManage)]
+    [ProducesResponseType(typeof(DepotFundMultiLineChartDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetFundMovementMultiLineChart(
+        int depotId,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to   = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(
+            new GetDepotFundMultiLineChartQuery
             {
                 DepotId = depotId,
                 From    = from,

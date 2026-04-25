@@ -120,7 +120,8 @@ public class ResolveDepotClosureCommandHandler(
         }
 
         var consumableVolume = await depotRepository.GetConsumableTransferVolumeAsync(request.DepotId, cancellationToken);
-        var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization;
+        var (pendingInboundVolume, _) = await depotRepository.GetPendingInboundLoadAsync(targetDepot.Id, cancellationToken);
+        var availableVolumeCapacity = targetDepot.Capacity - targetDepot.CurrentUtilization - pendingInboundVolume;
         if (consumableVolume > availableVolumeCapacity)
         {
             throw new ConflictException(

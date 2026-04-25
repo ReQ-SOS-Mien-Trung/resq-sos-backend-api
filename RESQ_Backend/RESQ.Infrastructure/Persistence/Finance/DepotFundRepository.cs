@@ -555,4 +555,116 @@ public class DepotFundRepository : IDepotFundRepository
 
         return result;
     }
+
+    /// <inheritdoc/>
+    public async Task<List<PerFundMovementSeries>> GetDailyFundMovementPerFundAsync(
+        int depotId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        static bool IsFundIn(string type) =>
+            DepotFundTransactionTypeAlias.TryParse(type, out var t) &&
+            t is DepotFundTransactionType.Allocation
+              or DepotFundTransactionType.Refund
+              or DepotFundTransactionType.LiquidationRevenue
+              or DepotFundTransactionType.PersonalAdvance
+              or DepotFundTransactionType.AdvanceRepayment;
+
+        static bool IsFundOut(string type) =>
+            DepotFundTransactionTypeAlias.TryParse(type, out var t) &&
+            t is DepotFundTransactionType.Deduction
+              or DepotFundTransactionType.ClosureFundReturn;
+
+        // Load all depot funds for this depot
+        var funds = await _unitOfWork.Set<DepotFund>()
+            .Where(f => f.DepotId == depotId)
+            .Select(f => new { f.Id, f.Balance, f.FundSourceType, f.FundSourceId })
+            .ToListAsync(cancellationToken);
+
+        if (funds.Count == 0) return [];
+
+        var fundIds = funds.Select(f => f.Id).ToList();
+
+        // Load transactions for all funds of this depot
+        var query = _unitOfWork.Set<DepotFundTransaction>()
+            .Where(x => fundIds.Contains(x.DepotFundId));
+
+        if (fromUtc.HasValue)
+            query = query.Where(x => x.CreatedAt >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(x => x.CreatedAt <= toUtc.Value);
+
+        var rawRows = (await query
+            .Select(x => new
+            {
+                x.DepotFundId,
+                x.CreatedAt,
+                x.TransactionType,
+                Amount = Math.Abs(x.Amount)
+            })
+            .ToListAsync(cancellationToken))
+            .Select(x => new
+            {
+                x.DepotFundId,
+                Date = DateOnly.FromDateTime(x.CreatedAt),
+                x.TransactionType,
+                x.Amount
+            })
+            .ToList();
+
+        // Populate source names
+        var fundModels = funds.Select(f => DepotFundMapper.ToModel(new DepotFund
+        {
+            Id = f.Id,
+            DepotId = depotId,
+            Balance = f.Balance,
+            FundSourceType = f.FundSourceType,
+            FundSourceId = f.FundSourceId,
+            LastUpdatedAt = DateTime.UtcNow
+        })).ToList();
+        await PopulateFundSourceNamesAsync(fundModels, cancellationToken);
+        var fundNameMap = fundModels.ToDictionary(m => m.Id, m => m.FundSourceName ?? "Quỹ kho");
+        var fundBalanceMap = fundModels.ToDictionary(m => m.Id, m => m.Balance);
+
+        var effectiveFrom = fromUtc.HasValue ? DateOnly.FromDateTime(fromUtc.Value)
+            : (rawRows.Count > 0 ? rawRows.Min(x => x.Date) : DateOnly.FromDateTime(DateTime.UtcNow));
+        var effectiveTo = toUtc.HasValue ? DateOnly.FromDateTime(toUtc.Value)
+            : (rawRows.Count > 0 ? rawRows.Max(x => x.Date) : DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var result = new List<PerFundMovementSeries>();
+
+        foreach (var fund in funds)
+        {
+            var fundRows = rawRows.Where(r => r.DepotFundId == fund.Id).ToList();
+            var grouped = fundRows.GroupBy(r => r.Date).ToDictionary(g => g.Key, g => g.ToList());
+
+            var dataPoints = new List<FundMovementDataPoint>();
+            for (var d = effectiveFrom; d <= effectiveTo; d = d.AddDays(1))
+            {
+                var point = new FundMovementDataPoint { Date = d };
+                if (grouped.TryGetValue(d, out var rows))
+                {
+                    foreach (var r in rows)
+                    {
+                        if (IsFundIn(r.TransactionType))
+                            point.TotalIn += r.Amount;
+                        else if (IsFundOut(r.TransactionType))
+                            point.TotalOut += r.Amount;
+                    }
+                }
+                dataPoints.Add(point);
+            }
+
+            result.Add(new PerFundMovementSeries
+            {
+                FundId = fund.Id,
+                FundSourceName = fundNameMap.TryGetValue(fund.Id, out var name) ? name : "Quỹ kho",
+                CurrentBalance = fundBalanceMap.TryGetValue(fund.Id, out var bal) ? bal : 0m,
+                DataPoints = dataPoints
+            });
+        }
+
+        return result;
+    }
 }

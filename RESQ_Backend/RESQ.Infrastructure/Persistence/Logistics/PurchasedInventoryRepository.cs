@@ -217,7 +217,6 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         var lotEntities = new List<SupplyInventoryLot>();
         var logEntities = new List<InventoryLog>();
         var vatInvoiceItemEntities = new List<VatInvoiceItem>();
-        var reusableImportLogsByInvoiceAndItemModel = new Dictionary<(int VatInvoiceId, int ItemModelId), InventoryLog>();
 
         foreach (var (model, unitPrice, itemType) in items)
         {
@@ -300,32 +299,24 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                     UpdatedAt = DateTime.UtcNow
                 };
                 reusableEntities.Add(reusableEntity);
-            }
 
-            var reusableLogKey = (model.VatInvoiceId, model.ItemModelId);
-            if (!reusableImportLogsByInvoiceAndItemModel.TryGetValue(reusableLogKey, out var reusableImportLog))
-            {
-                reusableImportLog = new InventoryLog
+                logEntities.Add(new InventoryLog
                 {
                     SupplyInventory = inventory,
+                    ReusableItem = reusableEntity,
                     ItemModelId = model.ItemModelId,
                     VatInvoiceId = model.VatInvoiceId,
                     ActionType = InventoryActionType.Import.ToString(),
                     SourceType = InventorySourceType.Purchase.ToString(),
-                    QuantityChange = 0,
+                    QuantityChange = 1,
                     SourceId = null,
                     PerformedBy = model.ReceivedBy,
                     Note = model.Notes,
                     ReceivedDate = model.ReceivedDate,
                     ExpiredDate = null,
                     CreatedAt = batchLoggedAt
-                };
-
-                reusableImportLogsByInvoiceAndItemModel[reusableLogKey] = reusableImportLog;
-                logEntities.Add(reusableImportLog);
+                });
             }
-
-            reusableImportLog.QuantityChange = (reusableImportLog.QuantityChange ?? 0) + model.Quantity;
         }
 
         if (vatInvoiceItemEntities.Count > 0)

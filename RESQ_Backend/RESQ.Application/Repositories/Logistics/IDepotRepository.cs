@@ -101,6 +101,12 @@ namespace RESQ.Application.Repositories.Logistics
         Task<List<ClosureInventoryItemDto>> GetDetailedInventoryForClosureAsync(int depotId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Lấy chi tiết tồn kho theo từng lô consumable và từng unit reusable cho màn hình chi tiết đóng kho.
+        /// </summary>
+        Task<List<ClosureInventoryItemDto>> GetInventoryRowsForClosureDetailAsync(int depotId, CancellationToken cancellationToken = default)
+            => GetDetailedInventoryForClosureAsync(depotId, cancellationToken);
+
+        /// <summary>
         /// Lấy chi tiết tồn kho THEO TỪNG LÔ (consumable = per-lot, reusable = grouped).
         /// Dùng cho file Excel template xử lý bên ngoài để chia vật phẩm theo lô.
         /// </summary>

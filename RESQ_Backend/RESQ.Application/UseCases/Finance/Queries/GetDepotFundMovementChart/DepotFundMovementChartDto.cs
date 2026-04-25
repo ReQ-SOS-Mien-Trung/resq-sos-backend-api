@@ -26,3 +26,14 @@ public class DepotFundMovementChartDto
     public DateTime? To { get; set; }
     public List<FundMovementDataPoint> DataPoints { get; set; } = [];
 }
+
+/// <summary>
+/// Dữ liệu biến động một quỹ kho theo ngày (dùng cho multi-line chart).
+/// </summary>
+public class PerFundMovementSeries
+{
+    public int FundId { get; set; }
+    public string FundSourceName { get; set; } = string.Empty;
+    public decimal CurrentBalance { get; set; }
+    public List<FundMovementDataPoint> DataPoints { get; set; } = [];
+}

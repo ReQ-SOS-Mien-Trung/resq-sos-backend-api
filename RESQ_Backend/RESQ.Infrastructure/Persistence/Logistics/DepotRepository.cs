@@ -510,6 +510,63 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
         return [.. consumables, .. reusables];
     }
 
+    public async Task<List<ClosureInventoryItemDto>> GetInventoryRowsForClosureDetailAsync(
+        int depotId, CancellationToken cancellationToken = default)
+    {
+        var consumableLots = await _unitOfWork.Set<SupplyInventoryLot>()
+            .Where(lot => lot.SupplyInventory.DepotId == depotId && lot.RemainingQuantity > 0)
+            .Include(lot => lot.SupplyInventory)
+                .ThenInclude(inv => inv.ItemModel!)
+                    .ThenInclude(im => im.Category)
+            .Select(lot => new ClosureInventoryItemDto
+            {
+                ItemModelId = lot.SupplyInventory.ItemModelId ?? 0,
+                LotId = lot.Id,
+                ReusableItemId = null,
+                ItemName = lot.SupplyInventory.ItemModel!.Name ?? "N/A",
+                CategoryName = lot.SupplyInventory.ItemModel!.Category!.Name ?? "N/A",
+                ItemType = "Consumable",
+                Unit = lot.SupplyInventory.ItemModel!.Unit ?? "N/A",
+                SerialNumber = null,
+                Quantity = lot.RemainingQuantity,
+                TransferableQuantity = lot.RemainingQuantity,
+                BlockedQuantity = 0,
+                VolumePerUnit = lot.SupplyInventory.ItemModel!.VolumePerUnit,
+                WeightPerUnit = lot.SupplyInventory.ItemModel!.WeightPerUnit
+            })
+            .ToListAsync(cancellationToken);
+
+        var reusableItems = await _unitOfWork.Set<ReusableItem>()
+            .Where(ri => ri.DepotId == depotId && ri.Status != "Decommissioned")
+            .Include(ri => ri.ItemModel!)
+                .ThenInclude(im => im.Category)
+            .Select(ri => new ClosureInventoryItemDto
+            {
+                ItemModelId = ri.ItemModelId ?? 0,
+                LotId = null,
+                ReusableItemId = ri.Id,
+                ItemName = ri.ItemModel!.Name ?? "N/A",
+                CategoryName = ri.ItemModel!.Category!.Name ?? "N/A",
+                ItemType = "Reusable",
+                Unit = ri.ItemModel!.Unit ?? "N/A",
+                SerialNumber = ri.SerialNumber,
+                Quantity = 1,
+                TransferableQuantity = ri.Status == "Available" ? 1 : 0,
+                BlockedQuantity = ri.Status == "Available" ? 0 : 1,
+                VolumePerUnit = ri.ItemModel!.VolumePerUnit,
+                WeightPerUnit = ri.ItemModel!.WeightPerUnit
+            })
+            .ToListAsync(cancellationToken);
+
+        return [.. consumableLots
+            .OrderBy(x => x.ItemName)
+            .ThenBy(x => x.LotId),
+            .. reusableItems
+            .OrderBy(x => x.ItemName)
+            .ThenBy(x => x.SerialNumber)
+            .ThenBy(x => x.ReusableItemId)];
+    }
+
     public async Task<List<ManagedDepotDto>> GetManagedDepotsByUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         // Step 1: Lấy danh sách DepotId distinct mà user đang active (UnassignedAt IS NULL).

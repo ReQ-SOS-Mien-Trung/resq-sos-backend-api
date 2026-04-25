@@ -24,11 +24,24 @@ public class GetClosureTransferSuggestionsHandler : IRequestHandler<GetClosureTr
         var inventoryItems = await _depotRepository.GetDetailedInventoryForClosureAsync(request.DepotId, cancellationToken);
         var availableDepots = (await _depotRepository.GetAvailableDepotsAsync(cancellationToken)).ToList();
 
-        var targetDepots = availableDepots
-            .Where(d => d.Id != request.DepotId)
-            .Select(d => BuildCandidateDepotState(sourceDepot, d))
-            .Where(d => d.InitialRemainingVolume > 0 && d.InitialRemainingWeight > 0)
-            .ToList();
+        var targetDepots = new List<CandidateDepotState>();
+        foreach (var targetDepot in availableDepots.Where(d => d.Id != request.DepotId))
+        {
+            var (pendingInboundVolume, pendingInboundWeight) = await _depotRepository.GetPendingInboundLoadAsync(
+                targetDepot.Id,
+                cancellationToken);
+
+            var targetState = BuildCandidateDepotState(
+                sourceDepot,
+                targetDepot,
+                pendingInboundVolume,
+                pendingInboundWeight);
+
+            if (targetState.InitialRemainingVolume > 0 && targetState.InitialRemainingWeight > 0)
+            {
+                targetDepots.Add(targetState);
+            }
+        }
 
         var transferableItems = inventoryItems
             .Where(x => x.TransferableQuantity > 0)
@@ -200,7 +213,11 @@ public class GetClosureTransferSuggestionsHandler : IRequestHandler<GetClosureTr
             fitQuantity * weightPerUnit);
     }
 
-    private static CandidateDepotState BuildCandidateDepotState(DepotModel sourceDepot, DepotModel targetDepot)
+    private static CandidateDepotState BuildCandidateDepotState(
+        DepotModel sourceDepot,
+        DepotModel targetDepot,
+        decimal pendingInboundVolume,
+        decimal pendingInboundWeight)
     {
         double? distanceKm = null;
         if (sourceDepot.Location != null && targetDepot.Location != null)
@@ -214,8 +231,8 @@ public class GetClosureTransferSuggestionsHandler : IRequestHandler<GetClosureTr
                 2);
         }
 
-        var remainingVolume = Math.Max(0m, targetDepot.Capacity - targetDepot.CurrentUtilization);
-        var remainingWeight = Math.Max(0m, targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization);
+        var remainingVolume = Math.Max(0m, targetDepot.Capacity - targetDepot.CurrentUtilization - pendingInboundVolume);
+        var remainingWeight = Math.Max(0m, targetDepot.WeightCapacity - targetDepot.CurrentWeightUtilization - pendingInboundWeight);
 
         return new CandidateDepotState(
             targetDepot.Id,

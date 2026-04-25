@@ -76,4 +76,14 @@ public interface IDepotFundRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy dữ liệu biến động quỹ kho theo từng quỹ (multi-line chart) – mỗi fund = một series.
+    /// from/to null = không lọc thời gian.
+    /// </summary>
+    Task<List<PerFundMovementSeries>> GetDailyFundMovementPerFundAsync(
+        int depotId,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken cancellationToken = default);
 }

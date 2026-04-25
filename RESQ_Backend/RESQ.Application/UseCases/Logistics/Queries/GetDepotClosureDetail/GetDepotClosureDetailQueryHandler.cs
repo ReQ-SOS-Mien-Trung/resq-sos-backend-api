@@ -75,6 +75,7 @@ public class GetDepotClosureDetailQueryHandler(
         }
 
         var remainingInventoryItems = await depotRepository.GetDetailedInventoryForClosureAsync(closure.DepotId, cancellationToken);
+        var remainingInventoryRows = await depotRepository.GetInventoryRowsForClosureDetailAsync(closure.DepotId, cancellationToken);
         var hasOpenTransfers = transfers.Any(x =>
             !string.Equals(x.Status, "Received", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(x.Status, "Cancelled", StringComparison.OrdinalIgnoreCase));
@@ -172,7 +173,7 @@ public class GetDepotClosureDetailQueryHandler(
             CanUploadExternalResolution = canHandleExternalResolution,
             HasTransferRecords = transfers.Count > 0,
             HasExternalResolutionRecords = externalItems.Count > 0,
-            RemainingInventoryItems = remainingInventoryItems,
+            RemainingInventoryItems = remainingInventoryRows,
             ExternalItems = externalItems.Select(item => new DepotClosureExternalItemDetailResponse
             {
                 Id = item.Id,
