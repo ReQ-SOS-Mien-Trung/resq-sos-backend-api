@@ -9,6 +9,13 @@ public interface IMissionTeamRepository
     Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default);
     Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default);
+    Task UpdateSafetyStateAsync(
+        int id,
+        DateTime? latestCheckInAt,
+        DateTime? timeoutAt,
+        string? safetyStatus,
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
     Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 

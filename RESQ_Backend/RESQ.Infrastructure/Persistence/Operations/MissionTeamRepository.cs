@@ -64,6 +64,23 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
         await _unitOfWork.SaveAsync();
     }
 
+    public async Task UpdateSafetyStateAsync(
+        int id,
+        DateTime? latestCheckInAt,
+        DateTime? timeoutAt,
+        string? safetyStatus,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.GetRepository<MissionTeam>()
+            .GetByPropertyAsync(mt => mt.Id == id, tracked: true);
+
+        if (entity is null) return;
+
+        entity.SafetyLatestCheckInAt = latestCheckInAt;
+        entity.SafetyTimeoutAt = timeoutAt;
+        entity.SafetyStatus = safetyStatus;
+    }
+
     public async Task UpdateCurrentLocationAsync(int id, double latitude, double longitude, string locationSource, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<MissionTeam>()
@@ -131,6 +148,10 @@ public class MissionTeamRepository(IUnitOfWork unitOfWork) : IMissionTeamReposit
         LocationSource = entity.CurrentLocation is not null
             ? (string.IsNullOrWhiteSpace(entity.LocationSource) ? "MissionTeam.CurrentLocation" : entity.LocationSource)
             : "AssemblyPoint",
+        SafetyLatestCheckInAt = entity.SafetyLatestCheckInAt,
+        SafetyTimeoutAt = entity.SafetyTimeoutAt,
+        SafetyStatus = entity.SafetyStatus,
+        GeneratedSosRequestId = entity.GeneratedSosRequestId,
         ReportStatus = entity.MissionTeamReport?.ReportStatus,
         ReportStartedAt = entity.MissionTeamReport?.StartedAt,
         ReportLastEditedAt = entity.MissionTeamReport?.LastEditedAt,
