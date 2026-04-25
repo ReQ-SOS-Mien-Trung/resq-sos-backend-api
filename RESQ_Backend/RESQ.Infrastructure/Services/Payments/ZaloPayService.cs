@@ -4,6 +4,7 @@ using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Models.Finance.ZaloPay;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Finance;
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -30,86 +31,111 @@ public class ZaloPayService : IPaymentGatewayService
     public async Task<PaymentLinkResult> CreatePaymentLinkAsync(DonationModel donation, CancellationToken cancellationToken = default)
     {
         var config = _configuration.GetSection("ZaloPay");
-        
-        var appIdStr = config["AppId"];
-        var key1 = config["Key1"];
-        var endpoint = config["Endpoint"];
+        var appId = GetRequiredAppId(config);
+        var key1 = GetRequiredValue(config, "Key1", "Cau hinh ZaloPay thieu Key1.");
+        var endpoint = GetRequiredValue(config, "Endpoint", "Cau hinh ZaloPay thieu Endpoint.");
+        var callbackUrl = GetRequiredValue(
+            config,
+            "CallbackUrl",
+            "Cau hinh ZaloPay thieu CallbackUrl (endpoint redirect / zalopay-return).").TrimEnd('/');
 
-        if (string.IsNullOrEmpty(appIdStr) || !int.TryParse(appIdStr, out var appId))
-            throw new InvalidOperationException("Cấu hình ZaloPay thiếu AppId hợp lệ.");
+        var requestStopwatch = Stopwatch.StartNew();
 
-        if (string.IsNullOrEmpty(key1))
-            throw new InvalidOperationException("Cấu hình ZaloPay thiếu Key1.");
-            
-        if (string.IsNullOrEmpty(endpoint))
-            throw new InvalidOperationException("Cấu hình ZaloPay thiếu Endpoint.");
-
-        var appTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        
-        // ZaloPay trans ID format requires yyMMdd_xxxxxx format (6 random digits)
+        // ZaloPay timeout is implicit from app_time, so keep the create payload minimal.
+        var vietnamNow = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7));
+        var appTime = vietnamNow.ToUnixTimeMilliseconds();
         var randomDigits = Random.Shared.Next(100000, 1000000).ToString();
-        var transId = $"{DateTime.UtcNow:yyMMdd}_{randomDigits}";
+        var transId = $"{vietnamNow:yyMMdd}_{randomDigits}";
         donation.OrderId = transId;
 
         var amount = (long)(donation.Amount?.Amount ?? 0);
-        var appUser = string.IsNullOrEmpty(donation.Donor?.Name) ? "Unknown" : donation.Donor.Name;
-        var item = "[]"; 
-        var description = $"RESQ - Ủng hộ chiến dịch {donation.FundCampaignCode}";
-        
-        // Redirect through backend so it can verify the payment before sending the user to the frontend.
-        // ZaloPay will append ?appid=&apptransid=&pmcid=&bankcode=&amount=&discountamount=&status= to this URL.
-        // Use ZaloPay:CallbackUrl directly (set via env var ZaloPay__CallbackUrl) to avoid AppSettings:BaseUrl dependency.
-        var serverReturnUrl = config["CallbackUrl"]?.TrimEnd('/');
-        if (string.IsNullOrEmpty(serverReturnUrl))
-            throw new InvalidOperationException("Cấu hình ZaloPay thiếu CallbackUrl (zalopay-return endpoint).");
-        var embedDataObj = new { redirecturl = serverReturnUrl };
-        var embedData = JsonSerializer.Serialize(embedDataObj);
+        var appUser = string.IsNullOrWhiteSpace(donation.Donor?.Name) ? "Unknown" : donation.Donor.Name;
+        var item = "[]";
+        var description = $"RESQ - Ung ho chien dich {donation.FundCampaignCode}";
+        var embedData = JsonSerializer.Serialize(new { redirecturl = callbackUrl });
 
-        // MAC formula for Order creation: app_id|app_trans_id|app_user|amount|app_time|embed_data|item
+        // MAC formula: app_id|app_trans_id|app_user|amount|app_time|embed_data|item
         var macData = $"{appId}|{transId}|{appUser}|{amount}|{appTime}|{embedData}|{item}";
         var mac = ComputeHmacSha256(macData, key1);
 
-        var requestData = new 
+        var requestData = new
         {
             app_id = appId,
             app_user = appUser,
             app_trans_id = transId,
             app_time = appTime,
-            amount = amount,
-            item = item,
-            description = description,
+            amount,
+            item,
+            description,
             embed_data = embedData,
-            bank_code = "",
-            mac = mac,
-            callback_url = ""  // IPN not needed - zalopay-return redirect handles verification
+            callback_url = callbackUrl,
+            mac
         };
 
+        _logger.LogInformation(
+            "Creating ZaloPay payment request for DonationId={DonationId}, AppTransId={AppTransId}, Endpoint={Endpoint}, Payload={Payload}",
+            donation.Id,
+            transId,
+            endpoint,
+            JsonSerializer.Serialize(new
+            {
+                requestData.app_id,
+                requestData.app_trans_id,
+                requestData.app_user,
+                requestData.amount,
+                requestData.app_time,
+                requestData.description,
+                requestData.item,
+                requestData.embed_data,
+                requestData.callback_url,
+                mac = MaskMac(requestData.mac)
+            }));
+
         var client = _httpClientFactory.CreateClient();
-        
         var response = await client.PostAsJsonAsync(endpoint, requestData, cancellationToken);
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        requestStopwatch.Stop();
+
+        _logger.LogInformation(
+            "ZaloPay create order response for AppTransId={AppTransId} received in {ElapsedMs}ms with HTTP {StatusCode}: {Response}",
+            transId,
+            requestStopwatch.ElapsedMilliseconds,
+            (int)response.StatusCode,
+            responseContent);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("ZaloPay API HTTP Error: {StatusCode} - {Content}", response.StatusCode, responseContent);
-            throw new HttpRequestException($"Lỗi kết nối ZaloPay (HTTP {(int)response.StatusCode}).");
+            _logger.LogError("ZaloPay API HTTP error for AppTransId={AppTransId}: {StatusCode} - {Content}", transId, response.StatusCode, responseContent);
+            throw new HttpRequestException($"Loi ket noi ZaloPay (HTTP {(int)response.StatusCode}).");
         }
 
-        var result = JsonSerializer.Deserialize<ZaloPayCreateOrderResponse>(responseContent, 
+        var result = JsonSerializer.Deserialize<ZaloPayCreateOrderResponse>(
+            responseContent,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         if (result == null || result.ReturnCode != 1)
         {
-            _logger.LogError("ZaloPay Business Error: {Code} - {Msg}", result?.ReturnCode, result?.ReturnMessage);
-            throw new InvalidOperationException($"ZaloPay từ chối tạo đơn hàng: {result?.ReturnMessage} (Mã lỗi: {result?.ReturnCode})");
+            _logger.LogError(
+                "ZaloPay create order business error for AppTransId={AppTransId}: return_code={ReturnCode}, sub_return_code={SubReturnCode}, message={Message}",
+                transId,
+                result?.ReturnCode,
+                result?.SubReturnCode,
+                result?.ReturnMessage);
+            throw new InvalidOperationException($"ZaloPay tu choi tao don hang: {result?.ReturnMessage} (Ma loi: {result?.ReturnCode})");
         }
+
+        _logger.LogInformation(
+            "ZaloPay payment link created successfully for DonationId={DonationId}, AppTransId={AppTransId}, ZpTransToken={ZpTransToken}",
+            donation.Id,
+            transId,
+            result.ZpTransToken);
 
         return new PaymentLinkResult
         {
-            CheckoutUrl = result.OrderUrl, 
+            CheckoutUrl = result.OrderUrl,
             PaymentLinkId = result.ZpTransToken,
             OrderCode = transId,
-            QrCode = result.OrderUrl 
+            QrCode = result.OrderUrl
         };
     }
 
@@ -127,7 +153,6 @@ public class ZaloPayService : IPaymentGatewayService
                 return false;
             }
 
-            // Extract the stringified payload and MAC properties
             var dataStr = dataElement.GetString();
             var receivedMac = macElement.GetString();
 
@@ -145,7 +170,6 @@ public class ZaloPayService : IPaymentGatewayService
             }
 
             var computedMac = ComputeHmacSha256(dataStr, key2);
-
             return computedMac.Equals(receivedMac, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
@@ -155,71 +179,105 @@ public class ZaloPayService : IPaymentGatewayService
         }
     }
 
-    private string ComputeHmacSha256(string message, string secretKey)
-    {
-        var keyBytes = Encoding.UTF8.GetBytes(secretKey);
-        var messageBytes = Encoding.UTF8.GetBytes(message);
-
-        using (var hmac = new HMACSHA256(keyBytes))
-        {
-            var hashBytes = hmac.ComputeHash(messageBytes);
-            var sb = new StringBuilder();
-            foreach (var b in hashBytes)
-            {
-                sb.Append(b.ToString("x2"));
-            }
-            return sb.ToString();
-        }
-    }
-
     public async Task<ZaloPayQueryResponse?> QueryOrderAsync(string appTransId, CancellationToken cancellationToken = default)
     {
         try
         {
             var config = _configuration.GetSection("ZaloPay");
-            var appIdStr = config["AppId"];
-            var key1 = config["Key1"];
-            // Sandbox query endpoint; production: https://openapi.zalopay.vn/v2/query
+            var appId = GetRequiredAppId(config);
+            var key1 = GetRequiredValue(config, "Key1", "Cau hinh ZaloPay thieu Key1.");
             var queryEndpoint = config["QueryEndpoint"] ?? "https://sb-openapi.zalopay.vn/v2/query";
+            var stopwatch = Stopwatch.StartNew();
 
-            if (!int.TryParse(appIdStr, out var appId) || string.IsNullOrEmpty(key1))
-            {
-                _logger.LogError("ZaloPay QueryOrder: missing AppId or Key1 configuration.");
-                return null;
-            }
-
-            // MAC formula: HMAC-SHA256(key1, app_id|app_trans_id|key1)
             var macData = $"{appId}|{appTransId}|{key1}";
             var mac = ComputeHmacSha256(macData, key1);
 
-            // app_id MUST be an integer in JSON - using Dictionary<string,string> would
-            // serialize it as "554" (string) which ZaloPay rejects.
             var requestData = new
             {
-                app_id = appId,        // int → serialized as 554
+                app_id = appId,
                 app_trans_id = appTransId,
-                mac = mac
+                mac
             };
+
+            _logger.LogInformation(
+                "Querying ZaloPay order status for AppTransId={AppTransId} at Endpoint={Endpoint}",
+                appTransId,
+                queryEndpoint);
 
             var client = _httpClientFactory.CreateClient();
             var response = await client.PostAsJsonAsync(queryEndpoint, requestData, cancellationToken);
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            stopwatch.Stop();
 
-            _logger.LogInformation("ZaloPay QueryOrder response for {AppTransId}: {Response}", appTransId, responseContent);
+            _logger.LogInformation(
+                "ZaloPay QueryOrder response for AppTransId={AppTransId} received in {ElapsedMs}ms with HTTP {StatusCode}: {Response}",
+                appTransId,
+                stopwatch.ElapsedMilliseconds,
+                (int)response.StatusCode,
+                responseContent);
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("ZaloPay QueryOrder HTTP error: {Status} - {Body}", response.StatusCode, responseContent);
+                _logger.LogError("ZaloPay QueryOrder HTTP error for AppTransId={AppTransId}: {Status} - {Body}", appTransId, response.StatusCode, responseContent);
                 return null;
             }
 
-            return JsonSerializer.Deserialize<ZaloPayQueryResponse>(responseContent,
+            return JsonSerializer.Deserialize<ZaloPayQueryResponse>(
+                responseContent,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ZaloPay QueryOrder exception for AppTransId: {AppTransId}", appTransId);
+            _logger.LogError(ex, "ZaloPay QueryOrder exception for AppTransId={AppTransId}", appTransId);
             return null;
         }
+    }
+
+    private static int GetRequiredAppId(IConfigurationSection config)
+    {
+        var appIdStr = config["AppId"];
+        if (string.IsNullOrWhiteSpace(appIdStr) || !int.TryParse(appIdStr, out var appId))
+        {
+            throw new InvalidOperationException("Cau hinh ZaloPay thieu AppId hop le.");
+        }
+
+        return appId;
+    }
+
+    private static string GetRequiredValue(IConfigurationSection config, string key, string errorMessage)
+    {
+        var value = config[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException(errorMessage);
+        }
+
+        return value;
+    }
+
+    private static string ComputeHmacSha256(string message, string secretKey)
+    {
+        var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+        var messageBytes = Encoding.UTF8.GetBytes(message);
+
+        using var hmac = new HMACSHA256(keyBytes);
+        var hashBytes = hmac.ComputeHash(messageBytes);
+        var sb = new StringBuilder();
+        foreach (var b in hashBytes)
+        {
+            sb.Append(b.ToString("x2"));
+        }
+
+        return sb.ToString();
+    }
+
+    private static string MaskMac(string mac)
+    {
+        if (string.IsNullOrWhiteSpace(mac) || mac.Length <= 8)
+        {
+            return "***";
+        }
+
+        return $"{mac[..4]}***{mac[^4..]}";
     }
 }
