@@ -7,8 +7,8 @@ namespace RESQ.Application.UseCases.Identity.Commands.ResendVerificationEmail
         public ResendVerificationEmailCommandValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email l├á bß║»t buß╗Öc")
-                .EmailAddress().WithMessage("─Éß╗ïnh dß║íng email kh├┤ng hß╗úp lß╗ç");
+                .NotEmpty().WithMessage("Email là bắt buộc")
+                .EmailAddress().WithMessage("Định dạng email không hợp lệ");
         }
     }
 }

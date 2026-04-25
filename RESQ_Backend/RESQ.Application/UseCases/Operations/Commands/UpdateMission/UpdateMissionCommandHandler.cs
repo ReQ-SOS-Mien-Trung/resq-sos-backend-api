@@ -37,7 +37,7 @@ public class UpdateMissionCommandHandler(
 
         var mission = await _missionRepository.GetByIdAsync(request.MissionId, cancellationToken);
         if (mission is null)
-            throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
+            throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
         mission.MissionType = request.MissionType;
         mission.PriorityScore = request.PriorityScore;
@@ -73,6 +73,6 @@ public class UpdateMissionCommandHandler(
             },
             cancellationToken);
 
-        return result ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
+        return result ?? throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
     }
 }
