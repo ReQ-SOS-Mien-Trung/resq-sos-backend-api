@@ -21,7 +21,21 @@ public class GetClosureTransferQueryHandler(
     {
         var transfer = await transferRepository.GetByIdAsync(request.TransferId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy bản ghi chuyển kho #{request.TransferId}.");
-        var transferItems = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+        var transferItems = await transferRepository.GetDetailedItemsByTransferIdAsync(transfer.Id, cancellationToken);
+        if (transferItems.Count == 0)
+        {
+            transferItems = (await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken))
+                .Select(item => new DepotClosureTransferItemDetailListItem
+                {
+                    ItemModelId = item.ItemModelId,
+                    ItemName = item.ItemName,
+                    ItemType = item.ItemType,
+                    Unit = item.Unit,
+                    Quantity = item.Quantity
+                })
+                .ToList();
+        }
+
         var routeDepotMatchesTransfer = request.DepotId == transfer.SourceDepotId || request.DepotId == transfer.TargetDepotId;
 
         if (request.ClosureId.HasValue && transfer.ClosureId != request.ClosureId.Value)
@@ -102,7 +116,10 @@ public class GetClosureTransferQueryHandler(
                 ItemName = item.ItemName,
                 ItemType = item.ItemType,
                 Unit = item.Unit,
-                Quantity = item.Quantity
+                Quantity = item.Quantity,
+                LotId = item.LotId,
+                ReusableItemId = item.ReusableItemId,
+                SerialNumber = item.SerialNumber
             }).ToList()
         };
     }
