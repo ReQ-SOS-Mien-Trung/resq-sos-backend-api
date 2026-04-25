@@ -29,7 +29,7 @@ public interface IUnitOfWork
     /// Dùng khi cần update in-place để tránh lỗi IdentityConflict
     /// khi cùng lúc đã load tracked entity với cùng PK.
     /// </summary>
-    T? GetTracked<T>(Func<T, bool> predicate) where T : class;
+    T? GetTracked<T>(Func<T, bool> predicate) where T : class => null;
 
     /// <summary>
     /// Thực thi một hành động trong transaction scope.

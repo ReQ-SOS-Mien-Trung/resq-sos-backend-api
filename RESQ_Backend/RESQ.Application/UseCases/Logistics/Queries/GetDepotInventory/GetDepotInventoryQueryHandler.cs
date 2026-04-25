@@ -53,6 +53,7 @@ public class GetDepotInventoryQueryHandler(
                 ReservedForMissionQuantity = isReusable ? null : x.Availability.MissionReservedQuantity,
                 ReservedForTransferQuantity = isReusable ? null : x.Availability.TransferReservedQuantity,
                 AvailableQuantity = isReusable ? null : x.Availability.AvailableQuantity,
+                MeasurementUnit = x.MeasurementUnit,
                 Unit = isReusable ? x.Availability.Quantity : null,
                 TotalReservedUnit = isReusable ? x.Availability.TotalReservedQuantity : null,
                 ReservedForMissionUnit = isReusable ? x.Availability.MissionReservedQuantity : null,

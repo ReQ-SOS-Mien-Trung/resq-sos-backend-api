@@ -22,8 +22,8 @@ public class InventoryMovementExportRepositoryTests
             new DateOnly(2026, 4, 21),
             new DateOnly(2026, 4, 21));
 
-        var targetDepotRows = await repository.GetMovementRowsAsync(period, 2);
-        var sourceDepotRows = await repository.GetMovementRowsAsync(period, 1);
+        var targetDepotRows = await repository.GetMovementRowsAsync(period, 2, null);
+        var sourceDepotRows = await repository.GetMovementRowsAsync(period, 1, null);
 
         Assert.Single(targetDepotRows);
         Assert.Equal("MTT-001", targetDepotRows[0].SerialNumber);

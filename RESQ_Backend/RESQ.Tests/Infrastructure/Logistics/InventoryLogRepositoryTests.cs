@@ -20,6 +20,7 @@ public class InventoryLogRepositoryTests
 
         var result = await repository.GetTransactionHistoryAsync(
             depotId: 3,
+            itemModelId: null,
             actionTypes: null,
             sourceTypes: null,
             fromDate: null,
