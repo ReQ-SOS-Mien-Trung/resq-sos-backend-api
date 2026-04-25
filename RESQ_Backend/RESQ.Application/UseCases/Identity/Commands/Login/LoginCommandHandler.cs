@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
@@ -110,7 +110,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.Login
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "60") * 60,
+                ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "10080") * 60,
                 TokenType = "Bearer",
                 UserId = user.Id,
                 Username = user.Username,
