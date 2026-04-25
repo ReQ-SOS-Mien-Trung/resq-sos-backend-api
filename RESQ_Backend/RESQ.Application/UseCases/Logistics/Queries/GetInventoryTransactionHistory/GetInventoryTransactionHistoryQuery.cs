@@ -8,6 +8,7 @@ public class GetInventoryTransactionHistoryQuery : IRequest<PagedResult<Inventor
 {
     public Guid UserId { get; set; }
     public int? DepotId { get; set; }
+    public int? ItemModelId { get; set; }
     public List<InventoryActionType>? ActionTypes { get; set; }
     public List<InventorySourceType>? SourceTypes { get; set; }
     public DateOnly? FromDate { get; set; }

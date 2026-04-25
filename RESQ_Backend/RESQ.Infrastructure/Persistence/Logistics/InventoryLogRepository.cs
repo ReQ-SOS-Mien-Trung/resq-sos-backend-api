@@ -98,6 +98,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
+        var currentQuantityMap = await BuildCurrentQuantityMapAsync(rawLogs, cancellationToken);
 
         var logs = rawLogs.Select(x =>
         {
@@ -123,6 +124,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 DepotName = x.SupplyInventory?.Depot?.Name ?? x.ReusableItem?.Depot?.Name ?? string.Empty,
                 ItemModelId = x.ItemModelId ?? x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
                 ItemModelName = itemModel?.Name ?? string.Empty,
+                RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, x),
                 SerialNumber = x.ReusableItem?.SerialNumber,
                 LotId = x.SupplyInventoryLot?.Id,
                 ReusableItemId = x.ReusableItemId,
@@ -142,6 +144,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
     public async Task<PagedResult<InventoryTransactionDto>> GetTransactionHistoryAsync(
         int? depotId,
+        int? itemModelId,
         List<string>? actionTypes,
         List<string>? sourceTypes,
         DateOnly? fromDate,
@@ -179,6 +182,13 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             query = ApplyDepotFilter(query, depotId.Value);
         }
 
+        if (itemModelId.HasValue)
+        {
+            query = query.Where(x => x.ItemModelId == itemModelId.Value
+                || (x.SupplyInventory != null && x.SupplyInventory.ItemModelId == itemModelId.Value)
+                || (x.ReusableItem != null && x.ReusableItem.ItemModelId == itemModelId.Value));
+        }
+
         if (actionTypes != null && actionTypes.Count > 0)
         {
             var actionTypesLower = actionTypes.Select(a => a.ToLower()).ToList();
@@ -204,6 +214,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         var rawLogs = await query
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
+        var currentQuantityMap = await BuildCurrentQuantityMapAsync(rawLogs, cancellationToken);
 
         var groups = rawLogs
             .GroupBy(BuildTransactionGroupKey)
@@ -221,7 +232,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         {
             var firstItem = g.First();
             var createdAt = g.Min(x => x.CreatedAt);
-            var transactionId = g.Key;
+            var transactionId = FormatReadableTransactionId(firstItem, createdAt);
 
             return new InventoryTransactionDto
             {
@@ -255,6 +266,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     {
                         ItemId = resolvedItemModelId,
                         ItemModelId = resolvedItemModelId,
+                        RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, item),
                         SupplyInventoryLotId = item.SupplyInventoryLotId,
                         LotId = item.SupplyInventoryLotId,
                         ReusableItemId = IsUnitLevelReusableAction(item) ? item.ReusableItemId : null,
@@ -333,6 +345,76 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         }
 
         return text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
+    }
+
+    private async Task<Dictionary<(int DepotId, int ItemModelId), int>> BuildCurrentQuantityMapAsync(
+        IEnumerable<InventoryLog> logs,
+        CancellationToken cancellationToken)
+    {
+        var pairs = logs
+            .Select(log =>
+            {
+                var depotId = ResolveDepotId(log);
+                var itemModelId = log.ItemModelId
+                                  ?? log.SupplyInventory?.ItemModelId
+                                  ?? log.ReusableItem?.ItemModelId;
+                return depotId.HasValue && itemModelId.HasValue
+                    ? (DepotId: depotId.Value, ItemModelId: itemModelId.Value)
+                    : ((int DepotId, int ItemModelId)?)null;
+            })
+            .Where(pair => pair.HasValue)
+            .Select(pair => pair!.Value)
+            .Distinct()
+            .ToList();
+
+        if (pairs.Count == 0)
+        {
+            return [];
+        }
+
+        var depotIds = pairs.Select(pair => pair.DepotId).Distinct().ToList();
+        var itemModelIds = pairs.Select(pair => pair.ItemModelId).Distinct().ToList();
+
+        return await _unitOfWork.Set<SupplyInventory>()
+            .AsNoTracking()
+            .Where(inventory => inventory.DepotId.HasValue
+                && inventory.ItemModelId.HasValue
+                && depotIds.Contains(inventory.DepotId.Value)
+                && itemModelIds.Contains(inventory.ItemModelId.Value))
+            .Select(inventory => new
+            {
+                DepotId = inventory.DepotId!.Value,
+                ItemModelId = inventory.ItemModelId!.Value,
+                Quantity = inventory.Quantity ?? 0
+            })
+            .ToDictionaryAsync(
+                inventory => (inventory.DepotId, inventory.ItemModelId),
+                inventory => inventory.Quantity,
+                cancellationToken);
+    }
+
+    private static int? TryGetRemainingQuantity(
+        IReadOnlyDictionary<(int DepotId, int ItemModelId), int> currentQuantityMap,
+        InventoryLog log)
+    {
+        var depotId = ResolveDepotId(log);
+        var itemModelId = log.ItemModelId
+                          ?? log.SupplyInventory?.ItemModelId
+                          ?? log.ReusableItem?.ItemModelId;
+
+        if (!depotId.HasValue || !itemModelId.HasValue)
+        {
+            return null;
+        }
+
+        return currentQuantityMap.TryGetValue((depotId.Value, itemModelId.Value), out var quantity)
+            ? quantity
+            : null;
+    }
+
+    private static int? ResolveDepotId(InventoryLog log)
+    {
+        return log.SupplyInventory?.DepotId ?? log.ReusableItem?.DepotId;
     }
 
     private static ItemModel? ResolveItemModel(InventoryLog log)
@@ -533,5 +615,52 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     )
                 )
             ));
+    }
+
+    private static string FormatReadableTransactionId(InventoryLog log, DateTime? createdAt)
+    {
+        var timeValue = createdAt ?? DateTime.UtcNow;
+        var vnTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        var localTime = TimeZoneInfo.ConvertTimeFromUtc(timeValue.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(timeValue, DateTimeKind.Utc) : timeValue.ToUniversalTime(), vnTimeZone);
+
+        var dateStr = localTime.ToString("yyMMdd-HHmm");
+        var actStr = (log.ActionType ?? "UNK").ToUpperInvariant();
+        var srcStr = (log.SourceType ?? "UNK").ToUpperInvariant();
+
+        string prefix;
+        int id = 0;
+
+        if (actStr == "IMPORT" && log.VatInvoiceId.HasValue)
+        {
+            prefix = "VAT";
+            id = log.VatInvoiceId.Value;
+        }
+        else if (srcStr == "DONATION" && log.SourceId.HasValue)
+        {
+            prefix = "DON";
+            id = log.SourceId.Value;
+        }
+        else if (srcStr == "MISSION" && log.SourceId.HasValue)
+        {
+            prefix = "MIS";
+            id = log.SourceId.Value;
+        }
+        else if (srcStr == "TRANSFER" && log.SourceId.HasValue)
+        {
+            prefix = "TRA";
+            id = log.SourceId.Value;
+        }
+        else if (actStr == "ADJUST")
+        {
+            prefix = "ADJ";
+            id = log.SourceId ?? 0;
+        }
+        else
+        {
+            prefix = actStr.Length >= 3 ? actStr[..3] : actStr;
+            id = log.SourceId ?? 0;
+        }
+
+        return id > 0 ? $"TX{dateStr}-{prefix}{id}" : $"TX{dateStr}-{prefix}";
     }
 }

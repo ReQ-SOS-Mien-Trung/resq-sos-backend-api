@@ -17,6 +17,7 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
     public async Task<List<InventoryMovementRow>> GetMovementRowsAsync(
         InventoryMovementExportPeriod period,
         int? depotId,
+        int? itemModelId,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<InventoryLog>()
@@ -119,6 +120,13 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
                         )
                     )
                 ));
+        }
+
+        if (itemModelId.HasValue)
+        {
+            query = query.Where(log => log.ItemModelId == itemModelId.Value
+                || (log.SupplyInventory != null && log.SupplyInventory.ItemModelId == itemModelId.Value)
+                || (log.ReusableItem != null && log.ReusableItem.ItemModelId == itemModelId.Value));
         }
 
         var logs = await query
