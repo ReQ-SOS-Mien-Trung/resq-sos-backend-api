@@ -2787,9 +2787,16 @@ namespace RESQ.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DepotId");
+                    b.HasIndex("DepotId")
+                        .HasDatabaseName("IX_depot_managers_depot_id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_depot_managers_user_id");
+
+                    b.HasIndex("DepotId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("uix_depot_managers_active_depot_user")
+                        .HasFilter("unassigned_at IS NULL");
 
                     b.ToTable("depot_managers");
                 });
@@ -3086,6 +3093,10 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expired_date");
 
+                    b.Property<int?>("ItemModelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_model_id");
+
                     b.Property<int?>("MissionId")
                         .HasColumnType("integer")
                         .HasColumnName("mission_id");
@@ -3130,6 +3141,8 @@ namespace RESQ.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DepotSupplyInventoryId");
+
+                    b.HasIndex("ItemModelId");
 
                     b.HasIndex("PerformedBy");
 
@@ -5155,6 +5168,10 @@ namespace RESQ.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("role_in_team");
 
+                    b.Property<int?>("SourceEventId")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_event_id");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -6280,6 +6297,10 @@ namespace RESQ.Infrastructure.Migrations
                         .WithMany("InventoryLogs")
                         .HasForeignKey("DepotSupplyInventoryId");
 
+                    b.HasOne("RESQ.Infrastructure.Entities.Logistics.ItemModel", "ItemModel")
+                        .WithMany("InventoryLogs")
+                        .HasForeignKey("ItemModelId");
+
                     b.HasOne("RESQ.Infrastructure.Entities.Identity.User", "PerformedByUser")
                         .WithMany("InventoryLogs")
                         .HasForeignKey("PerformedBy");
@@ -6295,6 +6316,8 @@ namespace RESQ.Infrastructure.Migrations
                     b.HasOne("RESQ.Infrastructure.Entities.Logistics.VatInvoice", "VatInvoice")
                         .WithMany("InventoryLogs")
                         .HasForeignKey("VatInvoiceId");
+
+                    b.Navigation("ItemModel");
 
                     b.Navigation("PerformedByUser");
 
@@ -6996,6 +7019,8 @@ namespace RESQ.Infrastructure.Migrations
             modelBuilder.Entity("RESQ.Infrastructure.Entities.Logistics.ItemModel", b =>
                 {
                     b.Navigation("DepotSupplyRequestItems");
+
+                    b.Navigation("InventoryLogs");
 
                     b.Navigation("MissionItems");
 
