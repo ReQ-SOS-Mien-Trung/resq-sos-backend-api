@@ -34,6 +34,7 @@ public class SosAiAnalysisServiceTests
         Assert.Contains("sos_payload:", prompt);
         Assert.Contains("SOS_PRIORITY_TEST", prompt);
         Assert.Contains(@"""score"":50", prompt);
+        Assert.Contains("tiếng Việt", prompt);
     }
 
     [Fact]
@@ -88,6 +89,53 @@ public class SosAiAnalysisServiceTests
         Assert.Equal("increase", result.GetProperty("adjustment_direction").GetString());
         Assert.False(result.GetProperty("guardrail_applied").GetBoolean());
         Assert.Contains("water rising", result.GetProperty("uncovered_factors")[0].GetString());
+    }
+
+    [Fact]
+    public async Task AnalyzeAndSaveAsync_DoesNotAppendEnglishRuleBaseSuffix()
+    {
+        var client = new RecordingAiProviderClient("""
+            {
+              "suggested_priority_score": 37,
+              "suggested_severity_level": "Critical",
+              "agrees_with_rule_base": false,
+              "needs_immediate_safe_transfer": true,
+              "can_wait_for_combined_mission": false,
+              "handling_reason": "Nạn nhân bất tỉnh nên cần xử lý ngay. AI suggested score 37.",
+              "explanation": "Điểm theo luật chưa phản ánh đủ tình trạng bất tỉnh. AI suggested score 37. AI does not agree with the current rule-base score 22 (Low) and sees a different urgency level."
+            }
+            """);
+        var analysisRepo = new RecordingSosAiAnalysisRepository();
+        var service = BuildService(client, analysisRepo);
+        var task = BuildTask(score: 22, priority: SosPriorityLevel.Low);
+
+        await service.AnalyzeAndSaveAsync(task);
+
+        var analysis = Assert.Single(analysisRepo.Created);
+        Assert.DoesNotContain("AI suggested", analysis.Explanation);
+        Assert.DoesNotContain("rule-base score", analysis.Explanation);
+        using var metadata = JsonDocument.Parse(analysis.Metadata!);
+        var result = metadata.RootElement.GetProperty("analysisResult");
+        Assert.DoesNotContain("AI suggested", result.GetProperty("explanation").GetString());
+        Assert.DoesNotContain("rule-base score", result.GetProperty("explanation").GetString());
+        Assert.DoesNotContain("AI suggested", result.GetProperty("handling_reason").GetString());
+    }
+
+    [Fact]
+    public async Task AnalyzeAndSaveAsync_InvalidJsonFallbackExplanationIsVietnamese()
+    {
+        var client = new RecordingAiProviderClient("The victim is urgent but the response is not JSON.");
+        var analysisRepo = new RecordingSosAiAnalysisRepository();
+        var service = BuildService(client, analysisRepo);
+        var task = BuildTask(score: 50, priority: SosPriorityLevel.Medium);
+
+        await service.AnalyzeAndSaveAsync(task);
+
+        var analysis = Assert.Single(analysisRepo.Created);
+        Assert.Contains("điểm", analysis.Explanation);
+        Assert.Contains("luật", analysis.Explanation);
+        Assert.DoesNotContain("AI suggested", analysis.Explanation);
+        Assert.DoesNotContain("rule-base score", analysis.Explanation);
     }
 
     [Fact]

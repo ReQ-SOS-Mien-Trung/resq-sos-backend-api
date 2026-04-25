@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using RESQ.Application.Common;
 using RESQ.Domain.Entities.Emergency;
 
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
@@ -80,13 +81,16 @@ public static class SosEvaluationViewFactory
     {
         return new SosRequestEvaluationDto
         {
-            RuleEvaluation = ruleEvaluation is null ? null : MapRuleEvaluation(ruleEvaluation),
+            RuleEvaluation = CreateRuleEvaluation(ruleEvaluation),
             AiAnalyses = aiAnalyses.Select(MapAiAnalysis).ToList()
         };
     }
 
-    private static SosRuleEvaluationDto MapRuleEvaluation(SosRuleEvaluationModel ruleEvaluation)
+    public static SosRuleEvaluationDto? CreateRuleEvaluation(SosRuleEvaluationModel? ruleEvaluation)
     {
+        if (ruleEvaluation is null)
+            return null;
+
         return new SosRuleEvaluationDto
         {
             Id = ruleEvaluation.Id,
@@ -127,12 +131,14 @@ public static class SosEvaluationViewFactory
                 ?? metadataModel?.AnalysisResult?.SuggestedPriorityScore,
             AgreesWithRuleBase = analysis.AgreesWithRuleBase
                 ?? metadataModel?.AnalysisResult?.AgreesWithRuleBase,
-            Explanation = analysis.Explanation
-                ?? metadataModel?.AnalysisResult?.Explanation,
+            Explanation = AiTextSanitizer.RemoveBackendEnglishSuffix(
+                analysis.Explanation
+                ?? metadataModel?.AnalysisResult?.Explanation),
             NeedsImmediateSafeTransfer = metadataModel?.AnalysisResult?.NeedsImmediateSafeTransfer,
             CanWaitForCombinedMission = metadataModel?.AnalysisResult?.CanWaitForCombinedMission,
-            HandlingReason = metadataModel?.AnalysisResult?.HandlingReason
-                ?? analysis.Explanation,
+            HandlingReason = AiTextSanitizer.RemoveBackendEnglishSuffix(
+                metadataModel?.AnalysisResult?.HandlingReason
+                ?? analysis.Explanation),
             SuggestionScope = analysis.SuggestionScope,
             Metadata = metadata,
             CreatedAt = analysis.CreatedAt,

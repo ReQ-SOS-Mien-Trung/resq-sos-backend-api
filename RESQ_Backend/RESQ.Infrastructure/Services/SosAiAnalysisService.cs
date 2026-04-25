@@ -204,8 +204,8 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         RuleConfigContext ruleConfigContext)
     {
         var fallbackPrompt = $"""
-            Analyze this SOS request as an adjustment layer over the current rule-based SOS priority evaluation.
-            Do not score from scratch. Use the provided rule_config, rule_based_evaluation, and sos_payload.
+            Phân tích yêu cầu SOS này như một lớp điều chỉnh trên kết quả chấm điểm rule-based hiện tại.
+            Không chấm điểm lại từ đầu. Hãy dùng rule_config, rule_based_evaluation và sos_payload được cung cấp.
             """;
 
         var prompt = string.IsNullOrWhiteSpace(template)
@@ -241,6 +241,11 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         return prompt + $$"""
 
 
+            NGÔN NGỮ BẮT BUỘC:
+            - Chỉ giữ nguyên tên JSON property và enum/code value như Critical, High, Medium, Low, Severe, Moderate, Minor.
+            - Mọi nội dung mô tả tự do trong explanation, handling_reason, guardrail_override_reason, uncovered_factors và rule_config_basis phải viết bằng tiếng Việt.
+            - Không viết lẫn câu tiếng Anh trong các field mô tả.
+
             IMPORTANT SCORING CONTRACT:
             - The rule-based score is the baseline and already uses the rule_config below.
             - The score scale is 0-100. `suggested_priority_score` must be the final adjusted score on the 0-100 scale.
@@ -264,8 +269,8 @@ public class SosAiAnalysisService : ISosAiAnalysisService
               "guardrail_override_reason": null,
               "needs_immediate_safe_transfer": false,
               "can_wait_for_combined_mission": true,
-              "handling_reason": "Explain whether this SOS can wait for combined mission.",
-              "explanation": "Explain how rule_config and extra factors support the final score."
+              "handling_reason": "Giải thích bằng tiếng Việt vì sao SOS này có thể hoặc không thể chờ ghép mission.",
+              "explanation": "Giải thích bằng tiếng Việt cách rule_config và yếu tố bổ sung dẫn tới điểm cuối cùng."
             }
 
             rule_config:
@@ -366,7 +371,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         var priority = DeterminePriorityFromScore(ruleBasedScore, ruleBasedSevere, ruleConfig);
         var agreesWithRuleBase = DetermineAgreement(ruleBasedScore, task.RuleBasedScore, priority, task.RuleBasedPriority);
         var explanation = EnsureExplanationMentionsRuleBase(
-            response.Length > 500 ? response[..500] : response,
+            null,
             ruleBasedScore,
             task.RuleBasedScore,
             agreesWithRuleBase,
@@ -433,6 +438,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             ?? string.Equals(normalizedPriority, "Critical", StringComparison.OrdinalIgnoreCase);
         var canWaitForCombinedMission = result.CanWaitForCombinedMission
             ?? !string.Equals(normalizedPriority, "Critical", StringComparison.OrdinalIgnoreCase);
+        var handlingReason = NormalizeVietnameseNarrative(result.HandlingReason);
 
         return new AiAnalysisResult
         {
@@ -445,15 +451,15 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             Explanation = explanation,
             NeedsImmediateSafeTransfer = needsImmediateSafeTransfer,
             CanWaitForCombinedMission = canWaitForCombinedMission,
-            HandlingReason = string.IsNullOrWhiteSpace(result.HandlingReason)
+            HandlingReason = string.IsNullOrWhiteSpace(handlingReason)
                 ? explanation
-                : result.HandlingReason,
+                : handlingReason,
             ScoreAdjustmentDelta = scoreDelta,
             AdjustmentDirection = ResolveAdjustmentDirection(scoreDelta),
             UncoveredFactors = result.UncoveredFactors ?? [],
             RuleConfigBasis = result.RuleConfigBasis ?? [],
             AdditionalSevereFlag = additionalSevereFlag,
-            GuardrailOverrideReason = result.GuardrailOverrideReason,
+            GuardrailOverrideReason = NormalizeVietnameseNarrative(result.GuardrailOverrideReason),
             GuardrailApplied = guardrail.Applied,
             GuardrailLimit = DefaultAdjustmentLimit,
             OriginalSuggestedPriorityScore = originalRequestedScore
@@ -723,26 +729,82 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         string? suggestedPriority,
         string? ruleBasedPriority)
     {
-        var baseExplanation = string.IsNullOrWhiteSpace(explanation)
-            ? $"AI suggested score {suggestedPriorityScore:0.##} with priority {suggestedPriority ?? "Unknown"}."
-            : explanation.Trim();
+        var baseExplanation = NormalizeVietnameseNarrative(explanation)
+            ?? $"AI đề xuất điểm ưu tiên {suggestedPriorityScore:0.##} dựa trên dữ liệu SOS và điểm theo luật hiện tại.";
 
         var hasScoreMention = baseExplanation.Contains("score", StringComparison.OrdinalIgnoreCase)
-            || baseExplanation.Contains("diem", StringComparison.OrdinalIgnoreCase);
+            || baseExplanation.Contains("diem", StringComparison.OrdinalIgnoreCase)
+            || baseExplanation.Contains("điểm", StringComparison.OrdinalIgnoreCase);
         var hasAgreementMention = baseExplanation.Contains("agree", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("dong y", StringComparison.OrdinalIgnoreCase)
+            || baseExplanation.Contains("đồng ý", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("khong dong y", StringComparison.OrdinalIgnoreCase)
+            || baseExplanation.Contains("không đồng ý", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("rule-base", StringComparison.OrdinalIgnoreCase)
-            || baseExplanation.Contains("rule base", StringComparison.OrdinalIgnoreCase);
+            || baseExplanation.Contains("rule base", StringComparison.OrdinalIgnoreCase)
+            || baseExplanation.Contains("luật", StringComparison.OrdinalIgnoreCase);
 
         if (hasScoreMention && hasAgreementMention)
             return baseExplanation;
 
         var agreementText = agreesWithRuleBase == true
-            ? $"AI agrees with the current rule-base score {ruleBasedScore:0.##} ({ruleBasedPriority ?? "Unknown"})."
-            : $"AI does not agree with the current rule-base score {ruleBasedScore:0.##} ({ruleBasedPriority ?? "Unknown"}) and sees a different urgency level.";
+            ? $"AI đồng ý với điểm theo luật hiện tại {ruleBasedScore:0.##} ({ruleBasedPriority ?? "Unknown"})."
+            : $"AI không đồng ý với điểm theo luật hiện tại {ruleBasedScore:0.##} ({ruleBasedPriority ?? "Unknown"}) vì mức độ khẩn cấp thực tế khác.";
 
-        return $"{baseExplanation} AI suggested score {suggestedPriorityScore:0.##}. {agreementText}".Trim();
+        var parts = new List<string> { baseExplanation };
+        if (!hasScoreMention)
+            parts.Add($"Điểm AI đề xuất là {suggestedPriorityScore:0.##}.");
+        if (!hasAgreementMention)
+            parts.Add(agreementText);
+
+        return string.Join(" ", parts).Trim();
+    }
+
+    private static string? NormalizeVietnameseNarrative(string? text)
+    {
+        var sanitized = AiTextSanitizer.RemoveBackendEnglishSuffix(text);
+        if (string.IsNullOrWhiteSpace(sanitized))
+            return null;
+
+        return LooksLikeEnglishNarrative(sanitized)
+            ? null
+            : sanitized;
+    }
+
+    private static bool LooksLikeEnglishNarrative(string text)
+    {
+        if (HasVietnameseDiacritic(text))
+            return false;
+
+        var lower = text.ToLowerInvariant();
+        string[] englishMarkers =
+        [
+            "rule config",
+            "rule-base",
+            "rule base",
+            "current rule",
+            "score",
+            "priority",
+            "life-threatening",
+            "structured data",
+            "supports",
+            "adjustment",
+            "extra factor",
+            "general concern",
+            "urgent",
+            "severe"
+        ];
+
+        return englishMarkers.Any(marker => lower.Contains(marker));
+    }
+
+    private static bool HasVietnameseDiacritic(string text)
+    {
+        const string vietnameseCharacters =
+            "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ" +
+            "ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ";
+
+        return text.Any(c => vietnameseCharacters.Contains(c));
     }
 
     private sealed class AiAnalysisResult

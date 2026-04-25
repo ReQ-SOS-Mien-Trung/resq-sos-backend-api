@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
@@ -189,6 +190,82 @@ public class GetSosRequestQueryHandlerTests
     }
 
     // ─── Invalid JSON in structured data does not crash ───────────
+
+    [Fact]
+    public async Task Handle_ReturnsLatestSlimAiAnalysisWithoutDebugPayload()
+    {
+        var sos = BuildSos(1, OwnerId);
+        var older = SosAiAnalysisModel.Create(
+            1,
+            "gemini-old",
+            "v3.1",
+            "PRIORITY_ANALYSIS",
+            "Moderate",
+            "Medium",
+            30,
+            true,
+            "Phân tích cũ.");
+        older.Id = 10;
+        older.CreatedAt = DateTime.UtcNow.AddMinutes(-10);
+
+        var latest = SosAiAnalysisModel.Create(
+            1,
+            "gemini-new",
+            "v3.2",
+            "PRIORITY_ANALYSIS",
+            "Critical",
+            "Critical",
+            82,
+            false,
+            "Nạn nhân bất tỉnh và cần sơ tán ngay. AI suggested score 82. AI does not agree with the current rule-base score 35 (Medium) and sees a different urgency level.",
+            metadata: """
+                {
+                  "rawResponse": "{}",
+                  "analysisResult": {
+                    "suggested_priority": "Critical",
+                    "suggested_severity_level": "Critical",
+                    "needs_immediate_safe_transfer": true,
+                    "can_wait_for_combined_mission": false,
+                    "handling_reason": "Nạn nhân bất tỉnh nên không thể chờ ghép mission. AI suggested score 82."
+                  },
+                  "ruleBaseContext": {},
+                  "ruleConfigContext": {}
+                }
+                """);
+        latest.Id = 11;
+        latest.CreatedAt = DateTime.UtcNow;
+
+        var handler = BuildHandler(
+            sosRepo: new StubSosRequestRepository(sos),
+            aiRepo: new StubSosAiAnalysisRepository([older, latest]));
+
+        var result = await handler.Handle(
+            new GetSosRequestQuery(1, OwnerId, HasPrivilegedAccess: false),
+            CancellationToken.None);
+
+        var aiAnalysis = Assert.IsType<SosRequestDetailAiAnalysisDto>(result.SosRequest.Evaluation.AiAnalysis);
+        Assert.True(result.SosRequest.Evaluation.HasAiAnalysis);
+        Assert.Equal(11, aiAnalysis.Id);
+        Assert.Equal("Critical", aiAnalysis.SuggestedPriority);
+        Assert.Equal(82, aiAnalysis.SuggestedPriorityScore);
+        Assert.DoesNotContain("AI suggested", aiAnalysis.Explanation);
+        Assert.DoesNotContain("rule-base score", aiAnalysis.Explanation);
+        Assert.DoesNotContain("AI suggested", aiAnalysis.HandlingReason);
+
+        var json = JsonSerializer.Serialize(
+            result,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        Assert.DoesNotContain("\"metadata\"", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("rawResponse", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ruleBaseContext", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ruleConfigContext", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("modelName", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("modelVersion", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("analysisType", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("suggestionScope", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("adoptedAt", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("aiAnalyses", json, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public async Task Handle_InvalidJson_DoesNotFail()

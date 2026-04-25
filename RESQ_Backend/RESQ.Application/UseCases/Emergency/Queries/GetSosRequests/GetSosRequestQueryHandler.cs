@@ -51,7 +51,15 @@ public class GetSosRequestQueryHandler(
         var latestIncident = incidents?.FirstOrDefault();
         var ruleEvaluation = await _sosRuleEvaluationRepository.GetBySosRequestIdAsync(sosRequest.Id, cancellationToken);
         var aiAnalyses = await _sosAiAnalysisRepository.GetAllBySosRequestIdAsync(sosRequest.Id, cancellationToken);
-        var evaluation = SosEvaluationViewFactory.CreateEvaluation(ruleEvaluation, aiAnalyses);
+        var latestAiAnalysis = aiAnalyses
+            .OrderByDescending(x => x.CreatedAt ?? DateTime.MinValue)
+            .ThenByDescending(x => x.Id)
+            .FirstOrDefault();
+        var evaluation = new SosRequestDetailEvaluationDto
+        {
+            RuleEvaluation = SosEvaluationViewFactory.CreateRuleEvaluation(ruleEvaluation),
+            AiAnalysis = SosRequestDetailAiAnalysisMapper.Map(latestAiAnalysis)
+        };
 
         // Load companion list
         var companionRecords = await _companionRepository.GetBySosRequestIdAsync(request.Id, cancellationToken);
