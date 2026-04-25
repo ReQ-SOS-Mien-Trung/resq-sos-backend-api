@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.UseCases.Emergency.Queries;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestStatusCounts;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Domain.Enum.Emergency;
@@ -103,6 +104,35 @@ public class SosRequestControllerTests
 
         Assert.Empty(mediator.SentRequests);
         Assert.Contains("required for map bounds mode", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task GetSosRequestStatusCounts_ForwardsTimeRangeToMediator()
+    {
+        var from = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var to = new DateTime(2026, 4, 25, 23, 59, 59, DateTimeKind.Utc);
+        var response = new GetSosRequestStatusCountsResponse
+        {
+            From = from,
+            To = to,
+            Total = 110,
+            StatusCounts =
+            [
+                new() { Status = SosRequestStatus.Pending.ToString(), Count = 50 },
+                new() { Status = SosRequestStatus.Assigned.ToString(), Count = 60 }
+            ]
+        };
+        var mediator = new RecordingMediator(_ => response);
+        var controller = new SosRequestController(mediator, new AllowAuthorizationService());
+
+        var result = await controller.GetSosRequestStatusCounts(from, to);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var sentQuery = Assert.IsType<GetSosRequestStatusCountsQuery>(Assert.Single(mediator.SentRequests));
+
+        Assert.Equal(from, sentQuery.From);
+        Assert.Equal(to, sentQuery.To);
+        Assert.Same(response, okResult.Value);
     }
 
     private sealed class AllowAuthorizationService : IAuthorizationService
