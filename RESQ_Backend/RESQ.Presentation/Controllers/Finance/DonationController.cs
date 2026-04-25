@@ -199,54 +199,67 @@ public class DonationController : ControllerBase
     [HttpGet("zalopay-return")]
     [AllowAnonymous]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> ZaloPayReturn([FromQuery] string? apptransid, [FromQuery] int? status)
+    public async Task<IActionResult> ZaloPayReturn()
     {
         var (successUrl, failUrl) = GetZaloPayFrontendUrls();
+        var appTransId = GetFirstNonEmptyQueryValue(Request.Query, "apptransid", "app_trans_id");
+        var statusRaw = GetFirstNonEmptyQueryValue(Request.Query, "status", "return_code");
+        var checksumRaw = GetFirstNonEmptyQueryValue(Request.Query, "checksum", "mac");
         var returnParams = JsonSerializer.Serialize(
             Request.Query.ToDictionary(
                 entry => entry.Key,
                 entry => entry.Value.ToString()));
 
         _logger.LogInformation(
-            "ZaloPay return received. AppTransId={AppTransId}, Status={Status}, ReturnParams={ReturnParams}",
-            apptransid,
-            status,
+            "ZaloPay return received. AppTransId={AppTransId}, Status={Status}, Checksum={Checksum}, ReturnParams={ReturnParams}",
+            appTransId,
+            statusRaw,
+            MaskValue(checksumRaw),
             returnParams);
 
-        if (string.IsNullOrWhiteSpace(apptransid))
+        if (string.IsNullOrWhiteSpace(appTransId))
         {
-            _logger.LogWarning("ZaloPay return: missing apptransid.");
+            _logger.LogWarning("ZaloPay return: missing apptransid/app_trans_id.");
             return Redirect(failUrl);
         }
 
         try
         {
-            if (!VerifyZaloPayRedirectChecksum(Request.Query, out var checksumFailureReason))
+            var checksumVerification = VerifyZaloPayRedirectChecksum(Request.Query, out var checksumFailureReason);
+            if (checksumVerification == ZaloPayRedirectChecksumVerification.Invalid)
             {
                 _logger.LogWarning(
                     "ZaloPay return: invalid redirect checksum for AppTransId={AppTransId}. Reason={Reason}. ReturnParams={ReturnParams}",
-                    apptransid,
+                    appTransId,
                     checksumFailureReason,
                     returnParams);
                 return Redirect(failUrl);
             }
 
+            if (checksumVerification == ZaloPayRedirectChecksumVerification.Missing)
+            {
+                _logger.LogWarning(
+                    "ZaloPay return: checksum missing for AppTransId={AppTransId}. Proceeding with Query API verification. ReturnParams={ReturnParams}",
+                    appTransId,
+                    returnParams);
+            }
+
             var verified = await _mediator.Send(new VerifyZaloPayPaymentCommand
             {
-                AppTransId = apptransid
+                AppTransId = appTransId
             });
 
             _logger.LogInformation(
                 "ZaloPay return: verify result={Result} for AppTransId={AppTransId} (redirect status={Status}).",
                 verified,
-                apptransid,
-                status);
+                appTransId,
+                statusRaw);
 
             return Redirect(verified ? successUrl : failUrl);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", apptransid);
+            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", appTransId);
             return Redirect(failUrl);
         }
     }
@@ -330,30 +343,30 @@ public class DonationController : ControllerBase
         return (successUrl, failUrl);
     }
 
-    private bool VerifyZaloPayRedirectChecksum(IQueryCollection query, out string failureReason)
+    private ZaloPayRedirectChecksumVerification VerifyZaloPayRedirectChecksum(IQueryCollection query, out string failureReason)
     {
         failureReason = string.Empty;
         var key2 = _configuration["ZaloPay:Key2"];
         if (string.IsNullOrWhiteSpace(key2))
         {
             failureReason = "missing-config-key2";
-            return false;
+            return ZaloPayRedirectChecksumVerification.Invalid;
         }
 
-        var checksum = query["checksum"].ToString();
+        var checksum = GetFirstNonEmptyQueryValue(query, "checksum", "mac");
         if (string.IsNullOrWhiteSpace(checksum))
         {
             failureReason = "missing-checksum";
-            return false;
+            return ZaloPayRedirectChecksumVerification.Missing;
         }
 
-        var appId = query["appid"].ToString();
-        var appTransId = query["apptransid"].ToString();
+        var appId = GetFirstNonEmptyQueryValue(query, "appid", "app_id");
+        var appTransId = GetFirstNonEmptyQueryValue(query, "apptransid", "app_trans_id");
         var pmcId = query["pmcid"].ToString();
         var bankCode = query["bankcode"].ToString();
         var amount = query["amount"].ToString();
         var discountAmount = query["discountamount"].ToString();
-        var status = query["status"].ToString();
+        var status = GetFirstNonEmptyQueryValue(query, "status", "return_code");
 
         if (string.IsNullOrWhiteSpace(appId) ||
             string.IsNullOrWhiteSpace(appTransId) ||
@@ -361,7 +374,7 @@ public class DonationController : ControllerBase
             string.IsNullOrWhiteSpace(status))
         {
             failureReason = "missing-required-redirect-fields";
-            return false;
+            return ZaloPayRedirectChecksumVerification.Invalid;
         }
 
         var checksumData = $"{appId}|{appTransId}|{pmcId}|{bankCode}|{amount}|{discountAmount}|{status}";
@@ -369,10 +382,41 @@ public class DonationController : ControllerBase
         if (!computedChecksum.Equals(checksum, StringComparison.OrdinalIgnoreCase))
         {
             failureReason = "checksum-mismatch";
-            return false;
+            return ZaloPayRedirectChecksumVerification.Invalid;
         }
 
-        return true;
+        return ZaloPayRedirectChecksumVerification.Valid;
+    }
+
+    private static string? GetFirstNonEmptyQueryValue(IQueryCollection query, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = query[key].ToString();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string MaskValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length <= 8)
+        {
+            return "***";
+        }
+
+        return $"{value[..4]}***{value[^4..]}";
+    }
+
+    private enum ZaloPayRedirectChecksumVerification
+    {
+        Missing = 0,
+        Valid = 1,
+        Invalid = 2
     }
 
     private static string ComputeHmacSha256(string message, string secretKey)
