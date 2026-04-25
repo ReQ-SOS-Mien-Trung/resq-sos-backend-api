@@ -90,54 +90,23 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 || (x.VatInvoice != null && x.VatInvoice.SupplierTaxCode != null && x.VatInvoice.SupplierTaxCode.ToLower().Contains(normalizedSearch)));
         }
 
-        query = query.OrderByDescending(x => x.CreatedAt);
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
         var rawLogs = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+            .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
         var currentQuantityMap = await BuildCurrentQuantityMapAsync(rawLogs, cancellationToken);
 
-        var logs = rawLogs.Select(x =>
-        {
-            var itemModel = ResolveItemModel(x);
+        var groupedLogs = rawLogs
+            .GroupBy(BuildStockMovementGroupKey)
+            .OrderByDescending(g => g.Key.BatchTime)
+            .ThenByDescending(g => g.Max(x => x.Id))
+            .Select(g => MapStockMovementGroup(g, currentQuantityMap))
+            .ToList();
 
-            return new InventoryLogModel
-            {
-                Id = x.Id,
-                DepotSupplyInventoryId = x.DepotSupplyInventoryId,
-                SupplyInventoryLotId = x.SupplyInventoryLotId,
-                ActionType = x.ActionType ?? string.Empty,
-                QuantityChange = x.QuantityChange,
-                SourceType = x.SourceType ?? string.Empty,
-                SourceId = x.SourceId,
-                Note = NormalizeMultilineText(x.Note),
-                CreatedAt = x.CreatedAt,
-                ReceivedDate = x.ReceivedDate,
-                ExpiredDate = x.ExpiredDate,
-                PerformedByName = x.PerformedByUser != null
-                    ? $"{x.PerformedByUser.LastName} {x.PerformedByUser.FirstName}".Trim()
-                    : string.Empty,
-                DepotId = x.SupplyInventory?.DepotId ?? x.ReusableItem?.DepotId,
-                DepotName = x.SupplyInventory?.Depot?.Name ?? x.ReusableItem?.Depot?.Name ?? string.Empty,
-                ItemModelId = x.ItemModelId ?? x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
-                ItemModelName = itemModel?.Name ?? string.Empty,
-                RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, x),
-                SerialNumber = x.ReusableItem?.SerialNumber,
-                LotId = x.SupplyInventoryLot?.Id,
-                ReusableItemId = x.ReusableItemId,
-                VatInvoiceId = x.VatInvoiceId,
-                InvoiceSerial = x.VatInvoice?.InvoiceSerial,
-                InvoiceNumber = x.VatInvoice?.InvoiceNumber,
-                SupplierName = x.VatInvoice?.SupplierName,
-                SupplierTaxCode = x.VatInvoice?.SupplierTaxCode,
-                InvoiceDate = x.VatInvoice?.InvoiceDate,
-                InvoiceTotalAmount = x.VatInvoice?.TotalAmount,
-                InvoiceFileUrl = x.VatInvoice?.FileUrl
-            };
-        }).ToList();
+        var totalCount = groupedLogs.Count;
+        var logs = groupedLogs
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
 
         return new PagedResult<InventoryLogModel>(logs, totalCount, pageNumber, pageSize);
     }
@@ -430,6 +399,115 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                && (log.QuantityChange ?? 0) == 1;
     }
 
+    private static InventoryLogModel MapStockMovementGroup(
+        IGrouping<StockMovementGroupKey, InventoryLog> group,
+        IReadOnlyDictionary<(int DepotId, int ItemModelId), int> currentQuantityMap)
+    {
+        var first = group
+            .OrderBy(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
+            .First();
+        var itemModel = ResolveItemModel(first);
+        var lotDetails = group
+            .Where(x => x.SupplyInventoryLotId.HasValue)
+            .GroupBy(x => new
+            {
+                LotId = x.SupplyInventoryLotId,
+                x.ReceivedDate,
+                x.ExpiredDate
+            })
+            .OrderBy(x => x.Key.LotId)
+            .Select(x => new InventoryLogLotDetailModel
+            {
+                LotId = x.Key.LotId,
+                ReceivedDate = x.Key.ReceivedDate,
+                ExpiredDate = x.Key.ExpiredDate,
+                QuantityChange = x.Sum(log => log.QuantityChange ?? 0)
+            })
+            .ToList();
+
+        var reusableDetails = group
+            .Where(x => x.ReusableItemId.HasValue)
+            .GroupBy(x => new
+            {
+                x.ReusableItemId,
+                SerialNumber = x.ReusableItem != null ? x.ReusableItem.SerialNumber : null
+            })
+            .OrderBy(x => x.Key.SerialNumber)
+            .ThenBy(x => x.Key.ReusableItemId)
+            .Select(x => new InventoryLogReusableDetailModel
+            {
+                ReusableItemId = x.Key.ReusableItemId,
+                SerialNumber = x.Key.SerialNumber,
+                QuantityChange = x.Sum(log => log.QuantityChange ?? 0)
+            })
+            .ToList();
+
+        return new InventoryLogModel
+        {
+            Id = group.Min(x => x.Id),
+            DepotSupplyInventoryId = first.DepotSupplyInventoryId,
+            SupplyInventoryLotId = lotDetails.Count == 1 ? lotDetails[0].LotId : null,
+            ActionType = first.ActionType ?? string.Empty,
+            QuantityChange = group.Sum(x => x.QuantityChange ?? 0),
+            SourceType = first.SourceType ?? string.Empty,
+            SourceId = first.SourceId,
+            Note = NormalizeMultilineText(first.Note),
+            CreatedAt = first.CreatedAt,
+            ReceivedDate = lotDetails.Count == 1 ? lotDetails[0].ReceivedDate : first.ReceivedDate,
+            ExpiredDate = lotDetails.Count == 1 ? lotDetails[0].ExpiredDate : first.ExpiredDate,
+            PerformedByName = first.PerformedByUser != null
+                ? $"{first.PerformedByUser.LastName} {first.PerformedByUser.FirstName}".Trim()
+                : string.Empty,
+            DepotId = group.Key.DepotId,
+            DepotName = first.SupplyInventory?.Depot?.Name ?? first.ReusableItem?.Depot?.Name ?? string.Empty,
+            ItemModelId = group.Key.ItemModelId,
+            ItemModelName = itemModel?.Name ?? string.Empty,
+            RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, first),
+            SerialNumber = reusableDetails.Count == 1 ? reusableDetails[0].SerialNumber : null,
+            LotId = lotDetails.Count == 1 ? lotDetails[0].LotId : null,
+            ReusableItemId = reusableDetails.Count == 1 ? reusableDetails[0].ReusableItemId : null,
+            VatInvoiceId = first.VatInvoiceId,
+            InvoiceSerial = first.VatInvoice?.InvoiceSerial,
+            InvoiceNumber = first.VatInvoice?.InvoiceNumber,
+            SupplierName = first.VatInvoice?.SupplierName,
+            SupplierTaxCode = first.VatInvoice?.SupplierTaxCode,
+            InvoiceDate = first.VatInvoice?.InvoiceDate,
+            InvoiceTotalAmount = first.VatInvoice?.TotalAmount,
+            InvoiceFileUrl = first.VatInvoice?.FileUrl,
+            LotDetails = lotDetails,
+            ReusableDetails = reusableDetails
+        };
+    }
+
+    private static StockMovementGroupKey BuildStockMovementGroupKey(InventoryLog log)
+    {
+        var itemModelId = log.ItemModelId
+                          ?? log.SupplyInventory?.ItemModelId
+                          ?? log.ReusableItem?.ItemModelId
+                          ?? 0;
+
+        return new StockMovementGroupKey(
+            ResolveDepotId(log),
+            log.ActionType ?? string.Empty,
+            log.SourceType ?? string.Empty,
+            log.VatInvoiceId.HasValue ? null : log.SourceId,
+            log.VatInvoiceId,
+            itemModelId,
+            TruncateToSecond(log.CreatedAt));
+    }
+
+    private static DateTime TruncateToSecond(DateTime? value)
+    {
+        var utc = value.HasValue
+            ? value.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+                : value.Value.ToUniversalTime()
+            : DateTime.MinValue;
+
+        return new DateTime(utc.Ticks - utc.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+    }
+
     private static string BuildTransactionGroupKey(InventoryLog log)
     {
         var actionType = (log.ActionType ?? string.Empty).ToLowerInvariant();
@@ -663,4 +741,13 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
         return id > 0 ? $"TX{dateStr}-{prefix}{id}" : $"TX{dateStr}-{prefix}";
     }
+
+    private sealed record StockMovementGroupKey(
+        int? DepotId,
+        string ActionType,
+        string SourceType,
+        int? SourceId,
+        int? VatInvoiceId,
+        int ItemModelId,
+        DateTime BatchTime);
 }

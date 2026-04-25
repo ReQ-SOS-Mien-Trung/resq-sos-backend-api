@@ -41,4 +41,21 @@ public class InventoryLogModel
     public DateOnly? InvoiceDate { get; set; }
     public decimal? InvoiceTotalAmount { get; set; }
     public string? InvoiceFileUrl { get; set; }
+    public List<InventoryLogLotDetailModel> LotDetails { get; set; } = [];
+    public List<InventoryLogReusableDetailModel> ReusableDetails { get; set; } = [];
+}
+
+public class InventoryLogLotDetailModel
+{
+    public int? LotId { get; set; }
+    public DateTime? ReceivedDate { get; set; }
+    public DateTime? ExpiredDate { get; set; }
+    public int QuantityChange { get; set; }
+}
+
+public class InventoryLogReusableDetailModel
+{
+    public int? ReusableItemId { get; set; }
+    public string? SerialNumber { get; set; }
+    public int QuantityChange { get; set; }
 }

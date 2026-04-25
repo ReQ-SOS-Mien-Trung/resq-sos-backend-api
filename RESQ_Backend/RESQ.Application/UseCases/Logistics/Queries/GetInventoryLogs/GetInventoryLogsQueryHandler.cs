@@ -76,7 +76,20 @@ public class GetInventoryLogsQueryHandler(
             SupplierTaxCode = log.SupplierTaxCode,
             InvoiceDate = log.InvoiceDate,
             InvoiceTotalAmount = log.InvoiceTotalAmount,
-            InvoiceFileUrl = log.InvoiceFileUrl
+            InvoiceFileUrl = log.InvoiceFileUrl,
+            LotDetails = log.LotDetails.Select(detail => new InventoryLogLotDetailDto
+            {
+                LotId = detail.LotId,
+                ReceivedDate = detail.ReceivedDate.ToVietnamTime(),
+                ExpiredDate = detail.ExpiredDate.ToVietnamTime(),
+                QuantityChange = detail.QuantityChange
+            }).ToList(),
+            ReusableDetails = log.ReusableDetails.Select(detail => new InventoryLogReusableDetailDto
+            {
+                ReusableItemId = detail.ReusableItemId,
+                SerialNumber = detail.SerialNumber,
+                QuantityChange = detail.QuantityChange
+            }).ToList()
         }).ToList();
 
         return new PagedResult<InventoryLogDto>(dtos, pagedData.TotalCount, pagedData.PageNumber, pagedData.PageSize);
