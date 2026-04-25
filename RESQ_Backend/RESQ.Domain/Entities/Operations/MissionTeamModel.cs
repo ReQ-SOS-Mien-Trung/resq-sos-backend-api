@@ -19,6 +19,12 @@ public class MissionTeamModel
     public DateTime? ReportLastEditedAt { get; set; }
     public DateTime? ReportSubmittedAt { get; set; }
 
+    // Safety Monitoring
+    public DateTime? SafetyLatestCheckInAt { get; set; }
+    public DateTime? SafetyTimeoutAt { get; set; }
+    public string? SafetyStatus { get; set; }
+    public int? GeneratedSosRequestId { get; set; }
+
     // Display hydration
     public string? TeamName { get; set; }
     public string? TeamCode { get; set; }

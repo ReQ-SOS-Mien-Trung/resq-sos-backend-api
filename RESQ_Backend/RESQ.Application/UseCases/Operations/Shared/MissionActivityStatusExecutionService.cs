@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.StateMachines;
@@ -155,6 +155,12 @@ public class MissionActivityStatusExecutionService(
                 assignedMissionTeam.Id,
                 MissionTeamExecutionStatus.InProgress.ToString(),
                 cancellationToken);
+        }
+
+        if (assignedMissionTeam is not null && effectiveStatus is MissionActivityStatus.OnGoing or MissionActivityStatus.Succeed)
+        {
+            var missionActivities = await _activityRepository.GetByMissionIdAsync(activity.MissionId ?? 0, cancellationToken);
+            MissionTeamSafetyHelper.ExtendSafetyTimeout(assignedMissionTeam, missionActivities);
         }
 
         var isCollectActivity = string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
