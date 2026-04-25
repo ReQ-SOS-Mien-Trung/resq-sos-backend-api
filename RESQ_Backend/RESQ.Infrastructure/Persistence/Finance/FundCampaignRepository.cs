@@ -73,6 +73,16 @@ public class FundCampaignRepository(IUnitOfWork unitOfWork) : IFundCampaignRepos
 
     public async Task UpdateAsync(FundCampaignModel model, CancellationToken cancellationToken = default)
     {
+        var trackedEntity = _unitOfWork.GetTracked<FundCampaign>(x => x.Id == model.Id);
+        if (trackedEntity != null)
+        {
+            // Preserve the tracked xmin/original concurrency snapshot already held by this DbContext.
+            var trackedRowVersion = trackedEntity.RowVersion;
+            FundCampaignMapper.UpdateEntity(trackedEntity, model);
+            trackedEntity.RowVersion = trackedRowVersion;
+            return;
+        }
+
         var repo = _unitOfWork.GetRepository<FundCampaign>();
         var entity = FundCampaignMapper.ToEntity(model);
         await repo.UpdateAsync(entity);
