@@ -63,7 +63,7 @@ public class SosClusterController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// Admin hoáº·c coordinator thÃªm má»™t SOS request Ä‘Æ¡n láº» vÃ o cluster hiá»‡n cÃ³.
+    /// Admin hoặc coordinator thêm một SOS request đơn lẻ vào cluster hiện có.
     /// </summary>
     [HttpPost("{clusterId:int}/sos-requests/{sosRequestId:int}")]
     [Authorize(Policy = PermissionConstants.PolicyMissionManage)]

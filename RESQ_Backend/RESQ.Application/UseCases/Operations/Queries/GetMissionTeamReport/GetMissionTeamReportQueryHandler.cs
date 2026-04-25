@@ -16,19 +16,19 @@ public class GetMissionTeamReportQueryHandler(
     public async Task<MissionTeamReportResponse> Handle(GetMissionTeamReportQuery request, CancellationToken cancellationToken)
     {
         var mission = await missionRepository.GetByIdAsync(request.MissionId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y mission vá»›i ID: {request.MissionId}");
+            ?? throw new NotFoundException($"Không tìm thấy mission với ID: {request.MissionId}");
 
         var missionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
-            ?? throw new NotFoundException($"KhÃ´ng tÃ¬m tháº¥y liÃªn káº¿t Ä‘á»™i-mission vá»›i ID: {request.MissionTeamId}");
+            ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");
 
         if (missionTeam.MissionId != request.MissionId)
-            throw new BadRequestException("Mission team khÃ´ng thuá»™c mission Ä‘Æ°á»£c yÃªu cáº§u.");
+            throw new BadRequestException("Mission team không thuộc mission được yêu cầu.");
 
         var permissionCodes = await permissionResolver.GetEffectivePermissionCodesAsync(request.RequestedBy, cancellationToken);
         var hasSystemUserView = permissionCodes.Contains(PermissionConstants.SystemUserView, StringComparer.OrdinalIgnoreCase);
 
         if (!hasSystemUserView && !missionTeam.RescueTeamMembers.Any(x => x.UserId == request.RequestedBy))
-            throw new ForbiddenException("Báº¡n khÃ´ng pháº£i thÃ nh viÃªn cá»§a Ä‘á»™i cá»©u há»™ nÃ y.");
+            throw new ForbiddenException("Bạn không phải thành viên của đội cứu hộ này.");
 
         var report = await missionTeamReportRepository.GetByMissionTeamIdAsync(request.MissionTeamId, cancellationToken);
         var assignedActivities = mission.Activities.Where(x => x.MissionTeamId == request.MissionTeamId).ToList();

@@ -15,9 +15,9 @@ public class ExcelExportService : IExcelExportService
 
     private static readonly string[] Headers =
     [
-        "STT", "TÃªn Váº­t Pháº©m", "Danh má»¥c", "Äá»‘i tÆ°á»£ng", "Loáº¡i váº­t pháº©m",
-        "ÄÆ¡n vá»‹", "ÄÆ¡n giÃ¡", "Sá»‘ lÆ°á»£ng", "NgÃ y nháº­n",
-        "Loáº¡i HÃ nh Ä‘á»™ng", "Nguá»“n", "TÃªn nhiá»‡m vá»¥",
+        "STT", "Tên Vật Phẩm", "Danh mục", "Đối tượng", "Loại vật phẩm",
+        "Đơn vị", "Đơn giá", "Số lượng", "Ngày nhận",
+        "Loại Hành động", "Nguồn", "Tên nhiệm vụ",
         "Serial / Lot ID"
     ];
 
@@ -38,17 +38,17 @@ public class ExcelExportService : IExcelExportService
     private static readonly string[] TemplateHeaders =
     [
         "STT",              // A
-        "TÃªn váº­t pháº©m",    // B
-        "Danh má»¥c",         // C
-        "Äá»‘i tÆ°á»£ng",        // D
-        "Loáº¡i váº­t pháº©m",   // E
-        "ÄÆ¡n vá»‹",           // F
-        "MÃ´ táº£ váº­t pháº©m",   // G
-        "Sá»‘ lÆ°á»£ng",         // H
-        "Thá»ƒ tÃ­ch (dmÂ³)",   // I
-        "CÃ¢n náº·ng (kg)",    // J
-        "NgÃ y háº¿t háº¡n",    // K
-        "NgÃ y nháº­n",        // L
+        "Tên vật phẩm",    // B
+        "Danh mục",         // C
+        "Đối tượng",        // D
+        "Loại vật phẩm",   // E
+        "Đơn vị",           // F
+        "Mô tả vật phẩm",   // G
+        "Số lượng",         // H
+        "Thể tích (dm³)",   // I
+        "Cân nặng (kg)",    // J
+        "Ngày hết hạn",    // K
+        "Ngày nhận",        // L
     ];
 
     private const int TemplateDataStartRow = 2;
@@ -61,7 +61,7 @@ public class ExcelExportService : IExcelExportService
         string depotName)
     {
         using var workbook = new XLWorkbook();
-        var ws = workbook.Worksheets.Add("Biáº¿n Ä‘á»™ng kho");
+        var ws = workbook.Worksheets.Add("Biến động kho");
 
         int col = Headers.Length;
 
@@ -79,7 +79,7 @@ public class ExcelExportService : IExcelExportService
         ws.Row(1).Height = 22;
 
         // --- Row 2: Report title ----------------------------------------------
-        ws.Cell(2, 1).Value = $"BÃO CÃO BIáº¾N Äá»˜NG KHO â€“ {title.ToUpper()}";
+        ws.Cell(2, 1).Value = $"BÁO CÁO BIẾN ĐỘNG KHO – {title.ToUpper()}";
         var titleRange = ws.Range(2, 1, 2, col);
         titleRange.Merge();
         titleRange.Style
@@ -92,7 +92,7 @@ public class ExcelExportService : IExcelExportService
         ws.Row(2).Height = 30;
 
         // --- Row 3: Export timestamp ------------------------------------------
-        ws.Cell(3, 1).Value = $"NgÃ y xuáº¥t: {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}";
+        ws.Cell(3, 1).Value = $"Ngày xuất: {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm}";
         var tsRange = ws.Range(3, 1, 3, col);
         tsRange.Merge();
         ws.Cell(3, 1).Style
@@ -147,8 +147,8 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 10).Value = row.ActionType;
             ws.Cell(r, 11).Value = row.SourceType;
             ws.Cell(r, 12).Value = row.MissionName ?? string.Empty;
-            // Col 13: Serial number (Reusable) hoáº·c Lot ID (Consumable)
-            ws.Cell(r, 13).Value = row.SerialNumber ?? (row.LotId.HasValue ? $"LÃ´ #{row.LotId.Value}" : string.Empty);
+            // Col 13: Serial number (Reusable) hoặc Lot ID (Consumable)
+            ws.Cell(r, 13).Value = row.SerialNumber ?? (row.LotId.HasValue ? $"Lô #{row.LotId.Value}" : string.Empty);
 
             // Alternate row background: white / light-orange
             var rowRange = ws.Range(r, 1, r, col);
@@ -172,7 +172,7 @@ public class ExcelExportService : IExcelExportService
 
         // --- Summary row ------------------------------------------------------
         int summaryRow = dataStartRow + rows.Count;
-        ws.Cell(summaryRow, 1).Value = "Tá»•ng sá»‘ dÃ²ng:";
+        ws.Cell(summaryRow, 1).Value = "Tổng số dòng:";
         ws.Cell(summaryRow, 2).Value = rows.Count;
         var summaryRange = ws.Range(summaryRow, 1, summaryRow, col);
         summaryRange.Style
@@ -224,7 +224,7 @@ public class ExcelExportService : IExcelExportService
         wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
         // -- 2. Build main entry sheet -----------------------------------------
-        var ws = workbook.Worksheets.Add("Nháº­p kho tá»« thiá»‡n");
+        var ws = workbook.Worksheets.Add("Nhập kho từ thiện");
         ws.SetTabActive();
 
         BuildMainSheet(ws, categories);
@@ -240,10 +240,10 @@ public class ExcelExportService : IExcelExportService
         IReadOnlyList<DonationImportCategoryInfo> categories,
         XLWorkbook workbook)
     {
-        ws.Cell(1, 1).Value = "Danh má»¥c";
+        ws.Cell(1, 1).Value = "Danh mục";
         for (int i = 0; i < categories.Count; i++)
         {
-            // Format: "Thá»±c pháº©m - Food"
+            // Format: "Thực phẩm - Food"
             ws.Cell(i + 2, 1).Value = $"{categories[i].Name} - {categories[i].Code}";
         }
 
@@ -276,7 +276,7 @@ public class ExcelExportService : IExcelExportService
             {
                 for (int i = 0; i < catItems.Count; i++)
                 {
-                    // Format: "MÃ¬ tÃ´m - 1"
+                    // Format: "Mì tôm - 1"
                     ws.Cell(i + 2, col).Value = $"{catItems[i].Name} - {catItems[i].Id}";
                 }
 
@@ -315,7 +315,7 @@ public class ExcelExportService : IExcelExportService
         for (int i = 0; i < items.Count; i++)
         {
             int r = i + 2;
-            // Lookup key must match the dropdown display: "MÃ¬ tÃ´m - 1"
+            // Lookup key must match the dropdown display: "Mì tôm - 1"
             ws.Cell(r, 1).Value = $"{items[i].Name} - {items[i].Id}";
             ws.Cell(r, 2).Value = items[i].TargetGroupDisplay;
             ws.Cell(r, 3).Value = items[i].ItemTypeDisplay;
@@ -425,17 +425,17 @@ public class ExcelExportService : IExcelExportService
 
         // -- Column widths -----------------------------------------------------
         ws.Column(1).Width  = 5;   // STT
-        ws.Column(2).Width  = 30;  // TÃªn váº­t pháº©m
-        ws.Column(3).Width  = 25;  // Danh má»¥c
-        ws.Column(4).Width  = 25;  // Äá»‘i tÆ°á»£ng
-        ws.Column(5).Width  = 15;  // Loáº¡i váº­t pháº©m
-        ws.Column(6).Width  = 12;  // ÄÆ¡n vá»‹
-        ws.Column(7).Width  = 35;  // MÃ´ táº£ váº­t pháº©m
-        ws.Column(8).Width  = 12;  // Sá»‘ lÆ°á»£ng
-        ws.Column(9).Width  = 16;  // Thá»ƒ tÃ­ch (dmÂ³)
-        ws.Column(10).Width = 16;  // CÃ¢n náº·ng (kg)
-        ws.Column(11).Width = 16;  // NgÃ y háº¿t háº¡n
-        ws.Column(12).Width = 16;  // NgÃ y nháº­n
+        ws.Column(2).Width  = 30;  // Tên vật phẩm
+        ws.Column(3).Width  = 25;  // Danh mục
+        ws.Column(4).Width  = 25;  // Đối tượng
+        ws.Column(5).Width  = 15;  // Loại vật phẩm
+        ws.Column(6).Width  = 12;  // Đơn vị
+        ws.Column(7).Width  = 35;  // Mô tả vật phẩm
+        ws.Column(8).Width  = 12;  // Số lượng
+        ws.Column(9).Width  = 16;  // Thể tích (dm³)
+        ws.Column(10).Width = 16;  // Cân nặng (kg)
+        ws.Column(11).Width = 16;  // Ngày hết hạn
+        ws.Column(12).Width = 16;  // Ngày nhận
 
         // -- Data rows (2..102) -------------------------------------------------
         for (int r = TemplateDataStartRow; r <= TemplateDataEndRow; r++)
@@ -448,106 +448,106 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 1).Value = rowNum;
             ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
-            // Col C: Danh má»¥c - dropdown from named range "Categories"
+            // Col C: Danh mục - dropdown from named range "Categories"
             var dvCategory = ws.Cell(r, 3).GetDataValidation();
             dvCategory.List("=Categories");
             dvCategory.IgnoreBlanks = true;
             dvCategory.ShowErrorMessage = true;
-            dvCategory.ErrorTitle = "Lá»—i";
-            dvCategory.ErrorMessage = "Vui lÃ²ng chá»n danh má»¥c tá»« danh sÃ¡ch.";
+            dvCategory.ErrorTitle = "Lỗi";
+            dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
 
-            // Col B: TÃªn váº­t pháº©m - dependent dropdown via INDIRECT
+            // Col B: Tên vật phẩm - dependent dropdown via INDIRECT
             // Formula: =INDIRECT("Cat_" & RIGHT(C2, LEN(C2) - FIND(" - ", C2) - 2))
             // This extracts the code part after " - " in the category dropdown value
             var dvItem = ws.Cell(r, 2).GetDataValidation();
             dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
             dvItem.IgnoreBlanks = true;
             dvItem.ShowInputMessage = true;
-            dvItem.InputTitle = "Gá»£i Ã½";
-            dvItem.InputMessage = "Chá»n váº­t pháº©m cÃ³ sáºµn hoáº·c tá»± nháº­p tÃªn má»›i.";
+            dvItem.InputTitle = "Gợi ý";
+            dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Äá»‘i tÆ°á»£ng - VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
+            // Col D: Đối tượng - VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
             //         Dropdown guidance for new items (overrides formula when user types)
             ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
             dvTargetGroup.List("=TargetGroupOptions");
             dvTargetGroup.IgnoreBlanks = true;
             dvTargetGroup.ShowInputMessage = true;
-            dvTargetGroup.InputTitle = "Gá»£i Ã½";
-            dvTargetGroup.InputMessage = "Náº¿u váº­t pháº©m má»›i, chá»n Ä‘á»‘i tÆ°á»£ng theo máº«u: tÃªn - code hoáº·c id.";
+            dvTargetGroup.InputTitle = "Gợi ý";
+            dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loáº¡i váº­t pháº©m - VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
+            // Col E: Loại vật phẩm - VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
             //         Dropdown guidance for new items
             ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
             dvItemType.List("=ItemTypeOptions");
             dvItemType.IgnoreBlanks = true;
             dvItemType.ShowInputMessage = true;
-            dvItemType.InputTitle = "Gá»£i Ã½";
-            dvItemType.InputMessage = "Náº¿u váº­t pháº©m má»›i, chá»n loáº¡i váº­t pháº©m theo máº«u: tÃªn - code hoáº·c id.";
+            dvItemType.InputTitle = "Gợi ý";
+            dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
             dvItemType.ShowErrorMessage = false;
 
-            // Col F: ÄÆ¡n vá»‹ - VLOOKUP auto-fill (editable)
+            // Col F: Đơn vị - VLOOKUP auto-fill (editable)
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 6),
-                "ÄÆ¡n vá»‹",
-                "Náº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n Ä‘Æ¡n vá»‹.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng cá»™t nÃ y.");
+                "Đơn vị",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col G: MÃ´ táº£ váº­t pháº©m - VLOOKUP auto-fill (editable)
+            // Col G: Mô tả vật phẩm - VLOOKUP auto-fill (editable)
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 7),
-                "MÃ´ táº£ váº­t pháº©m",
-                "Náº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n mÃ´ táº£.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng cá»™t nÃ y.");
+                "Mô tả vật phẩm",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col H: Sá»‘ lÆ°á»£ng - number format
+            // Col H: Số lượng - number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Thá»ƒ tÃ­ch (dmÂ³) - VLOOKUP auto-fill from DM_Lookup col 6 (existing item), editable for new items
+            // Col I: Thể tích (dm³) - VLOOKUP auto-fill from DM_Lookup col 6 (existing item), editable for new items
             ws.Cell(r, 9).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,6,FALSE),\"\")";
             ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0.000";
             var dvVolume = ws.Cell(r, 9).GetDataValidation();
             dvVolume.ShowInputMessage = true;
-            dvVolume.InputTitle = "Thá»ƒ tÃ­ch";
-            dvVolume.InputMessage = "Thá»ƒ tÃ­ch má»—i Ä‘Æ¡n vá»‹ (dmÂ³).\nNáº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng.";
+            dvVolume.InputTitle = "Thể tích";
+            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvVolume.ShowErrorMessage = false;
 
-            // Col J: CÃ¢n náº·ng (kg) - VLOOKUP auto-fill from DM_Lookup col 7 (existing item), editable for new items
+            // Col J: Cân nặng (kg) - VLOOKUP auto-fill from DM_Lookup col 7 (existing item), editable for new items
             ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
             ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.000";
             var dvWeight = ws.Cell(r, 10).GetDataValidation();
             dvWeight.ShowInputMessage = true;
-            dvWeight.InputTitle = "CÃ¢n náº·ng";
-            dvWeight.InputMessage = "CÃ¢n náº·ng má»—i Ä‘Æ¡n vá»‹ (kg).\nNáº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng.";
+            dvWeight.InputTitle = "Cân nặng";
+            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvWeight.ShowErrorMessage = false;
 
-            // Col K: NgÃ y háº¿t háº¡n - DateOnly (dd/MM/yyyy)
+            // Col K: Ngày hết hạn - DateOnly (dd/MM/yyyy)
             ws.Cell(r, 11).Style.NumberFormat.Format = "dd/MM/yyyy";
             var dvExpiryDate = ws.Cell(r, 11).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvExpiryDate.IgnoreBlanks = true;
             dvExpiryDate.ShowInputMessage = true;
-            dvExpiryDate.InputTitle = "NgÃ y háº¿t háº¡n";
-            dvExpiryDate.InputMessage = "Nháº­p ngÃ y (dd/MM/yyyy).\nVÃ­ dá»¥: 25/12/2026\nÄá»ƒ trá»‘ng náº¿u khÃ´ng cÃ³.";
+            dvExpiryDate.InputTitle = "Ngày hết hạn";
+            dvExpiryDate.InputMessage = "Nhập ngày (dd/MM/yyyy).\nVí dụ: 25/12/2026\nĐể trống nếu không có.";
             dvExpiryDate.ShowErrorMessage = true;
-            dvExpiryDate.ErrorTitle = "Sai Ä‘á»‹nh dáº¡ng";
-            dvExpiryDate.ErrorMessage = "Vui lÃ²ng nháº­p ngÃ y há»£p lá»‡ (dd/MM/yyyy).";
+            dvExpiryDate.ErrorTitle = "Sai định dạng";
+            dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col L: NgÃ y nháº­n - DateTime (dd/MM/yyyy HH:mm)
+            // Col L: Ngày nhận - DateTime (dd/MM/yyyy HH:mm)
             ws.Cell(r, 12).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
             var dvReceivedDate = ws.Cell(r, 12).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvReceivedDate.IgnoreBlanks = true;
             dvReceivedDate.ShowInputMessage = true;
-            dvReceivedDate.InputTitle = "NgÃ y nháº­n";
-            dvReceivedDate.InputMessage = "Nháº­p ngÃ y giá» (dd/MM/yyyy HH:mm).\nVÃ­ dá»¥: 24/03/2026 14:30";
+            dvReceivedDate.InputTitle = "Ngày nhận";
+            dvReceivedDate.InputMessage = "Nhập ngày giờ (dd/MM/yyyy HH:mm).\nVí dụ: 24/03/2026 14:30";
             dvReceivedDate.ShowErrorMessage = true;
-            dvReceivedDate.ErrorTitle = "Sai Ä‘á»‹nh dáº¡ng";
-            dvReceivedDate.ErrorMessage = "Vui lÃ²ng nháº­p ngÃ y giá» há»£p lá»‡ (dd/MM/yyyy HH:mm).";
+            dvReceivedDate.ErrorTitle = "Sai định dạng";
+            dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
             dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
 
             // Alternate row background
@@ -577,18 +577,18 @@ public class ExcelExportService : IExcelExportService
     private static readonly string[] PurchaseTemplateHeaders =
     [
         "STT",              // A  (1)
-        "TÃªn váº­t pháº©m",    // B  (2)
-        "Danh má»¥c",         // C  (3)
-        "Äá»‘i tÆ°á»£ng",        // D  (4)
-        "Loáº¡i váº­t pháº©m",   // E  (5)
-        "ÄÆ¡n vá»‹",           // F  (6)
-        "MÃ´ táº£ váº­t pháº©m",   // G  (7)
-        "Sá»‘ lÆ°á»£ng (*)",     // H  (8)
-        "Thá»ƒ tÃ­ch (dmÂ³)",   // I  (9)
-        "CÃ¢n náº·ng (kg)",    // J  (10)
-        "ÄÆ¡n giÃ¡ (VNÄ)",   // K  (11)
-        "NgÃ y háº¿t háº¡n",    // L  (12)
-        "NgÃ y nháº­n",        // M  (13)
+        "Tên vật phẩm",    // B  (2)
+        "Danh mục",         // C  (3)
+        "Đối tượng",        // D  (4)
+        "Loại vật phẩm",   // E  (5)
+        "Đơn vị",           // F  (6)
+        "Mô tả vật phẩm",   // G  (7)
+        "Số lượng (*)",     // H  (8)
+        "Thể tích (dm³)",   // I  (9)
+        "Cân nặng (kg)",    // J  (10)
+        "Đơn giá (VNĐ)",   // K  (11)
+        "Ngày hết hạn",    // L  (12)
+        "Ngày nhận",        // M  (13)
     ];
 
     private const int PurchaseDataStartRow = 2;
@@ -619,7 +619,7 @@ public class ExcelExportService : IExcelExportService
         wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
         // -- 2. Build main entry sheet -----------------------------------------
-        var ws = workbook.Worksheets.Add("Nháº­p kho mua sáº¯m");
+        var ws = workbook.Worksheets.Add("Nhập kho mua sắm");
         ws.SetTabActive();
 
         BuildPurchaseMainSheet(ws);
@@ -651,18 +651,18 @@ public class ExcelExportService : IExcelExportService
 
         // -- Column widths -----------------------------------------------------
         ws.Column(1).Width  = 5;   // A: STT
-        ws.Column(2).Width  = 30;  // B: TÃªn váº­t pháº©m
-        ws.Column(3).Width  = 25;  // C: Danh má»¥c
-        ws.Column(4).Width  = 25;  // D: Äá»‘i tÆ°á»£ng
-        ws.Column(5).Width  = 15;  // E: Loáº¡i váº­t pháº©m
-        ws.Column(6).Width  = 12;  // F: ÄÆ¡n vá»‹
-        ws.Column(7).Width  = 35;  // G: MÃ´ táº£ váº­t pháº©m
-        ws.Column(8).Width  = 12;  // H: Sá»‘ lÆ°á»£ng
-        ws.Column(9).Width  = 16;  // I: Thá»ƒ tÃ­ch (dmÂ³)
-        ws.Column(10).Width = 16;  // J: CÃ¢n náº·ng (kg)
-        ws.Column(11).Width = 16;  // K: ÄÆ¡n giÃ¡
-        ws.Column(12).Width = 16;  // L: NgÃ y háº¿t háº¡n
-        ws.Column(13).Width = 18;  // M: NgÃ y nháº­n
+        ws.Column(2).Width  = 30;  // B: Tên vật phẩm
+        ws.Column(3).Width  = 25;  // C: Danh mục
+        ws.Column(4).Width  = 25;  // D: Đối tượng
+        ws.Column(5).Width  = 15;  // E: Loại vật phẩm
+        ws.Column(6).Width  = 12;  // F: Đơn vị
+        ws.Column(7).Width  = 35;  // G: Mô tả vật phẩm
+        ws.Column(8).Width  = 12;  // H: Số lượng
+        ws.Column(9).Width  = 16;  // I: Thể tích (dm³)
+        ws.Column(10).Width = 16;  // J: Cân nặng (kg)
+        ws.Column(11).Width = 16;  // K: Đơn giá
+        ws.Column(12).Width = 16;  // L: Ngày hết hạn
+        ws.Column(13).Width = 18;  // M: Ngày nhận
 
         // -- Data rows (2..102) -------------------------------------------------
         for (int r = PurchaseDataStartRow; r <= PurchaseDataEndRow; r++)
@@ -675,111 +675,111 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 1).Value = rowNum;
             ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
-            // Col C: Danh má»¥c - dropdown from named range "Categories"
+            // Col C: Danh mục - dropdown from named range "Categories"
             var dvCategory = ws.Cell(r, 3).GetDataValidation();
             dvCategory.List("=Categories");
             dvCategory.IgnoreBlanks = true;
             dvCategory.ShowErrorMessage = true;
-            dvCategory.ErrorTitle = "Lá»—i";
-            dvCategory.ErrorMessage = "Vui lÃ²ng chá»n danh má»¥c tá»« danh sÃ¡ch.";
+            dvCategory.ErrorTitle = "Lỗi";
+            dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
 
-            // Col B: TÃªn váº­t pháº©m - dependent dropdown via INDIRECT on col C
+            // Col B: Tên vật phẩm - dependent dropdown via INDIRECT on col C
             var dvItem = ws.Cell(r, 2).GetDataValidation();
             dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
             dvItem.IgnoreBlanks = true;
             dvItem.ShowInputMessage = true;
-            dvItem.InputTitle = "Gá»£i Ã½";
-            dvItem.InputMessage = "Chá»n váº­t pháº©m cÃ³ sáºµn hoáº·c tá»± nháº­p tÃªn má»›i.";
+            dvItem.InputTitle = "Gợi ý";
+            dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Äá»‘i tÆ°á»£ng - VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
+            // Col D: Đối tượng - VLOOKUP auto-fill from DM_Lookup col 2 (existing item)
             //         Dropdown guidance for new items
             ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
             dvTargetGroup.List("=TargetGroupOptions");
             dvTargetGroup.IgnoreBlanks = true;
             dvTargetGroup.ShowInputMessage = true;
-            dvTargetGroup.InputTitle = "Gá»£i Ã½";
-            dvTargetGroup.InputMessage = "Náº¿u váº­t pháº©m má»›i, chá»n Ä‘á»‘i tÆ°á»£ng theo máº«u: tÃªn - code hoáº·c id.";
+            dvTargetGroup.InputTitle = "Gợi ý";
+            dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loáº¡i váº­t pháº©m - VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
+            // Col E: Loại vật phẩm - VLOOKUP auto-fill from DM_Lookup col 3 (existing item)
             //         Dropdown guidance for new items
             ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
             dvItemType.List("=ItemTypeOptions");
             dvItemType.IgnoreBlanks = true;
             dvItemType.ShowInputMessage = true;
-            dvItemType.InputTitle = "Gá»£i Ã½";
-            dvItemType.InputMessage = "Náº¿u váº­t pháº©m má»›i, chá»n loáº¡i váº­t pháº©m theo máº«u: tÃªn - code hoáº·c id.";
+            dvItemType.InputTitle = "Gợi ý";
+            dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
             dvItemType.ShowErrorMessage = false;
 
-            // Col F: ÄÆ¡n vá»‹ - VLOOKUP auto-fill
+            // Col F: Đơn vị - VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 6),
-                "ÄÆ¡n vá»‹",
-                "Náº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n Ä‘Æ¡n vá»‹.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng cá»™t nÃ y.");
+                "Đơn vị",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col G: MÃ´ táº£ váº­t pháº©m - VLOOKUP auto-fill
+            // Col G: Mô tả vật phẩm - VLOOKUP auto-fill
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 7),
-                "MÃ´ táº£ váº­t pháº©m",
-                "Náº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n mÃ´ táº£.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng cá»™t nÃ y.");
+                "Mô tả vật phẩm",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col H: Sá»‘ lÆ°á»£ng (*) - number format
+            // Col H: Số lượng (*) - number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: Thá»ƒ tÃ­ch (dmÂ³) - VLOOKUP auto-fill from DM_Lookup col 6, editable for new items
+            // Col I: Thể tích (dm³) - VLOOKUP auto-fill from DM_Lookup col 6, editable for new items
             ws.Cell(r, 9).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,6,FALSE),\"\")";
             ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0.000";
             var dvVolume = ws.Cell(r, 9).GetDataValidation();
             dvVolume.ShowInputMessage = true;
-            dvVolume.InputTitle = "Thá»ƒ tÃ­ch";
-            dvVolume.InputMessage = "Thá»ƒ tÃ­ch má»—i Ä‘Æ¡n vá»‹ (dmÂ³).\nNáº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng.";
+            dvVolume.InputTitle = "Thể tích";
+            dvVolume.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvVolume.ShowErrorMessage = false;
 
-            // Col J: CÃ¢n náº·ng (kg) - VLOOKUP auto-fill from DM_Lookup col 7, editable for new items
+            // Col J: Cân nặng (kg) - VLOOKUP auto-fill from DM_Lookup col 7, editable for new items
             ws.Cell(r, 10).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
             ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.000";
             var dvWeight = ws.Cell(r, 10).GetDataValidation();
             dvWeight.ShowInputMessage = true;
-            dvWeight.InputTitle = "CÃ¢n náº·ng";
-            dvWeight.InputMessage = "CÃ¢n náº·ng má»—i Ä‘Æ¡n vá»‹ (kg).\nNáº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng.";
+            dvWeight.InputTitle = "Cân nặng";
+            dvWeight.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvWeight.ShowErrorMessage = false;
 
-            // Col K: ÄÆ¡n giÃ¡ (VNÄ) - currency format (purchase-specific)
+            // Col K: Đơn giá (VNĐ) - currency format (purchase-specific)
             ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0";
             var dvUnitPrice = ws.Cell(r, 11).GetDataValidation();
             dvUnitPrice.ShowInputMessage = true;
-            dvUnitPrice.InputTitle = "ÄÆ¡n giÃ¡";
-            dvUnitPrice.InputMessage = "GiÃ¡ mua má»—i Ä‘Æ¡n vá»‹ (VNÄ).\nÄá»ƒ trá»‘ng náº¿u khÃ´ng cÃ³.";
+            dvUnitPrice.InputTitle = "Đơn giá";
+            dvUnitPrice.InputMessage = "Giá mua mỗi đơn vị (VNĐ).\nĐể trống nếu không có.";
 
-            // Col L: NgÃ y háº¿t háº¡n - DateOnly (dd/MM/yyyy)
+            // Col L: Ngày hết hạn - DateOnly (dd/MM/yyyy)
             ws.Cell(r, 12).Style.NumberFormat.Format = "dd/MM/yyyy";
             var dvExpiryDate = ws.Cell(r, 12).GetDataValidation();
             dvExpiryDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvExpiryDate.IgnoreBlanks = true;
             dvExpiryDate.ShowInputMessage = true;
-            dvExpiryDate.InputTitle = "NgÃ y háº¿t háº¡n";
-            dvExpiryDate.InputMessage = "Nháº­p ngÃ y (dd/MM/yyyy).\nVÃ­ dá»¥: 25/12/2026\nÄá»ƒ trá»‘ng náº¿u khÃ´ng cÃ³.";
+            dvExpiryDate.InputTitle = "Ngày hết hạn";
+            dvExpiryDate.InputMessage = "Nhập ngày (dd/MM/yyyy).\nVí dụ: 25/12/2026\nĐể trống nếu không có.";
             dvExpiryDate.ShowErrorMessage = true;
-            dvExpiryDate.ErrorTitle = "Sai Ä‘á»‹nh dáº¡ng";
-            dvExpiryDate.ErrorMessage = "Vui lÃ²ng nháº­p ngÃ y há»£p lá»‡ (dd/MM/yyyy).";
+            dvExpiryDate.ErrorTitle = "Sai định dạng";
+            dvExpiryDate.ErrorMessage = "Vui lòng nhập ngày hợp lệ (dd/MM/yyyy).";
             dvExpiryDate.ErrorStyle = XLErrorStyle.Warning;
 
-            // Col M: NgÃ y nháº­n - DateTime (dd/MM/yyyy HH:mm)
+            // Col M: Ngày nhận - DateTime (dd/MM/yyyy HH:mm)
             ws.Cell(r, 13).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm";
             var dvReceivedDate = ws.Cell(r, 13).GetDataValidation();
             dvReceivedDate.Date.Between(new DateTime(2020, 1, 1), new DateTime(2099, 12, 31));
             dvReceivedDate.IgnoreBlanks = true;
             dvReceivedDate.ShowInputMessage = true;
-            dvReceivedDate.InputTitle = "NgÃ y nháº­n";
-            dvReceivedDate.InputMessage = "Nháº­p ngÃ y giá» (dd/MM/yyyy HH:mm).\nVÃ­ dá»¥: 24/03/2026 14:30";
+            dvReceivedDate.InputTitle = "Ngày nhận";
+            dvReceivedDate.InputMessage = "Nhập ngày giờ (dd/MM/yyyy HH:mm).\nVí dụ: 24/03/2026 14:30";
             dvReceivedDate.ShowErrorMessage = true;
-            dvReceivedDate.ErrorTitle = "Sai Ä‘á»‹nh dáº¡ng";
-            dvReceivedDate.ErrorMessage = "Vui lÃ²ng nháº­p ngÃ y giá» há»£p lá»‡ (dd/MM/yyyy HH:mm).";
+            dvReceivedDate.ErrorTitle = "Sai định dạng";
+            dvReceivedDate.ErrorMessage = "Vui lòng nhập ngày giờ hợp lệ (dd/MM/yyyy HH:mm).";
             dvReceivedDate.ErrorStyle = XLErrorStyle.Warning;
 
             // -- Row styling ---------------------------------------------------
@@ -803,25 +803,25 @@ public class ExcelExportService : IExcelExportService
 
     // ---------------------------------------------------------------------------
     //  Funding Request Template - like purchase but without expiry/received date
-    //  Cols: STT (A), TÃªn váº­t pháº©m (B), Danh má»¥c (C), Äá»‘i tÆ°á»£ng (D),
-    //        Loáº¡i váº­t pháº©m (E), ÄÆ¡n vá»‹ (F), MÃ´ táº£ váº­t pháº©m (G),
-    //        Sá»‘ lÆ°á»£ng (*) (H), ÄÆ¡n giÃ¡ (VNÄ) (I),
-    //        Thá»ƒ tÃ­ch (dmÂ³) (J), CÃ¢n náº·ng (kg) (K) - 11 cols total
+    //  Cols: STT (A), Tên vật phẩm (B), Danh mục (C), Đối tượng (D),
+    //        Loại vật phẩm (E), Đơn vị (F), Mô tả vật phẩm (G),
+    //        Số lượng (*) (H), Đơn giá (VNĐ) (I),
+    //        Thể tích (dm³) (J), Cân nặng (kg) (K) - 11 cols total
     // ---------------------------------------------------------------------------
 
     private static readonly string[] FundingRequestTemplateHeaders =
     [
         "STT",              // A  (1)
-        "TÃªn váº­t pháº©m",    // B  (2)
-        "Danh má»¥c",         // C  (3)
-        "Äá»‘i tÆ°á»£ng",        // D  (4)
-        "Loáº¡i váº­t pháº©m",   // E  (5)
-        "ÄÆ¡n vá»‹",           // F  (6)
-        "MÃ´ táº£ váº­t pháº©m",   // G  (7)
-        "Sá»‘ lÆ°á»£ng (*)",     // H  (8)
-        "ÄÆ¡n giÃ¡ (VNÄ)",   // I  (9)
-        "Thá»ƒ tÃ­ch (dmÂ³)",  // J  (10) - VLOOKUP auto-fill
-        "CÃ¢n náº·ng (kg)",   // K  (11) - VLOOKUP auto-fill
+        "Tên vật phẩm",    // B  (2)
+        "Danh mục",         // C  (3)
+        "Đối tượng",        // D  (4)
+        "Loại vật phẩm",   // E  (5)
+        "Đơn vị",           // F  (6)
+        "Mô tả vật phẩm",   // G  (7)
+        "Số lượng (*)",     // H  (8)
+        "Đơn giá (VNĐ)",   // I  (9)
+        "Thể tích (dm³)",  // J  (10) - VLOOKUP auto-fill
+        "Cân nặng (kg)",   // K  (11) - VLOOKUP auto-fill
     ];
 
     private const int FundingRequestDataStartRow = 2;
@@ -852,7 +852,7 @@ public class ExcelExportService : IExcelExportService
         wsMeta.Visibility    = XLWorksheetVisibility.VeryHidden;
 
         // -- 2. Build main entry sheet -----------------------------------------
-        var ws = workbook.Worksheets.Add("YÃªu cáº§u cáº¥p tiá»n");
+        var ws = workbook.Worksheets.Add("Yêu cầu cấp tiền");
         ws.SetTabActive();
 
         BuildFundingRequestMainSheet(ws);
@@ -884,14 +884,14 @@ public class ExcelExportService : IExcelExportService
 
         // -- Column widths -----------------------------------------------------
         ws.Column(1).Width  = 5;   // A: STT
-        ws.Column(2).Width  = 30;  // B: TÃªn váº­t pháº©m
-        ws.Column(3).Width  = 25;  // C: Danh má»¥c
-        ws.Column(4).Width  = 25;  // D: Äá»‘i tÆ°á»£ng
-        ws.Column(5).Width  = 15;  // E: Loáº¡i váº­t pháº©m
-        ws.Column(6).Width  = 12;  // F: ÄÆ¡n vá»‹
-        ws.Column(7).Width  = 35;  // G: MÃ´ táº£ váº­t pháº©m
-        ws.Column(8).Width  = 12;  // H: Sá»‘ lÆ°á»£ng
-        ws.Column(9).Width  = 16;  // I: ÄÆ¡n giÃ¡
+        ws.Column(2).Width  = 30;  // B: Tên vật phẩm
+        ws.Column(3).Width  = 25;  // C: Danh mục
+        ws.Column(4).Width  = 25;  // D: Đối tượng
+        ws.Column(5).Width  = 15;  // E: Loại vật phẩm
+        ws.Column(6).Width  = 12;  // F: Đơn vị
+        ws.Column(7).Width  = 35;  // G: Mô tả vật phẩm
+        ws.Column(8).Width  = 12;  // H: Số lượng
+        ws.Column(9).Width  = 16;  // I: Đơn giá
 
         // -- Data rows (2..102) -------------------------------------------------
         ws.Column(10).Width = 20;  // J: The tich / don vi
@@ -907,66 +907,66 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 1).Value = rowNum;
             ws.Cell(r, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
-            // Col C: Danh má»¥c - dropdown from named range "Categories"
+            // Col C: Danh mục - dropdown from named range "Categories"
             var dvCategory = ws.Cell(r, 3).GetDataValidation();
             dvCategory.List("=Categories");
             dvCategory.IgnoreBlanks = true;
             dvCategory.ShowErrorMessage = true;
-            dvCategory.ErrorTitle = "Lá»—i";
-            dvCategory.ErrorMessage = "Vui lÃ²ng chá»n danh má»¥c tá»« danh sÃ¡ch.";
+            dvCategory.ErrorTitle = "Lỗi";
+            dvCategory.ErrorMessage = "Vui lòng chọn danh mục từ danh sách.";
 
-            // Col B: TÃªn váº­t pháº©m - dependent dropdown via INDIRECT on col C
+            // Col B: Tên vật phẩm - dependent dropdown via INDIRECT on col C
             var dvItem = ws.Cell(r, 2).GetDataValidation();
             dvItem.List($"=INDIRECT(\"Cat_\"&RIGHT(C{r},LEN(C{r})-FIND(\" - \",C{r})-2))");
             dvItem.IgnoreBlanks = true;
             dvItem.ShowInputMessage = true;
-            dvItem.InputTitle = "Gá»£i Ã½";
-            dvItem.InputMessage = "Chá»n váº­t pháº©m cÃ³ sáºµn hoáº·c tá»± nháº­p tÃªn má»›i.";
+            dvItem.InputTitle = "Gợi ý";
+            dvItem.InputMessage = "Chọn vật phẩm có sẵn hoặc tự nhập tên mới.";
             dvItem.ShowErrorMessage = false; // Allow manual entry of new items
 
-            // Col D: Äá»‘i tÆ°á»£ng - VLOOKUP auto-fill from DM_Lookup col 2
+            // Col D: Đối tượng - VLOOKUP auto-fill from DM_Lookup col 2
             ws.Cell(r, 4).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$B,2,FALSE),\"\")";
             var dvTargetGroup = ws.Cell(r, 4).GetDataValidation();
             dvTargetGroup.List("=TargetGroupOptions");
             dvTargetGroup.IgnoreBlanks = true;
             dvTargetGroup.ShowInputMessage = true;
-            dvTargetGroup.InputTitle = "Gá»£i Ã½";
-            dvTargetGroup.InputMessage = "Náº¿u váº­t pháº©m má»›i, chá»n Ä‘á»‘i tÆ°á»£ng theo máº«u: tÃªn - code hoáº·c id.";
+            dvTargetGroup.InputTitle = "Gợi ý";
+            dvTargetGroup.InputMessage = "Nếu vật phẩm mới, chọn đối tượng theo mẫu: tên - code hoặc id.";
             dvTargetGroup.ShowErrorMessage = false;
 
-            // Col E: Loáº¡i váº­t pháº©m - VLOOKUP auto-fill from DM_Lookup col 3
+            // Col E: Loại vật phẩm - VLOOKUP auto-fill from DM_Lookup col 3
             ws.Cell(r, 5).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$C,3,FALSE),\"\")";
             var dvItemType = ws.Cell(r, 5).GetDataValidation();
             dvItemType.List("=ItemTypeOptions");
             dvItemType.IgnoreBlanks = true;
             dvItemType.ShowInputMessage = true;
-            dvItemType.InputTitle = "Gá»£i Ã½";
-            dvItemType.InputMessage = "Náº¿u váº­t pháº©m má»›i, chá»n loáº¡i váº­t pháº©m theo máº«u: tÃªn - code hoáº·c id.";
+            dvItemType.InputTitle = "Gợi ý";
+            dvItemType.InputMessage = "Nếu vật phẩm mới, chọn loại vật phẩm theo mẫu: tên - code hoặc id.";
             dvItemType.ShowErrorMessage = false;
 
-            // Col F: ÄÆ¡n vá»‹ - VLOOKUP auto-fill
+            // Col F: Đơn vị - VLOOKUP auto-fill
             ws.Cell(r, 6).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$D,4,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 6),
-                "ÄÆ¡n vá»‹",
-                "Náº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n Ä‘Æ¡n vá»‹.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng cá»™t nÃ y.");
+                "Đơn vị",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền đơn vị.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col G: MÃ´ táº£ váº­t pháº©m - VLOOKUP auto-fill
+            // Col G: Mô tả vật phẩm - VLOOKUP auto-fill
             ws.Cell(r, 7).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$E,5,FALSE),\"\")";
             ConfigureManualEntryGuidance(
                 ws.Cell(r, 7),
-                "MÃ´ táº£ váº­t pháº©m",
-                "Náº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n mÃ´ táº£.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng cá»™t nÃ y.");
+                "Mô tả vật phẩm",
+                "Nếu chọn vật phẩm có sẵn, hệ thống tự điền mô tả.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công cột này.");
 
-            // Col H: Sá»‘ lÆ°á»£ng (*) - number format
+            // Col H: Số lượng (*) - number format
             ws.Cell(r, 8).Style.NumberFormat.Format = "#,##0";
 
-            // Col I: ÄÆ¡n giÃ¡ (VNÄ) - currency format
+            // Col I: Đơn giá (VNĐ) - currency format
             ws.Cell(r, 9).Style.NumberFormat.Format = "#,##0";
             var dvUnitPrice = ws.Cell(r, 9).GetDataValidation();
             dvUnitPrice.ShowInputMessage = true;
-            dvUnitPrice.InputTitle = "ÄÆ¡n giÃ¡";
-            dvUnitPrice.InputMessage = "GiÃ¡ dá»± kiáº¿n má»—i Ä‘Æ¡n vá»‹ (VNÄ).\nÄá»ƒ trá»‘ng náº¿u chÆ°a xÃ¡c Ä‘á»‹nh.";
+            dvUnitPrice.InputTitle = "Đơn giá";
+            dvUnitPrice.InputMessage = "Giá dự kiến mỗi đơn vị (VNĐ).\nĐể trống nếu chưa xác định.";
 
             // -- Row styling ---------------------------------------------------
             if (rowNum % 2 == 0)
@@ -979,16 +979,16 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(r, 10).Style.NumberFormat.Format = "#,##0.###";
             var dvVolumePerUnit = ws.Cell(r, 10).GetDataValidation();
             dvVolumePerUnit.ShowInputMessage = true;
-            dvVolumePerUnit.InputTitle = "Thá»ƒ tÃ­ch / Ä‘Æ¡n vá»‹";
-            dvVolumePerUnit.InputMessage = "Thá»ƒ tÃ­ch má»—i Ä‘Æ¡n vá»‹ (dmÂ³).\nNáº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng.";
+            dvVolumePerUnit.InputTitle = "Thể tích / đơn vị";
+            dvVolumePerUnit.InputMessage = "Thể tích mỗi đơn vị (dm³).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvVolumePerUnit.ShowErrorMessage = false;
 
             ws.Cell(r, 11).FormulaA1 = $"IFERROR(VLOOKUP(B{r},DM_Lookup!$A:$G,7,FALSE),\"\")";
             ws.Cell(r, 11).Style.NumberFormat.Format = "#,##0.###";
             var dvWeightPerUnit = ws.Cell(r, 11).GetDataValidation();
             dvWeightPerUnit.ShowInputMessage = true;
-            dvWeightPerUnit.InputTitle = "CÃ¢n náº·ng / Ä‘Æ¡n vá»‹";
-            dvWeightPerUnit.InputMessage = "CÃ¢n náº·ng má»—i Ä‘Æ¡n vá»‹ (kg).\nNáº¿u chá»n váº­t pháº©m cÃ³ sáºµn, há»‡ thá»‘ng tá»± Ä‘iá»n.\nNáº¿u tá»± nháº­p váº­t pháº©m má»›i, báº¡n cÃ³ thá»ƒ nháº­p thá»§ cÃ´ng.";
+            dvWeightPerUnit.InputTitle = "Cân nặng / đơn vị";
+            dvWeightPerUnit.InputMessage = "Cân nặng mỗi đơn vị (kg).\nNếu chọn vật phẩm có sẵn, hệ thống tự điền.\nNếu tự nhập vật phẩm mới, bạn có thể nhập thủ công.";
             dvWeightPerUnit.ShowErrorMessage = false;
 
             // Thin borders for all data cells

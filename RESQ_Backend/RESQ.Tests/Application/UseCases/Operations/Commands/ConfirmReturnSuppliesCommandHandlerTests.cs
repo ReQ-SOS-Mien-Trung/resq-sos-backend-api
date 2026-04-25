@@ -747,7 +747,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             .ToString()
             .Normalize(System.Text.NormalizationForm.FormC)
             .Replace('d', 'd')
-            .Replace('�', 'D');
+            .Replace('\uFFFD', 'D');
     }
 }
 
