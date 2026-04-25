@@ -23,7 +23,8 @@ public interface IItemModelMetadataRepository
     /// Returns distinct item models currently belonging to a depot via SupplyInventory.
     /// Key = item model ID, Value = item model name.
     /// </summary>
-    Task<List<MetadataDto>> GetByDepotIdForMetadataAsync(int depotId, CancellationToken cancellationToken = default);
+    Task<List<MetadataDto>> GetByDepotIdForMetadataAsync(int depotId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<MetadataDto>());
 
     /// <summary>
     /// Returns all item models with target groups, unit, item type, and category code

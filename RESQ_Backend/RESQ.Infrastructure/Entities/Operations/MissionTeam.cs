@@ -50,6 +50,19 @@ public partial class MissionTeam
     [Column("created_at", TypeName = "timestamp with time zone")]
     public DateTime? CreatedAt { get; set; }
 
+    [Column("safety_latest_checkin_at", TypeName = "timestamp with time zone")]
+    public DateTime? SafetyLatestCheckInAt { get; set; }
+
+    [Column("safety_timeout_at", TypeName = "timestamp with time zone")]
+    public DateTime? SafetyTimeoutAt { get; set; }
+
+    [Column("safety_status")]
+    [StringLength(50)]
+    public string? SafetyStatus { get; set; }
+
+    [Column("generated_sos_request_id")]
+    public int? GeneratedSosRequestId { get; set; }
+
     [ForeignKey("MissionId")]
     [InverseProperty("MissionTeams")]
     public virtual Mission? Mission { get; set; }

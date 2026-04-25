@@ -105,7 +105,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                    && (!hasItemNameFilter   || (ri.Name ?? string.Empty).ToLower().Contains(itemNameFilter))
                 select new
                 {
-                    ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType, ri.WeightPerUnit, ri.VolumePerUnit,
+                    ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType, ri.WeightPerUnit, ri.VolumePerUnit, ri.Unit,
                     Quantity                 = inv.Quantity                 ?? 0,
                     MissionReservedQuantity  = inv.MissionReservedQuantity,
                     TransferReservedQuantity = inv.TransferReservedQuantity,
@@ -157,7 +157,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     LotCount       = ls?.LotCount ?? 0,
                     NearestExpiryDate = ls?.NearestExpiryDate,
                     WeightPerUnit     = x.WeightPerUnit,
-                    VolumePerUnit     = x.VolumePerUnit
+                    VolumePerUnit     = x.VolumePerUnit,
+                    MeasurementUnit   = x.Unit
                 };
             }));
         }
@@ -172,7 +173,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                    && (!hasCategoryFilter   || safeCategoryIds.Contains(ri.CategoryId ?? 0))
                    && (!hasTargetGroupFilter || ri.TargetGroups.Any(tg => targetGroupSet.Contains(tg.Name.ToLower())))
                    && (!hasItemNameFilter   || (ri.Name ?? string.Empty).ToLower().Contains(itemNameFilter))
-                group new { dri, ri } by new { ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType, ri.WeightPerUnit, ri.VolumePerUnit } into g
+                group new { dri, ri } by new { ri.Id, ri.Name, ri.ImageUrl, ri.CategoryId, ri.ItemType, ri.WeightPerUnit, ri.VolumePerUnit, ri.Unit } into g
                 select new
                 {
                     Id                  = g.Key.Id,
@@ -182,6 +183,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     ItemType            = g.Key.ItemType,
                     WeightPerUnit       = g.Key.WeightPerUnit,
                     VolumePerUnit       = g.Key.VolumePerUnit,
+                    Unit                = g.Key.Unit,
                     TotalUnits               = g.Count(),
                     AvailableUnits           = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Available)),
                     ReservedForMissionUnits  = g.Count(x => x.dri.Status == nameof(ReusableItemStatus.Reserved)
@@ -234,6 +236,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 LastStockedAt     = x.LastStockedAt,
                 WeightPerUnit     = x.WeightPerUnit,
                 VolumePerUnit     = x.VolumePerUnit,
+                MeasurementUnit   = x.Unit,
                 ReusableBreakdown = new RESQ.Domain.Entities.Logistics.ValueObjects.ReusableBreakdown
                 {
                     TotalUnits               = x.TotalUnits,

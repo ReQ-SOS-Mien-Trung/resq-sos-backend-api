@@ -72,6 +72,13 @@ public class UpdateMissionStatusCommandHandler(
                 missionTeams.Select(team => team.RescuerTeamId),
                 cancellationToken);
 
+            var missionActivities = await _missionActivityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
+            mission.Activities = missionActivities.ToList(); // Ensure activities are attached for Initialize
+            foreach (var team in missionTeams)
+            {
+                MissionTeamSafetyHelper.InitializeSafetyTimeout(team, mission);
+            }
+
             var autoStartedActivityIds = await MissionActivityAutoStartHelper.AutoStartFirstActivitiesPerTeamAsync(
                 request.MissionId,
                 request.DecisionBy,
@@ -90,6 +97,16 @@ public class UpdateMissionStatusCommandHandler(
             }
 
             await AutoCheckOutMissionTeamsAsync(request.MissionId, missionTeams, cancellationToken);
+        }
+
+        if (request.Status is MissionStatus.Completed or MissionStatus.Incompleted)
+        {
+            var missionTeams = await _missionTeamRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
+            foreach (var team in missionTeams)
+            {
+                team.SafetyStatus = "Inactive";
+                team.SafetyTimeoutAt = null;
+            }
         }
 
         await _unitOfWork.SaveAsync();

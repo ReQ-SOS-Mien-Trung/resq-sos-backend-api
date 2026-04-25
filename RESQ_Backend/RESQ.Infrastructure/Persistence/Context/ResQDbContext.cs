@@ -763,6 +763,12 @@ public partial class ResQDbContext : DbContext
             });
         });
 
+        modelBuilder.Entity<MissionTeam>(entity =>
+        {
+            entity.HasIndex(e => new { e.SafetyStatus, e.SafetyTimeoutAt })
+                .HasDatabaseName("ix_mission_teams_safety_status_timeout");
+        });
+
         OnModelCreatingPartial(modelBuilder);
     }
 
