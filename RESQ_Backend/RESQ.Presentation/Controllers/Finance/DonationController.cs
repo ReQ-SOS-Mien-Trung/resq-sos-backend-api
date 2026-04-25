@@ -245,7 +245,9 @@ public class DonationController : ControllerBase
 
             var verified = await _mediator.Send(new VerifyZaloPayPaymentCommand
             {
-                AppTransId = appTransId
+                AppTransId = appTransId,
+                SignedRedirectStatus = statusRaw,
+                HasValidRedirectChecksum = checksumVerification == ZaloPayRedirectChecksumVerification.Valid
             });
 
             _logger.LogInformation(
@@ -326,17 +328,17 @@ public class DonationController : ControllerBase
     private (string SuccessUrl, string FailUrl) GetZaloPayFrontendUrls()
     {
         var config = _configuration.GetSection("ZaloPay");
-        var successUrl = config["RedirectUrl"];
-        var failUrl = config["CancelUrl"];
+        var successUrl = config["FrontendSuccessUrl"] ?? config["RedirectUrl"];
+        var failUrl = config["FrontendFailUrl"] ?? config["CancelUrl"];
 
         if (string.IsNullOrWhiteSpace(successUrl))
         {
-            throw new InvalidOperationException("Cau hinh ZaloPay thieu RedirectUrl.");
+            throw new InvalidOperationException("Cau hinh ZaloPay thieu FrontendSuccessUrl/RedirectUrl.");
         }
 
         if (string.IsNullOrWhiteSpace(failUrl))
         {
-            throw new InvalidOperationException("Cau hinh ZaloPay thieu CancelUrl.");
+            throw new InvalidOperationException("Cau hinh ZaloPay thieu FrontendFailUrl/CancelUrl.");
         }
 
         return (successUrl, failUrl);

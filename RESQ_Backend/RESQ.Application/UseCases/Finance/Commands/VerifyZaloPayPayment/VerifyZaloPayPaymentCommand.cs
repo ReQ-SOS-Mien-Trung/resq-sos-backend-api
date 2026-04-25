@@ -8,4 +8,8 @@ public record VerifyZaloPayPaymentCommand : IRequest<bool>
     /// The app_trans_id from the ZaloPay redirect query string.
     /// </summary>
     public string AppTransId { get; init; } = string.Empty;
+
+    public string? SignedRedirectStatus { get; init; }
+
+    public bool HasValidRedirectChecksum { get; init; }
 }

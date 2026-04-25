@@ -9,8 +9,8 @@ namespace RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
 
 public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayPaymentCommand, bool>
 {
-    private const int MaxQueryAttempts = 2;
-    private static readonly TimeSpan QueryRetryDelay = TimeSpan.FromMilliseconds(500);
+    private const int MaxQueryAttempts = 4;
+    private static readonly TimeSpan QueryRetryDelay = TimeSpan.FromMilliseconds(750);
 
     private readonly IDonationRepository _donationRepository;
     private readonly IDonationPaymentProcessingService _donationPaymentProcessingService;
@@ -61,6 +61,14 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
 
         if (queryResult == null)
         {
+            if (IsSignedRedirectSuccess(request))
+            {
+                _logger.LogWarning(
+                    "VerifyZaloPay: Query API returned null for AppTransId={AppTransId}, but signed redirect status indicates success. Processing success from signed redirect fallback.",
+                    appTransId);
+                return await ProcessSignedRedirectSuccessAsync(donation, cancellationToken);
+            }
+
             _logger.LogError("VerifyZaloPay: null response from ZaloPay query for AppTransId={AppTransId}.", appTransId);
             return false;
         }
@@ -109,6 +117,15 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
             donation.Id,
             appTransId,
             MaxQueryAttempts);
+
+        if (IsSignedRedirectSuccess(request))
+        {
+            _logger.LogWarning(
+                "VerifyZaloPay: Query API is still pending for AppTransId={AppTransId}, but signed redirect status indicates success. Processing success from signed redirect fallback.",
+                appTransId);
+            return await ProcessSignedRedirectSuccessAsync(donation, cancellationToken);
+        }
+
         return false;
     }
 
@@ -162,6 +179,54 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
             return false;
         }
     }
+
+    private async Task<bool> ProcessSignedRedirectSuccessAsync(
+        RESQ.Domain.Entities.Finance.DonationModel donation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
+                donation.Id,
+                "[ZaloPay:Source=SignedRedirect][Status=1]",
+                DateTime.UtcNow,
+                donation.OrderId,
+                preserveExistingTransactionId: true,
+                cancellationToken);
+
+            if (!processed)
+            {
+                _logger.LogWarning(
+                    "VerifyZaloPay: signed redirect fallback TryProcessSuccessAsync returned false for DonationId={DonationId}, AppTransId={AppTransId}.",
+                    donation.Id,
+                    donation.OrderId);
+                return false;
+            }
+
+            if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
+            {
+                _ = _emailService.SendDonationSuccessEmailAsync(
+                    donation.Donor.Email,
+                    donation.Donor.Name,
+                    donation.Amount?.Amount ?? 0,
+                    donation.FundCampaignName ?? "Campaign",
+                    donation.FundCampaignCode ?? "RESQ",
+                    donation.Id,
+                    cancellationToken);
+            }
+
+            _logger.LogInformation("VerifyZaloPay: donation {DonationId} successfully updated via signed redirect fallback.", donation.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "VerifyZaloPay: error updating entities from signed redirect fallback for AppTransId={AppTransId}.", donation.OrderId);
+            return false;
+        }
+    }
+
+    private static bool IsSignedRedirectSuccess(VerifyZaloPayPaymentCommand request)
+        => request.HasValidRedirectChecksum && request.SignedRedirectStatus == "1";
 
     private async Task<ZaloPayQueryResponse?> QueryUntilFinalStatusAsync(
         IPaymentGatewayService gatewayService,
