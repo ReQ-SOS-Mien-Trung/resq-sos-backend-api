@@ -85,6 +85,9 @@ public class DepotClosureTransferItemDetailDto
     public string ItemType { get; set; } = string.Empty;
     public string? Unit { get; set; }
     public int Quantity { get; set; }
+    public int? LotId { get; set; }
+    public int? ReusableItemId { get; set; }
+    public string? SerialNumber { get; set; }
 }
 
 public class DepotClosureExternalItemDetailResponse
