@@ -84,7 +84,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.RefreshToken
             {
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "60") * 60,
+                ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "10080") * 60,
                 TokenType = "Bearer",
                 Permissions = permissions
             };

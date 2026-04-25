@@ -94,7 +94,7 @@ public class FirebasePhoneLoginCommandHandler(
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "60") * 60,
+            ExpiresIn = int.Parse(_configuration["JwtSettings:AccessTokenExpirationMinutes"] ?? "10080") * 60,
             TokenType = "Bearer",
             UserId = user.Id,
             Phone = user.Phone,
