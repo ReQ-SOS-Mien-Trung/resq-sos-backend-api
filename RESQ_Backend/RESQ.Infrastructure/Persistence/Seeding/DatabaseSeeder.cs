@@ -28,16 +28,17 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
-    private const string MarkerName = "demo-seed-v2-2026-04-24";
-    private const int TotalRescuerCount = 140;
+    private const string MarkerName = "demo-seed-v5-2026-04-25";
+    private const int TotalRescuerCount = 200;
     private const int RecentRescuerCount = 20;
     private const int UnassignedRescuerCount = 40;
-    private const int EligibleAssignedRescuerCount = 78;
+    private const int EligibleAssignedRescuerCount = 120;
+    private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumSosClusterCount = 11;
     private const int HueStadiumSosRequestCount = 20;
     private const int HueStadiumCheckedInStandbyRescuerCount = 10;
     private const int HueStadiumReserveTeamCount = 2;
-    private const int HueStadiumReserveTeamMemberCount = 3;
+    private const int HueStadiumReserveTeamMemberCount = 6;
     private const string HueStadiumReserveTeamCodePrefix = "RT-HUE-TD-AV";
     private static readonly string[] DepotClosureTestDepotNames =
     [
@@ -1155,7 +1156,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         for (var teamIndex = 0; teamIndex < 20; teamIndex++)
         {
             var team = seed.RescueTeams[teamIndex];
-            var count = teamIndex < 16 ? 5 : teamIndex == 16 ? 6 : 10;
+            var count = team.MaxMembers; // Luôn lấp đầy đội theo MaxMembers
             for (var i = 0; i < count; i++)
             {
                 var rescuer = teamIndex < 18
@@ -2640,7 +2641,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 // Calculated from seeded donation/disbursement history below.
                 TotalAmount = 0m,
                 CurrentBalance = 0m,
-                Status = i % 6 == 0 ? "Closed" : "Active",
+                Status = (i % 6 == 0 && i != 6) ? "Closed" : "Active",
                 CreatedBy = seed.Admins[0].Id,
                 CreatedAt = VnToUtc(start.ToDateTime(TimeOnly.MinValue)),
                 LastModifiedBy = seed.Admins[0].Id,
@@ -4950,7 +4951,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             new("Water", "Nước tinh khiết", "Nước uống đóng chai 500ml phục vụ cấp phát", "chai", "Consumable", 0.6m, 0.52m),
             new("Water", "Nước lọc bình 20L", "Bình nước lọc 20 lít phục vụ sinh hoạt tập thể", "bình", "Consumable", 22.0m, 20.5m),
             new("Water", "Viên lọc nước khẩn cấp", "Viên lọc nước cầm tay, xử lý nước bẩn thành nước uống", "viên", "Consumable", 0.005m, 0.004m),
-            new("Water", "Nước đóng thùng 24 chai", "Thùng 24 chai nước uống 500ml tiện phân phối", "thùng", "Consumable", 16.0m, 13.0m),
+            new("Water", "Chai nước Aquafina", "Nước tinh khiết Aquafina đóng chai 500ml", "chai", "Consumable", 0.6m, 0.53m),
             new("Water", "Nước khoáng thiên nhiên 500ml", "Nước khoáng thiên nhiên đóng chai 500ml", "chai", "Consumable", 0.6m, 0.53m),
             new("Water", "Nước dừa đóng hộp", "Nước dừa tươi đóng hộp bổ sung điện giải", "hộp", "Consumable", 0.4m, 0.35m),
             new("Water", "Bột bù điện giải ORS", "Bột pha bù nước và điện giải cho người mất nước", "gói", "Consumable", 0.05m, 0.025m),
