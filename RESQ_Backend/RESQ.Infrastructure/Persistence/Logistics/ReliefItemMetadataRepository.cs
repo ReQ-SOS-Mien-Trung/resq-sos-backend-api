@@ -58,6 +58,29 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         return items;
     }
 
+    public async Task<List<MetadataDto>> GetByDepotIdForMetadataAsync(
+        int depotId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<SupplyInventory>()
+            .AsNoTracking()
+            .Where(inventory => inventory.DepotId == depotId && inventory.ItemModelId.HasValue)
+            .Select(inventory => new
+            {
+                ItemModelId = inventory.ItemModelId!.Value,
+                ItemModelName = inventory.ItemModel != null ? inventory.ItemModel.Name : null
+            })
+            .Where(x => x.ItemModelName != null)
+            .Distinct()
+            .OrderBy(x => x.ItemModelName)
+            .Select(x => new MetadataDto
+            {
+                Key = x.ItemModelId.ToString(),
+                Value = x.ItemModelName!
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<DonationImportItemInfo>> GetAllForDonationTemplateAsync(
         CancellationToken cancellationToken = default)
     {

@@ -20,6 +20,8 @@ public class InventoryLogModel
     public string? DepotName { get; set; }
     public int? ItemModelId { get; set; }
     public string? ItemModelName { get; set; }
+    /// <summary>Tồn hiện tại của item model trong kho tại thời điểm query, không phải tồn tại thời điểm phát sinh log.</summary>
+    public int? RemainingQuantity { get; set; }
 
     /// <summary>Serial number nếu log thuộc đồ tái sử dụng.</summary>
     public string? SerialNumber { get; set; }

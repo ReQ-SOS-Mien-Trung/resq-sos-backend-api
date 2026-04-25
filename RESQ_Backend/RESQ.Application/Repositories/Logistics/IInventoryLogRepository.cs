@@ -21,6 +21,7 @@ public interface IInventoryLogRepository
 
     Task<PagedResult<InventoryTransactionDto>> GetTransactionHistoryAsync(
         int? depotId,
+        int? itemModelId,
         List<string>? actionTypes,
         List<string>? sourceTypes,
         DateOnly? fromDate,

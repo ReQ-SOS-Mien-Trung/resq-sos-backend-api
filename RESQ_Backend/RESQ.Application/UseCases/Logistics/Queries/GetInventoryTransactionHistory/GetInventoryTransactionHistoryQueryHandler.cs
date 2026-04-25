@@ -25,6 +25,7 @@ public class GetInventoryTransactionHistoryQueryHandler(
         
         return await _inventoryLogRepository.GetTransactionHistoryAsync(
             depotId,
+            request.ItemModelId,
             actionTypeStrings,
             sourceTypeStrings,
             request.FromDate,

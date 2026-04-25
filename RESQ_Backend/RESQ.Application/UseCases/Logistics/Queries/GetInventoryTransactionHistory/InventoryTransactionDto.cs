@@ -25,6 +25,8 @@ public class InventoryTransactionItemDto
 {
     public int ItemId { get; set; }
     public int ItemModelId { get; set; }
+    /// <summary>Tồn hiện tại của item model trong depot tại thời điểm query, không phải tồn tại tại thời điểm transaction.</summary>
+    public int? RemainingQuantity { get; set; }
     public int? SupplyInventoryLotId { get; set; }
     public int? LotId { get; set; }
     public int? ReusableItemId { get; set; }

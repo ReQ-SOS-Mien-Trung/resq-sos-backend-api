@@ -10,6 +10,11 @@ public class ExportInventoryMovementQueryValidator : AbstractValidator<ExportInv
 
     public ExportInventoryMovementQueryValidator()
     {
+        RuleFor(x => x.ItemModelId)
+            .GreaterThan(0)
+            .When(x => x.ItemModelId.HasValue)
+            .WithMessage("itemModelId phải lớn hơn 0.");
+
         // --- ByDateRange ------------------------------------------------------
         When(x => x.PeriodType == ExportPeriodType.ByDateRange, () =>
         {

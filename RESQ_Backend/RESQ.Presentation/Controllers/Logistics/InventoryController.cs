@@ -658,10 +658,31 @@ public class InventoryController(
         return Ok(result);
     }
 
+    /// <summary>[Metadata] Danh sách item model hiện có trong một depot, dùng cho filter stock movement.</summary>
+    [HttpGet("metadata/item-models/depot/{depotId:int}")]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
+    public async Task<IActionResult> GetDepotItemModelsForMetadata(int depotId)
+    {
+        var userId = GetCurrentUserId();
+        var canManageAnyInventory = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SystemConfigManage))
+            .Succeeded;
+
+        var result = await _mediator.Send(new GetDepotItemModelsMetadataQuery
+        {
+            UserId = userId,
+            DepotId = depotId,
+            IsManager = !canManageAnyInventory
+        });
+
+        return Ok(result);
+    }
+
     /// <summary>Xem lịch sử biến động tồn kho (phân trang) của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("stock-movements/my-depot")]
     [Authorize(Policy = PermissionConstants.PolicyInventoryWrite)]
     public async Task<IActionResult> GetTransactionHistory(
+        [FromQuery] int? itemModelId,
         [FromQuery] List<InventoryActionType>? actionTypes,
         [FromQuery] List<InventorySourceType>? sourceTypes,
         [FromQuery] DateOnly? fromDate,
@@ -676,6 +697,7 @@ public class InventoryController(
         {
             UserId = userId,
             DepotId = depotId,
+            ItemModelId = itemModelId,
             ActionTypes = actionTypes,
             SourceTypes = sourceTypes,
             FromDate = fromDate,
@@ -737,6 +759,7 @@ public class InventoryController(
     public async Task<IActionResult> ExportMovements(
         [FromQuery] ExportPeriodType periodType,
         [FromQuery] int depotId,
+        [FromQuery] int? itemModelId = null,
         [FromQuery] int? month = null,
         [FromQuery] int? year = null,
         [FromQuery] DateOnly? fromDate = null,
@@ -748,6 +771,7 @@ public class InventoryController(
         {
             UserId = userId,
             DepotId = depotId,
+            ItemModelId = itemModelId,
             PeriodType = periodType,
             Month = month,
             Year = year,
