@@ -146,8 +146,17 @@ public class DepotFundRepository : IDepotFundRepository
 
     public async Task UpdateAsync(DepotFundModel model, CancellationToken cancellationToken = default)
     {
-        var entity = DepotFundMapper.ToEntity(model);
-        await _unitOfWork.GetRepository<DepotFund>().UpdateAsync(entity);
+        var tracked = _unitOfWork.GetTracked<DepotFund>(e => e.Id == model.Id);
+        if (tracked is not null)
+        {
+            // Entity đang được tracked → update in-place để tránh IdentityConflict
+            DepotFundMapper.UpdateEntity(tracked, model);
+        }
+        else
+        {
+            var entity = DepotFundMapper.ToEntity(model);
+            await _unitOfWork.GetRepository<DepotFund>().UpdateAsync(entity);
+        }
     }
 
     public async Task CreateTransactionAsync(DepotFundTransactionModel transaction, CancellationToken cancellationToken = default)

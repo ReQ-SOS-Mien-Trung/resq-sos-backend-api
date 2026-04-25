@@ -25,6 +25,13 @@ public interface IUnitOfWork
     }
 
     /// <summary>
+    /// Tìm entity đang được EF Core tracking theo predicate.
+    /// Dùng khi cần update in-place để tránh lỗi IdentityConflict
+    /// khi cùng lúc đã load tracked entity với cùng PK.
+    /// </summary>
+    T? GetTracked<T>(Func<T, bool> predicate) where T : class;
+
+    /// <summary>
     /// Thực thi một hành động trong transaction scope.
     /// Nếu exception xảy ra, toàn bộ thay đổi sẽ rollback.
     /// Tất cả SaveAsync() bên trong action đều nằm trong transaction.

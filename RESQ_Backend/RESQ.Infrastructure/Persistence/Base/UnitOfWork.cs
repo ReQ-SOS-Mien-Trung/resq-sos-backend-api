@@ -112,6 +112,11 @@ namespace RESQ.Infrastructure.Persistence.Base
             _context.ChangeTracker.Clear();
         }
 
+        public T? GetTracked<T>(Func<T, bool> predicate) where T : class
+            => _context.ChangeTracker.Entries<T>()
+                .Select(e => e.Entity)
+                .FirstOrDefault(predicate);
+
         public async Task ExecuteInTransactionAsync(Func<Task> action)
         {
             // If already inside an active transaction (nested call), just execute the action

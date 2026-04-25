@@ -334,9 +334,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - Không tạo `COLLECT_SUPPLIES` ở cuối kế hoạch nếu phía sau không có activity nào dùng số hàng đó.
 
             ## QUY TẮC TỪNG LOẠI ACTIVITY
-            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Có thể chứa cả `Consumable` và `Reusable` theo `item_type` tool trả về.
+            - `COLLECT_SUPPLIES`: chỉ tạo cho vật phẩm thật sự lấy từ kho đã chọn; `supplies_to_collect` chỉ chứa các item có trong kho đó. Có thể chứa cả `Consumable` và `Reusable` theo `item_type` tool trả về. BẮT BUỘC: Đối với vật phẩm `Consumable`, số lượng cần lấy trong `COLLECT_SUPPLIES` phải BẰNG TỔNG số lượng của vật phẩm đó được cấp phát trong tất cả các bước `DELIVER_SUPPLIES`.
             - `DELIVER_SUPPLIES`: chỉ chứa vật phẩm `Consumable` được bàn giao/cấp phát trực tiếp cho SOS request. Không đưa item `Reusable` vào `DELIVER_SUPPLIES` trong mọi trường hợp.
-            - Item `Reusable` là đồ đội cứu hộ mang theo để thao tác hiện trường như xe, xuồng, áo phao, cáng, dây, thiết bị cứu hộ, thiết bị y tế dùng lại. Các item này đi trong `COLLECT_SUPPLIES`, được dùng ở `RESCUE`/`MEDICAL_AID`/`EVACUATE`, rồi được đưa vào `RETURN_SUPPLIES`.
+            - Item `Reusable` là đồ đội cứu hộ mang theo để thao tác hiện trường như xe, xuồng, áo phao, cáng, dây, thiết bị cứu hộ, thiết bị y tế dùng lại. Các item này đi trong `COLLECT_SUPPLIES`, được dùng ở `RESCUE`/`MEDICAL_AID`/`EVACUATE`, rồi được đưa vào `RETURN_SUPPLIES` với số lượng BẰNG ĐÚNG số lượng đã lấy ở `COLLECT_SUPPLIES`.
             - Nếu `COLLECT_SUPPLIES` có cả `Consumable` và `Reusable`, `DELIVER_SUPPLIES.supplies_to_collect` chỉ được chứa phần `Consumable`; `RETURN_SUPPLIES.supplies_to_collect` chỉ chứa phần `Reusable` cần trả kho. Nếu tất cả item đã lấy là `Reusable`, không tạo `DELIVER_SUPPLIES` chỉ để mô tả đội mang thiết bị tới hiện trường.
             - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
             - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
