@@ -17,6 +17,8 @@ public class InventoryLogDto
     public string? PerformedByName { get; set; }
     public int? ItemModelId { get; set; }
     public string? ItemModelName { get; set; }
+    /// <summary>Tồn hiện tại của item model trong depot tại thời điểm query, không phải tồn tại tại thời điểm log.</summary>
+    public int? RemainingQuantity { get; set; }
     public string? SerialNumber { get; set; }
     public int? LotId { get; set; }
     public int? ReusableItemId { get; set; }

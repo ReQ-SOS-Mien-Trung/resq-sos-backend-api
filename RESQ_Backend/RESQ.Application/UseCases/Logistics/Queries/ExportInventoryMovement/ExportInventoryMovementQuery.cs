@@ -7,6 +7,7 @@ public class ExportInventoryMovementQuery : IRequest<ExportInventoryMovementResu
 {
     public Guid UserId { get; set; }
     public int? DepotId { get; set; }
+    public int? ItemModelId { get; set; }
     public ExportPeriodType PeriodType { get; set; }
 
     // --- ByMonth ---

@@ -12,5 +12,6 @@ public interface IInventoryMovementExportRepository
     Task<List<InventoryMovementRow>> GetMovementRowsAsync(
         InventoryMovementExportPeriod period,
         int? depotId,
+        int? itemModelId,
         CancellationToken cancellationToken = default);
 }

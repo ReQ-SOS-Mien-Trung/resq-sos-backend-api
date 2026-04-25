@@ -65,6 +65,7 @@ public class GetInventoryLogsQueryHandler(
             PerformedByName = log.PerformedByName,
             ItemModelId = log.ItemModelId,
             ItemModelName = log.ItemModelName,
+            RemainingQuantity = log.RemainingQuantity,
             SerialNumber    = log.SerialNumber,
             LotId           = log.LotId,
             ReusableItemId  = log.ReusableItemId,

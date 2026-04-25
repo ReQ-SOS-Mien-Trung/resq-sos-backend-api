@@ -56,7 +56,7 @@ public class ExportInventoryMovementQueryHandler(
             period.DisplayTitle, depotId);
 
         // 3. Truy vấn dữ liệu
-        var rows = await _exportRepository.GetMovementRowsAsync(period, depotId, cancellationToken);
+        var rows = await _exportRepository.GetMovementRowsAsync(period, depotId, request.ItemModelId, cancellationToken);
 
         // 4. Gán số thứ tự
         for (int i = 0; i < rows.Count; i++)
