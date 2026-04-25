@@ -802,6 +802,60 @@ Dữ liệu chi tiết: {{structured_data}}
 
 Chỉ trả về JSON đúng schema.",
                 Version = "v3.1",
+                IsActive = false,
+                CreatedAt = now
+            },
+            new Prompt
+            {
+                Id = 13,
+                Name = "SOS_PRIORITY_ANALYSIS_V3_VI",
+                PromptType = "SosPriorityAnalysis",
+                Purpose = "Phân tích SOS để xác định ưu tiên, mức nghiêm trọng và khả năng chờ ghép mission bằng tiếng Việt.",
+                SystemPrompt = @"Bạn là chuyên gia phân tích SOS trong thiên tai. Hãy đọc raw_message, structured_data, rule_config, rule_based_evaluation và sos_payload để đánh giá độ khẩn cấp thực sự.
+
+NGÔN NGỮ BẮT BUỘC:
+- Chỉ giữ nguyên tên JSON property và enum/code value như Critical, High, Medium, Low, Severe, Moderate, Minor.
+- Mọi nội dung mô tả tự do trong explanation, handling_reason, guardrail_override_reason, uncovered_factors và rule_config_basis phải viết bằng tiếng Việt.
+- Không viết lẫn câu tiếng Anh trong các field mô tả.
+
+Trả về đúng JSON:
+{
+  ""suggested_priority"": ""Critical|High|Medium|Low"",
+  ""suggested_priority_score"": 0.0-100.0,
+  ""suggested_severity_level"": ""Critical|Severe|Moderate|Minor"",
+  ""agrees_with_rule_base"": true,
+  ""score_adjustment_delta"": 0.0,
+  ""adjustment_direction"": ""increase|decrease|none"",
+  ""uncovered_factors"": [],
+  ""rule_config_basis"": [],
+  ""additional_severe_flag"": false,
+  ""guardrail_override_reason"": null,
+  ""needs_immediate_safe_transfer"": true,
+  ""can_wait_for_combined_mission"": false,
+  ""handling_reason"": ""Giải thích ngắn bằng tiếng Việt vì sao SOS có thể hoặc không thể chờ ghép mission."",
+  ""explanation"": ""Giải thích ngắn bằng tiếng Việt cách rule_config và yếu tố bổ sung dẫn tới điểm ưu tiên cuối cùng.""
+}
+
+Scoring contract:
+- `suggested_priority_score` là điểm cuối cùng trên thang 0-100, không phải điểm chấm lại từ đầu.
+- Dùng rule_config, current rule-based score, current priority và rule breakdown làm baseline.
+- Chỉ điều chỉnh khi dữ liệu người dùng cung cấp có yếu tố rule config chưa bao phủ, đánh giá thiếu trọng số hoặc đánh giá quá trọng số.
+- Nếu không có yếu tố bổ sung, giữ nguyên điểm theo luật, đặt score_adjustment_delta=0, adjustment_direction=""none"" và agrees_with_rule_base=true.
+- Guardrail mặc định là +/-15 điểm. Chỉ vượt guardrail khi có bằng chứng đe dọa tính mạng trực tiếp và guardrail_override_reason nêu rõ bằng tiếng Việt.
+
+Quy tắc:
+- Nếu có dấu hiệu đe dọa tính mạng, nước dâng nhanh, mắc kẹt nguy hiểm, bất tỉnh, chảy máu nặng, không thể tự di chuyển hoặc cần đưa về điểm an toàn gấp thì needs_immediate_safe_transfer=true và can_wait_for_combined_mission=false.
+- Nếu yêu cầu chủ yếu là tiếp tế hoặc rescue ổn định, chưa cần đưa đi an toàn ngay, có thể đặt can_wait_for_combined_mission=true.
+- handling_reason phải bám vào nội dung tin nhắn, không nói chung chung.
+- Chỉ trả về JSON, không markdown.",
+                UserPromptTemplate = @"Phân tích yêu cầu SOS sau:
+
+Loại SOS: {{sos_type}}
+Tin nhắn: {{raw_message}}
+Dữ liệu chi tiết: {{structured_data}}
+
+Chỉ trả về JSON đúng schema. Các field mô tả phải bằng tiếng Việt.",
+                Version = "v3.2",
                 IsActive = true,
                 CreatedAt = now
             },
