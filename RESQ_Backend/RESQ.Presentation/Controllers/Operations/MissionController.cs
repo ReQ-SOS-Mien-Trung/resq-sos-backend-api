@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +14,7 @@ using RESQ.Application.UseCases.Operations.Commands.ConfirmDeliverySupplies;
 using RESQ.Application.UseCases.Operations.Commands.CreateMission;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionActivityIncident;
 using RESQ.Application.UseCases.Operations.Commands.ReportMissionTeamIncident;
+using RESQ.Application.UseCases.Operations.Commands.SafetyCheckIn;
 using RESQ.Application.UseCases.Operations.Commands.SaveMissionTeamReportDraft;
 using RESQ.Application.UseCases.Operations.Commands.SyncMissionActivities;
 using RESQ.Application.UseCases.Operations.Commands.SubmitMissionTeamReport;
@@ -508,6 +509,22 @@ public class MissionController(IMediator mediator) : ControllerBase
             throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
 
         var command = new UnassignTeamFromMissionCommand(missionTeamId, userId);
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Đội cứu hộ xác nhận an toàn (reset safety timeout).
+    /// </summary>
+    [HttpPost("{missionId:int}/teams/{missionTeamId:int}/safety-checkin")]
+    [Authorize(Policy = PermissionConstants.MissionSelfView)]
+    public async Task<IActionResult> SafetyCheckIn([FromRoute] int missionId, [FromRoute] int missionTeamId)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            throw new UnauthorizedException("Token không hợp lệ hoặc không tìm thấy thông tin người dùng.");
+
+        var command = new SafetyCheckInCommand(missionId, missionTeamId, userId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

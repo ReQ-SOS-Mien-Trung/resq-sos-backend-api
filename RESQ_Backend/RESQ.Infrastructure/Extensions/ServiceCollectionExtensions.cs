@@ -225,6 +225,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<SupplyRequestDeadlineBackgroundService>();
         services.AddHostedService<InventoryItemModelAlertBackgroundService>();
         services.AddHostedService<AssemblyCheckInDeadlineBackgroundService>();
+        services.AddHostedService<RESQ.Infrastructure.Services.Operations.MissionTeamSafetyMonitorBackgroundService>();
         return services;
     }
 
