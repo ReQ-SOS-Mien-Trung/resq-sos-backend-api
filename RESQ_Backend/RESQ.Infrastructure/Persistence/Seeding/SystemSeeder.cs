@@ -254,7 +254,7 @@ Bạn phải trả lời bằng JSON với format sau:
   ""suggested_priority"": ""Critical|High|Medium|Low"",
   ""severity_level"": ""Critical|Severe|Moderate|Minor"",
   ""explanation"": ""Giải thích ngắn gọn lý do đánh giá"",
-  ""suggested_priority_score"": 0.0-10.0,
+  ""suggested_priority_score"": 0.0-100.0,
   ""agrees_with_rule_base"": true
 }",
                 UserPromptTemplate = @"Phân tích yêu cầu SOS sau:
@@ -767,14 +767,27 @@ Bạn phải đặc biệt xác định:
 Trả về đúng JSON:
 {
   ""suggested_priority"": ""Critical|High|Medium|Low"",
-  ""suggested_priority_score"": 0.0-10.0,
+  ""suggested_priority_score"": 0.0-100.0,
   ""suggested_severity_level"": ""Critical|Severe|Moderate|Minor"",
   ""agrees_with_rule_base"": true,
+  ""score_adjustment_delta"": 0.0,
+  ""adjustment_direction"": ""increase|decrease|none"",
+  ""uncovered_factors"": [],
+  ""rule_config_basis"": [],
+  ""additional_severe_flag"": false,
+  ""guardrail_override_reason"": null,
   ""needs_immediate_safe_transfer"": true,
   ""can_wait_for_combined_mission"": false,
   ""handling_reason"": ""Explain briefly why the SOS can or cannot wait for a combined mission."",
-  ""explanation"": ""Explain the suggested_priority_score, whether AI agrees with the current rule-base score, and where the gap comes from if AI disagrees.""
+  ""explanation"": ""Explain how rule_config and extra factors support the final suggested_priority_score, whether AI agrees with the current rule-base score, and where the gap comes from if AI disagrees.""
 }
+
+Scoring contract:
+- `suggested_priority_score` is the final adjusted score on the 0-100 scale, not an independent score from scratch.
+- Use the provided rule_config, current rule-based score, current priority, and rule breakdown as the baseline.
+- Only adjust for concrete user-provided conditions that the rule config or rule breakdown does not cover, under-weights, or over-weights.
+- If there is no extra factor, keep the rule-based score, set score_adjustment_delta=0, adjustment_direction=""none"", and agrees_with_rule_base=true.
+- Default adjustment guardrail is +/-15 points. Use a larger delta only when there is clear immediate life-threatening evidence and guardrail_override_reason is concrete.
 
 Quy tắc:
 - Nếu có dấu hiệu đe dọa tính mạng, nước dâng nhanh, mắc kẹt nguy hiểm, bất tỉnh, chảy máu nặng, không thể tự di chuyển, hoặc cần đưa về điểm an toàn gấp thì `needs_immediate_safe_transfer = true` và `can_wait_for_combined_mission = false`.
@@ -788,7 +801,7 @@ Tin nhắn: {{raw_message}}
 Dữ liệu chi tiết: {{structured_data}}
 
 Chỉ trả về JSON đúng schema.",
-                Version = "v3.0",
+                Version = "v3.1",
                 IsActive = true,
                 CreatedAt = now
             },

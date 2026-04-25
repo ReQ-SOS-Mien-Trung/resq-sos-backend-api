@@ -61,6 +61,21 @@ public class CreateSosRequestCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_QueuesAiAnalysis_WithRuleConfigIdentity()
+    {
+        var aiQueue = new StubAiQueue();
+        var handler = BuildHandler(
+            aiQueue: aiQueue,
+            evalService: new StubEvalService(SosPriorityLevel.High, 62.0, configId: 7, configVersion: "SOS_PRIORITY_V9"));
+
+        await handler.Handle(BuildCommand(), CancellationToken.None);
+
+        var task = Assert.Single(aiQueue.QueuedTasks);
+        Assert.Equal(7, task.RuleConfigId);
+        Assert.Equal("SOS_PRIORITY_V9", task.RuleConfigVersion);
+    }
+
+    [Fact]
     public async Task Handle_UsesInsertedSosRequest_WhenSameMessageAlreadyExists()
     {
         var existing = SosRequestModel.Create(
@@ -204,10 +219,22 @@ public class CreateSosRequestCommandHandlerTests
         public Task<SosRuleEvaluationModel?> GetBySosRequestIdAsync(int id, CancellationToken ct = default) => Task.FromResult<SosRuleEvaluationModel?>(null);
     }
 
-    private sealed class StubEvalService(SosPriorityLevel level, double score) : ISosPriorityEvaluationService
+    private sealed class StubEvalService(
+        SosPriorityLevel level,
+        double score,
+        int? configId = null,
+        string? configVersion = null) : ISosPriorityEvaluationService
     {
         public Task<SosRuleEvaluationModel> EvaluateAsync(int sosReqId, string? json, string? sosType, CancellationToken ct = default)
-            => Task.FromResult(new SosRuleEvaluationModel { SosRequestId = sosReqId, PriorityLevel = level, TotalScore = score });
+            => Task.FromResult(new SosRuleEvaluationModel
+            {
+                SosRequestId = sosReqId,
+                PriorityLevel = level,
+                TotalScore = score,
+                ConfigId = configId,
+                ConfigVersion = configVersion,
+                RuleVersion = configVersion ?? "1.0"
+            });
         public Task<SosRuleEvaluationModel> EvaluateWithConfigAsync(int sosReqId, string? json, string? sosType, RESQ.Domain.Entities.System.SosPriorityRuleConfigModel? cfg, CancellationToken ct = default)
             => EvaluateAsync(sosReqId, json, sosType, ct);
     }

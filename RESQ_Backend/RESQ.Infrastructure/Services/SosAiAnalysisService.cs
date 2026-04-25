@@ -7,17 +7,29 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.System;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
+using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.System;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.System;
 
 namespace RESQ.Infrastructure.Services;
 
 public class SosAiAnalysisService : ISosAiAnalysisService
 {
+    private const double MinPriorityScore = 0d;
+    private const double MaxPriorityScore = 100d;
+    private const double DefaultAdjustmentLimit = 15d;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly IAiProviderClientFactory _aiProviderClientFactory;
     private readonly IAiPromptExecutionSettingsResolver _settingsResolver;
     private readonly IAiConfigRepository _aiConfigRepository;
     private readonly IPromptRepository _promptRepository;
+    private readonly ISosPriorityRuleConfigRepository _ruleConfigRepository;
     private readonly ISosAiAnalysisRepository _sosAiAnalysisRepository;
     private readonly ISosRequestRepository _sosRequestRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository;
@@ -29,6 +41,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         IAiPromptExecutionSettingsResolver settingsResolver,
         IAiConfigRepository aiConfigRepository,
         IPromptRepository promptRepository,
+        ISosPriorityRuleConfigRepository ruleConfigRepository,
         ISosAiAnalysisRepository sosAiAnalysisRepository,
         ISosRequestRepository sosRequestRepository,
         ISosRequestUpdateRepository sosRequestUpdateRepository,
@@ -39,6 +52,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         _settingsResolver = settingsResolver;
         _aiConfigRepository = aiConfigRepository;
         _promptRepository = promptRepository;
+        _ruleConfigRepository = ruleConfigRepository;
         _sosAiAnalysisRepository = sosAiAnalysisRepository;
         _sosRequestRepository = sosRequestRepository;
         _sosRequestUpdateRepository = sosRequestUpdateRepository;
@@ -96,13 +110,15 @@ public class SosAiAnalysisService : ISosAiAnalysisService
                 return;
             }
 
+            var ruleConfigContext = await ResolveRuleConfigContextAsync(task, cancellationToken);
             var settings = _settingsResolver.Resolve(aiConfig);
             var userPrompt = BuildUserPrompt(
                 prompt.UserPromptTemplate,
                 effectiveSosRequest.StructuredData,
                 effectiveSosRequest.RawMessage,
                 effectiveSosRequest.SosType,
-                task);
+                task,
+                ruleConfigContext);
 
             var aiResponse = await CallAiApiAsync(settings, prompt.SystemPrompt, userPrompt, cancellationToken);
             if (aiResponse == null)
@@ -111,8 +127,15 @@ public class SosAiAnalysisService : ISosAiAnalysisService
                 return;
             }
 
-            var analysisResult = ParseAiResponse(aiResponse, task);
-            var metadata = BuildMetadata(aiResponse, analysisResult, prompt.Id, prompt.Version, settings.Provider.ToString(), task);
+            var analysisResult = ParseAiResponse(aiResponse, task, ruleConfigContext.Config);
+            var metadata = BuildMetadata(
+                aiResponse,
+                analysisResult,
+                prompt.Id,
+                prompt.Version,
+                settings.Provider.ToString(),
+                task,
+                ruleConfigContext);
 
             var analysis = RESQ.Domain.Entities.Emergency.SosAiAnalysisModel.Create(
                 sosRequestId: task.SosRequestId,
@@ -146,80 +169,114 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         }
     }
 
+    private async Task<RuleConfigContext> ResolveRuleConfigContextAsync(
+        SosAiAnalysisTask task,
+        CancellationToken cancellationToken)
+    {
+        SosPriorityRuleConfigModel? model = null;
+        var source = "default";
+
+        if (task.RuleConfigId.HasValue)
+        {
+            model = await _ruleConfigRepository.GetByIdAsync(task.RuleConfigId.Value, cancellationToken);
+            if (model is not null)
+            {
+                source = "task_config_id";
+            }
+        }
+
+        if (model is null)
+        {
+            model = await _ruleConfigRepository.GetAsync(cancellationToken);
+            source = model is null ? "built_in_default" : "active_config_fallback";
+        }
+
+        var config = SosPriorityRuleConfigSupport.FromModel(model);
+        return new RuleConfigContext(model, config, source);
+    }
+
     private static string BuildUserPrompt(
         string? template,
         string? structuredData,
         string? rawMessage,
         string? sosType,
-        SosAiAnalysisTask task)
+        SosAiAnalysisTask task,
+        RuleConfigContext ruleConfigContext)
     {
         var fallbackPrompt = $"""
-            Analyze this SOS request and compare it with the current rule-based evaluation.
-            SOS type: {sosType ?? "UNKNOWN"}
-            Raw message: {rawMessage ?? "N/A"}
-            Structured data: {structuredData ?? "N/A"}
-            Current rule-based score: {task.RuleBasedScore:0.##}
-            Current rule-based priority: {task.RuleBasedPriority ?? "Unknown"}
-            Current rule version: {task.RuleVersion ?? "Unknown"}
-            Rule breakdown: {task.RuleBreakdownJson ?? "N/A"}
-
-            Return JSON with these fields:
-            - suggested_priority
-            - suggested_priority_score
-            - suggested_severity_level
-            - agrees_with_rule_base
-            - explanation
-            - needs_immediate_safe_transfer
-            - can_wait_for_combined_mission
-            - handling_reason
-
-            The explanation must say why this score was chosen and whether AI agrees with the rule-based score. If AI disagrees, explain the gap.
+            Analyze this SOS request as an adjustment layer over the current rule-based SOS priority evaluation.
+            Do not score from scratch. Use the provided rule_config, rule_based_evaluation, and sos_payload.
             """;
 
-        if (string.IsNullOrWhiteSpace(template))
-            return fallbackPrompt;
+        var prompt = string.IsNullOrWhiteSpace(template)
+            ? fallbackPrompt
+            : template
+                .Replace("{{structured_data}}", structuredData ?? "N/A")
+                .Replace("{{raw_message}}", rawMessage ?? "N/A")
+                .Replace("{{sos_type}}", sosType ?? "UNKNOWN")
+                .Replace("{{rule_based_score}}", task.RuleBasedScore.ToString("0.##"))
+                .Replace("{{rule_based_priority}}", task.RuleBasedPriority ?? "Unknown")
+                .Replace("{{rule_version}}", task.RuleVersion ?? "Unknown")
+                .Replace("{{rule_config_version}}", task.RuleConfigVersion ?? ruleConfigContext.Config.ConfigVersion)
+                .Replace("{{rule_breakdown}}", task.RuleBreakdownJson ?? "N/A");
 
-        var prompt = template
-            .Replace("{{structured_data}}", structuredData ?? "N/A")
-            .Replace("{{raw_message}}", rawMessage ?? "N/A")
-            .Replace("{{sos_type}}", sosType ?? "UNKNOWN")
-            .Replace("{{rule_based_score}}", task.RuleBasedScore.ToString("0.##"))
-            .Replace("{{rule_based_priority}}", task.RuleBasedPriority ?? "Unknown")
-            .Replace("{{rule_version}}", task.RuleVersion ?? "Unknown")
-            .Replace("{{rule_breakdown}}", task.RuleBreakdownJson ?? "N/A");
-
-        if (!template.Contains("{{rule_based_score}}", StringComparison.OrdinalIgnoreCase))
+        var ruleConfigJson = SosPriorityRuleConfigSupport.Serialize(ruleConfigContext.Config);
+        var ruleBasedEvaluationJson = JsonSerializer.Serialize(new
         {
-            prompt += $"""
-
-
-                Current rule-based evaluation:
-                - Score: {task.RuleBasedScore:0.##}
-                - Priority: {task.RuleBasedPriority ?? "Unknown"}
-                - Rule version: {task.RuleVersion ?? "Unknown"}
-                - Breakdown: {task.RuleBreakdownJson ?? "N/A"}
-                """;
-        }
-
-        if (!template.Contains("suggested_priority_score", StringComparison.OrdinalIgnoreCase))
+            score_scale = "0-100",
+            score = ClampScore(task.RuleBasedScore),
+            priority = task.RuleBasedPriority ?? "Unknown",
+            rule_version = task.RuleVersion ?? "Unknown",
+            config_id = task.RuleConfigId,
+            config_version = task.RuleConfigVersion ?? ruleConfigContext.Config.ConfigVersion,
+            breakdown = ParseJsonForPrompt(task.RuleBreakdownJson)
+        }, JsonOptions);
+        var sosPayloadJson = JsonSerializer.Serialize(new
         {
-            prompt += """
+            sos_type = sosType ?? "UNKNOWN",
+            raw_message = rawMessage,
+            structured_data = ParseJsonForPrompt(structuredData)
+        }, JsonOptions);
 
-                Return valid JSON with:
-                - suggested_priority
-                - suggested_priority_score
-                - suggested_severity_level
-                - agrees_with_rule_base
-                - explanation
-                - needs_immediate_safe_transfer
-                - can_wait_for_combined_mission
-                - handling_reason
+        return prompt + $$"""
 
-                The explanation must include the reason for the numeric score and whether AI agrees with the current rule-based score.
-                """;
-        }
 
-        return prompt;
+            IMPORTANT SCORING CONTRACT:
+            - The rule-based score is the baseline and already uses the rule_config below.
+            - The score scale is 0-100. `suggested_priority_score` must be the final adjusted score on the 0-100 scale.
+            - Do not score from scratch. Only adjust for concrete user-provided conditions that the rule_config or rule breakdown does not cover, under-weights, or over-weights.
+            - If there is no extra factor, return the same score as rule_based_evaluation.score, `score_adjustment_delta = 0`, `adjustment_direction = "none"`, and `agrees_with_rule_base = true`.
+            - Default adjustment guardrail is +/-15 points from the rule-based score.
+            - Larger adjustment is allowed only when there is clear immediate life-threatening evidence and `guardrail_override_reason` explains it.
+            - `suggested_priority` must match the final score and rule_config thresholds.
+
+            Return valid JSON only with:
+            {
+              "suggested_priority": "Critical|High|Medium|Low",
+              "suggested_priority_score": 0.0-100.0,
+              "suggested_severity_level": "Critical|Severe|Moderate|Minor",
+              "agrees_with_rule_base": true,
+              "score_adjustment_delta": 0.0,
+              "adjustment_direction": "increase|decrease|none",
+              "uncovered_factors": [],
+              "rule_config_basis": [],
+              "additional_severe_flag": false,
+              "guardrail_override_reason": null,
+              "needs_immediate_safe_transfer": false,
+              "can_wait_for_combined_mission": true,
+              "handling_reason": "Explain whether this SOS can wait for combined mission.",
+              "explanation": "Explain how rule_config and extra factors support the final score."
+            }
+
+            rule_config:
+            {{ruleConfigJson}}
+
+            rule_based_evaluation:
+            {{ruleBasedEvaluationJson}}
+
+            sos_payload:
+            {{sosPayloadJson}}
+            """;
     }
 
     private async Task<string?> CallAiApiAsync(
@@ -281,7 +338,10 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         }
     }
 
-    private static AiAnalysisResult ParseAiResponse(string response, SosAiAnalysisTask task)
+    private static AiAnalysisResult ParseAiResponse(
+        string response,
+        SosAiAnalysisTask task,
+        SosPriorityRuleConfigDocument ruleConfig)
     {
         try
         {
@@ -291,29 +351,23 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             if (jsonStart >= 0 && jsonEnd > jsonStart)
             {
                 var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
-                var parsed = JsonSerializer.Deserialize<AiAnalysisResult>(jsonStr, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                var parsed = JsonSerializer.Deserialize<AiAnalysisResult>(jsonStr, JsonOptions);
 
                 if (parsed != null)
-                    return NormalizeResult(parsed, task);
+                    return NormalizeResult(parsed, task, ruleConfig);
             }
         }
         catch
         {
         }
 
-        var priority = ExtractPriority(response);
-        var suggestedPriorityScore = InferPriorityScore(priority, task.RuleBasedScore, task.RuleBasedPriority);
-        var agreesWithRuleBase = DetermineAgreement(
-            suggestedPriorityScore,
-            task.RuleBasedScore,
-            priority,
-            task.RuleBasedPriority);
+        var ruleBasedScore = ClampScore(task.RuleBasedScore);
+        var ruleBasedSevere = ResolveRuleBasedSevereFlag(task);
+        var priority = DeterminePriorityFromScore(ruleBasedScore, ruleBasedSevere, ruleConfig);
+        var agreesWithRuleBase = DetermineAgreement(ruleBasedScore, task.RuleBasedScore, priority, task.RuleBasedPriority);
         var explanation = EnsureExplanationMentionsRuleBase(
             response.Length > 500 ? response[..500] : response,
-            suggestedPriorityScore,
+            ruleBasedScore,
             task.RuleBasedScore,
             agreesWithRuleBase,
             priority,
@@ -323,7 +377,8 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         {
             Priority = priority,
             SeverityLevel = ExtractSeverity(response),
-            SuggestedPriorityScore = suggestedPriorityScore,
+            SuggestedPriority = priority,
+            SuggestedPriorityScore = ruleBasedScore,
             AgreesWithRuleBase = agreesWithRuleBase,
             Explanation = explanation,
             NeedsImmediateSafeTransfer = string.Equals(priority, "Critical", StringComparison.OrdinalIgnoreCase)
@@ -332,25 +387,44 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             CanWaitForCombinedMission = string.Equals(priority, "Critical", StringComparison.OrdinalIgnoreCase)
                 ? false
                 : null,
-            HandlingReason = explanation
+            HandlingReason = explanation,
+            ScoreAdjustmentDelta = 0d,
+            AdjustmentDirection = "none",
+            AdditionalSevereFlag = false,
+            GuardrailApplied = false,
+            GuardrailLimit = DefaultAdjustmentLimit
         };
     }
 
-    private static AiAnalysisResult NormalizeResult(AiAnalysisResult result, SosAiAnalysisTask task)
+    private static AiAnalysisResult NormalizeResult(
+        AiAnalysisResult result,
+        SosAiAnalysisTask task,
+        SosPriorityRuleConfigDocument ruleConfig)
     {
-        var normalizedPriority = NormalizePriority(result.SuggestedPriority ?? result.Priority) ?? "Medium";
+        var requestedPriorityScore = result.SuggestedPriorityScore;
+        var originalRequestedScore = requestedPriorityScore.HasValue
+            ? ClampScore(requestedPriorityScore.Value)
+            : (double?)null;
+        var ruleBasedSevere = ResolveRuleBasedSevereFlag(task);
+        var additionalSevereFlag = result.AdditionalSevereFlag == true;
+        var guardrail = ApplyScoreGuardrail(
+            originalRequestedScore ?? task.RuleBasedScore,
+            result,
+            task,
+            ruleBasedSevere);
+        var finalScore = guardrail.Score;
+        var hasSevereFlag = ruleBasedSevere || additionalSevereFlag;
+        var normalizedPriority = DeterminePriorityFromScore(finalScore, hasSevereFlag, ruleConfig);
         var normalizedSeverity = NormalizeSeverity(result.SuggestedSeverityLevel ?? result.SeverityLevel, normalizedPriority);
-        var suggestedPriorityScore = result.SuggestedPriorityScore
-            ?? InferPriorityScore(normalizedPriority, task.RuleBasedScore, task.RuleBasedPriority);
-        var agreesWithRuleBase = result.AgreesWithRuleBase
-            ?? DetermineAgreement(
-                suggestedPriorityScore,
-                task.RuleBasedScore,
-                normalizedPriority,
-                task.RuleBasedPriority);
+        var scoreDelta = Math.Round(finalScore - ClampScore(task.RuleBasedScore), 2);
+        var agreesWithRuleBase = DetermineAgreement(
+            finalScore,
+            task.RuleBasedScore,
+            normalizedPriority,
+            task.RuleBasedPriority);
         var explanation = EnsureExplanationMentionsRuleBase(
             result.Explanation,
-            suggestedPriorityScore,
+            finalScore,
             task.RuleBasedScore,
             agreesWithRuleBase,
             normalizedPriority,
@@ -366,14 +440,23 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             SeverityLevel = normalizedSeverity,
             SuggestedPriority = normalizedPriority,
             SuggestedSeverityLevel = normalizedSeverity,
-            SuggestedPriorityScore = suggestedPriorityScore,
+            SuggestedPriorityScore = finalScore,
             AgreesWithRuleBase = agreesWithRuleBase,
             Explanation = explanation,
             NeedsImmediateSafeTransfer = needsImmediateSafeTransfer,
             CanWaitForCombinedMission = canWaitForCombinedMission,
             HandlingReason = string.IsNullOrWhiteSpace(result.HandlingReason)
                 ? explanation
-                : result.HandlingReason
+                : result.HandlingReason,
+            ScoreAdjustmentDelta = scoreDelta,
+            AdjustmentDirection = ResolveAdjustmentDirection(scoreDelta),
+            UncoveredFactors = result.UncoveredFactors ?? [],
+            RuleConfigBasis = result.RuleConfigBasis ?? [],
+            AdditionalSevereFlag = additionalSevereFlag,
+            GuardrailOverrideReason = result.GuardrailOverrideReason,
+            GuardrailApplied = guardrail.Applied,
+            GuardrailLimit = DefaultAdjustmentLimit,
+            OriginalSuggestedPriorityScore = originalRequestedScore
         };
     }
 
@@ -383,7 +466,8 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         int promptId,
         string? promptVersion,
         string provider,
-        SosAiAnalysisTask task)
+        SosAiAnalysisTask task,
+        RuleConfigContext ruleConfigContext)
     {
         return JsonSerializer.Serialize(new
         {
@@ -394,14 +478,29 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             provider,
             contentFingerprint = task.ContentFingerprint,
             queuedAtUtc = task.QueuedAtUtc,
+            adjustmentContract = new
+            {
+                scoreScale = "0-100",
+                defaultAdjustmentLimit = DefaultAdjustmentLimit,
+                ruleBasedBaselineRequired = true
+            },
             ruleBaseContext = new
             {
                 score = task.RuleBasedScore,
                 priority = task.RuleBasedPriority,
                 ruleVersion = task.RuleVersion,
+                configId = task.RuleConfigId,
+                configVersion = task.RuleConfigVersion,
                 breakdownJson = task.RuleBreakdownJson
+            },
+            ruleConfigContext = new
+            {
+                source = ruleConfigContext.Source,
+                configId = ruleConfigContext.Model?.Id ?? task.RuleConfigId,
+                configVersion = ruleConfigContext.Config.ConfigVersion,
+                config = ruleConfigContext.Config
             }
-        });
+        }, JsonOptions);
     }
 
     private static string ExtractPriority(string text)
@@ -463,21 +562,6 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         };
     }
 
-    private static double InferPriorityScore(string? priority, double ruleBasedScore, string? ruleBasedPriority)
-    {
-        if (string.Equals(NormalizePriority(priority), NormalizePriority(ruleBasedPriority), StringComparison.OrdinalIgnoreCase))
-            return ruleBasedScore;
-
-        return NormalizePriority(priority) switch
-        {
-            "Critical" => 9.0,
-            "High" => 7.0,
-            "Medium" => 5.0,
-            "Low" => 2.0,
-            _ => ruleBasedScore
-        };
-    }
-
     private static bool DetermineAgreement(
         double suggestedPriorityScore,
         double ruleBasedScore,
@@ -492,7 +576,143 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         if (!samePriority)
             return false;
 
-        return Math.Abs(suggestedPriorityScore - ruleBasedScore) <= 1.0d;
+        return Math.Abs(ClampScore(suggestedPriorityScore) - ClampScore(ruleBasedScore)) <= 0.5d;
+    }
+
+    private static double ClampScore(double score)
+    {
+        if (double.IsNaN(score) || double.IsInfinity(score))
+        {
+            return MinPriorityScore;
+        }
+
+        return Math.Clamp(score, MinPriorityScore, MaxPriorityScore);
+    }
+
+    private static string DeterminePriorityFromScore(
+        double score,
+        bool hasSevereFlag,
+        SosPriorityRuleConfigDocument ruleConfig)
+    {
+        return SosPriorityRuleConfigSupport
+            .DeterminePriorityLevel(ClampScore(score), hasSevereFlag, ruleConfig)
+            .ToString();
+    }
+
+    private static bool ResolveRuleBasedSevereFlag(SosAiAnalysisTask task)
+    {
+        try
+        {
+            var details = JsonSerializer.Deserialize<SosPriorityEvaluationDetails>(
+                task.RuleBreakdownJson ?? string.Empty,
+                JsonOptions);
+            if (details is not null)
+            {
+                return details.HasSevereFlag
+                    || details.ThresholdDecision?.HasSevereFlag == true
+                    || details.MedicalSevereFlag
+                    || details.SituationSevereFlag;
+            }
+        }
+        catch
+        {
+        }
+
+        return Enum.TryParse<SosPriorityLevel>(task.RuleBasedPriority, ignoreCase: true, out var priority)
+            && priority is SosPriorityLevel.Critical or SosPriorityLevel.High;
+    }
+
+    private static GuardrailResult ApplyScoreGuardrail(
+        double requestedScore,
+        AiAnalysisResult result,
+        SosAiAnalysisTask task,
+        bool ruleBasedSevere)
+    {
+        var baseline = ClampScore(task.RuleBasedScore);
+        var requested = ClampScore(requestedScore);
+        var delta = requested - baseline;
+
+        if (Math.Abs(delta) <= DefaultAdjustmentLimit)
+        {
+            return new GuardrailResult(requested, false);
+        }
+
+        if (IsGuardrailOverrideAllowed(result, task, ruleBasedSevere))
+        {
+            return new GuardrailResult(requested, false);
+        }
+
+        var cappedScore = ClampScore(baseline + (Math.Sign(delta) * DefaultAdjustmentLimit));
+        return new GuardrailResult(cappedScore, true);
+    }
+
+    private static bool IsGuardrailOverrideAllowed(
+        AiAnalysisResult result,
+        SosAiAnalysisTask task,
+        bool ruleBasedSevere)
+    {
+        if (string.IsNullOrWhiteSpace(result.GuardrailOverrideReason))
+        {
+            return false;
+        }
+
+        return ruleBasedSevere || HasImmediateLifeThreateningEvidence(task);
+    }
+
+    private static bool HasImmediateLifeThreateningEvidence(SosAiAnalysisTask task)
+    {
+        var text = $"{task.RawMessage} {task.StructuredData}".ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        string[] markers =
+        [
+            "UNCONSCIOUS",
+            "BREATHING_DIFFICULTY",
+            "CHEST_PAIN_STROKE",
+            "DROWNING",
+            "SEVERELY_BLEEDING",
+            "LIFE_THREATENING",
+            "CANNOT_MOVE",
+            "CAN_NOT_MOVE",
+            "TRAPPED",
+            "COLLAPSED",
+            "FLOODING",
+            "DANGER_ZONE",
+            "SEVERE",
+            "CRITICAL"
+        ];
+
+        return markers.Any(marker => text.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveAdjustmentDirection(double scoreDelta)
+    {
+        if (scoreDelta > 0.5d)
+            return "increase";
+        if (scoreDelta < -0.5d)
+            return "decrease";
+        return "none";
+    }
+
+    private static object? ParseJsonForPrompt(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch
+        {
+            return json.Trim();
+        }
     }
 
     private static string EnsureExplanationMentionsRuleBase(
@@ -556,5 +776,39 @@ public class SosAiAnalysisService : ISosAiAnalysisService
 
         [JsonPropertyName("handling_reason")]
         public string? HandlingReason { get; set; }
+
+        [JsonPropertyName("score_adjustment_delta")]
+        public double? ScoreAdjustmentDelta { get; set; }
+
+        [JsonPropertyName("adjustment_direction")]
+        public string? AdjustmentDirection { get; set; }
+
+        [JsonPropertyName("uncovered_factors")]
+        public List<string>? UncoveredFactors { get; set; }
+
+        [JsonPropertyName("rule_config_basis")]
+        public List<string>? RuleConfigBasis { get; set; }
+
+        [JsonPropertyName("additional_severe_flag")]
+        public bool? AdditionalSevereFlag { get; set; }
+
+        [JsonPropertyName("guardrail_override_reason")]
+        public string? GuardrailOverrideReason { get; set; }
+
+        [JsonPropertyName("guardrail_applied")]
+        public bool? GuardrailApplied { get; set; }
+
+        [JsonPropertyName("guardrail_limit")]
+        public double? GuardrailLimit { get; set; }
+
+        [JsonPropertyName("original_suggested_priority_score")]
+        public double? OriginalSuggestedPriorityScore { get; set; }
     }
+
+    private sealed record RuleConfigContext(
+        SosPriorityRuleConfigModel? Model,
+        SosPriorityRuleConfigDocument Config,
+        string Source);
+
+    private readonly record struct GuardrailResult(double Score, bool Applied);
 }
