@@ -75,5 +75,8 @@ public partial class ItemModel
     [InverseProperty("ItemModel")]
     public virtual ICollection<ReusableItem> ReusableItems { get; set; } = new List<ReusableItem>();
 
+    [InverseProperty("ItemModel")]
+    public virtual ICollection<InventoryLog> InventoryLogs { get; set; } = new List<InventoryLog>();
+
     public virtual ICollection<TargetGroup> TargetGroups { get; set; } = new List<TargetGroup>();
 }

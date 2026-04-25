@@ -89,6 +89,14 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .AnyAsync(p => p.AssemblyEventId == eventId && p.RescuerId == rescuerId && p.IsCheckedIn && !p.IsCheckedOut, cancellationToken);
     }
 
+    public async Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<AssemblyParticipant>()
+            .AnyAsync(
+                p => p.AssemblyEventId == eventId && p.IsCheckedIn && !p.IsCheckedOut,
+                cancellationToken);
+    }
+
     public async Task<bool> CheckOutAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {

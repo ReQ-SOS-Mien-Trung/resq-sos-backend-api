@@ -11,8 +11,6 @@ public class InventoryTransactionDto
     public string? Note { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<InventoryTransactionItemDto> Items { get; set; } = new();
-
-    // VatInvoice (from the first log in this transaction group)
     public int? VatInvoiceId { get; set; }
     public string? InvoiceSerial { get; set; }
     public string? InvoiceNumber { get; set; }
@@ -26,7 +24,11 @@ public class InventoryTransactionDto
 public class InventoryTransactionItemDto
 {
     public int ItemId { get; set; }
+    public int ItemModelId { get; set; }
     public int? SupplyInventoryLotId { get; set; }
+    public int? LotId { get; set; }
+    public int? ReusableItemId { get; set; }
+    public string? SerialNumber { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public int QuantityChange { get; set; }
     public string FormattedQuantityChange { get; set; } = string.Empty;

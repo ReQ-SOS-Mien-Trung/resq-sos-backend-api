@@ -64,7 +64,7 @@ public class RescueTeamModel
     /// <summary>
     /// Thêm thành viên đã check-in tại điểm tập kết vào đội. Member ở trạng thái Accepted ngay.
     /// </summary>
-    public void AddMember(Guid userId, bool isLeader, string rescuerType, string? roleInTeam)
+    public void AddMember(Guid userId, bool isLeader, string rescuerType, string? roleInTeam, int? sourceEventId = null)
     {
         if (Status != RescueTeamStatus.Gathering)
             throw new RescueTeamBusinessRuleException("Chỉ có thể thêm thành viên khi đội đang ở trạng thái Gathering.");
@@ -78,7 +78,7 @@ public class RescueTeamModel
         if (_members.Any(m => m.UserId == userId && m.Status != TeamMemberStatus.Removed))
             throw new RescueTeamBusinessRuleException("Thành viên này đã có trong đội.");
 
-        _members.Add(RescueTeamMemberModel.Create(userId, isLeader, rescuerType, roleInTeam));
+        _members.Add(RescueTeamMemberModel.Create(userId, isLeader, rescuerType, roleInTeam, sourceEventId));
         UpdatedAt = DateTime.UtcNow;
     }
 

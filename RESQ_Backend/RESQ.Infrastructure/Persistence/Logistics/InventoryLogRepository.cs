@@ -33,6 +33,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 .ThenInclude(x => x!.Depot)
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.ItemModel)
+            .Include(x => x.ItemModel)
             .Include(x => x.SupplyInventoryLot)
             .Include(x => x.ReusableItem)
                 .ThenInclude(x => x!.ItemModel)
@@ -49,8 +50,8 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
         if (itemModelId.HasValue)
         {
-            query = query.Where(x =>
-                (x.SupplyInventory != null && x.SupplyInventory.ItemModelId == itemModelId.Value)
+            query = query.Where(x => x.ItemModelId == itemModelId.Value
+                || (x.SupplyInventory != null && x.SupplyInventory.ItemModelId == itemModelId.Value)
                 || (x.ReusableItem != null && x.ReusableItem.ItemModelId == itemModelId.Value));
         }
 
@@ -98,37 +99,42 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        var logs = rawLogs.Select(x => new InventoryLogModel
+        var logs = rawLogs.Select(x =>
         {
-            Id = x.Id,
-            DepotSupplyInventoryId = x.DepotSupplyInventoryId,
-            SupplyInventoryLotId = x.SupplyInventoryLotId,
-            ActionType = x.ActionType ?? string.Empty,
-            QuantityChange = x.QuantityChange,
-            SourceType = x.SourceType ?? string.Empty,
-            SourceId = x.SourceId,
-            Note = NormalizeMultilineText(x.Note),
-            CreatedAt = x.CreatedAt,
-            ReceivedDate = x.ReceivedDate,
-            ExpiredDate = x.ExpiredDate,
-            PerformedByName = x.PerformedByUser != null
-                ? $"{x.PerformedByUser.LastName} {x.PerformedByUser.FirstName}".Trim()
-                : string.Empty,
-            DepotId = x.SupplyInventory?.DepotId ?? x.ReusableItem?.DepotId,
-            DepotName = x.SupplyInventory?.Depot?.Name ?? x.ReusableItem?.Depot?.Name ?? string.Empty,
-            ItemModelId = x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
-            ItemModelName = x.SupplyInventory?.ItemModel?.Name ?? x.ReusableItem?.ItemModel?.Name ?? string.Empty,
-            SerialNumber = x.ReusableItem?.SerialNumber,
-            LotId = x.SupplyInventoryLot?.Id,
-            ReusableItemId = x.ReusableItemId,
-            VatInvoiceId = x.VatInvoiceId,
-            InvoiceSerial = x.VatInvoice?.InvoiceSerial,
-            InvoiceNumber = x.VatInvoice?.InvoiceNumber,
-            SupplierName = x.VatInvoice?.SupplierName,
-            SupplierTaxCode = x.VatInvoice?.SupplierTaxCode,
-            InvoiceDate = x.VatInvoice?.InvoiceDate,
-            InvoiceTotalAmount = x.VatInvoice?.TotalAmount,
-            InvoiceFileUrl = x.VatInvoice?.FileUrl
+            var itemModel = ResolveItemModel(x);
+
+            return new InventoryLogModel
+            {
+                Id = x.Id,
+                DepotSupplyInventoryId = x.DepotSupplyInventoryId,
+                SupplyInventoryLotId = x.SupplyInventoryLotId,
+                ActionType = x.ActionType ?? string.Empty,
+                QuantityChange = x.QuantityChange,
+                SourceType = x.SourceType ?? string.Empty,
+                SourceId = x.SourceId,
+                Note = NormalizeMultilineText(x.Note),
+                CreatedAt = x.CreatedAt,
+                ReceivedDate = x.ReceivedDate,
+                ExpiredDate = x.ExpiredDate,
+                PerformedByName = x.PerformedByUser != null
+                    ? $"{x.PerformedByUser.LastName} {x.PerformedByUser.FirstName}".Trim()
+                    : string.Empty,
+                DepotId = x.SupplyInventory?.DepotId ?? x.ReusableItem?.DepotId,
+                DepotName = x.SupplyInventory?.Depot?.Name ?? x.ReusableItem?.Depot?.Name ?? string.Empty,
+                ItemModelId = x.ItemModelId ?? x.SupplyInventory?.ItemModelId ?? x.ReusableItem?.ItemModelId,
+                ItemModelName = itemModel?.Name ?? string.Empty,
+                SerialNumber = x.ReusableItem?.SerialNumber,
+                LotId = x.SupplyInventoryLot?.Id,
+                ReusableItemId = x.ReusableItemId,
+                VatInvoiceId = x.VatInvoiceId,
+                InvoiceSerial = x.VatInvoice?.InvoiceSerial,
+                InvoiceNumber = x.VatInvoice?.InvoiceNumber,
+                SupplierName = x.VatInvoice?.SupplierName,
+                SupplierTaxCode = x.VatInvoice?.SupplierTaxCode,
+                InvoiceDate = x.VatInvoice?.InvoiceDate,
+                InvoiceTotalAmount = x.VatInvoice?.TotalAmount,
+                InvoiceFileUrl = x.VatInvoice?.FileUrl
+            };
         }).ToList();
 
         return new PagedResult<InventoryLogModel>(logs, totalCount, pageNumber, pageSize);
@@ -153,6 +159,10 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .Include(x => x.SupplyInventory)
                 .ThenInclude(x => x!.ItemModel)
                     .ThenInclude(x => x!.TargetGroups)
+            .Include(x => x.ItemModel)
+                .ThenInclude(x => x!.Category)
+            .Include(x => x.ItemModel)
+                .ThenInclude(x => x!.TargetGroups)
             .Include(x => x.SupplyInventoryLot)
             .Include(x => x.ReusableItem)
                 .ThenInclude(x => x!.ItemModel)
@@ -196,14 +206,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .ToListAsync(cancellationToken);
 
         var groups = rawLogs
-            .GroupBy(x => new
-            {
-                x.CreatedAt,
-                x.ActionType,
-                x.SourceType,
-                x.SourceId,
-                x.PerformedBy
-            })
+            .GroupBy(BuildTransactionGroupKey)
             .OrderByDescending(g => g.Min(x => x.CreatedAt))
             .ToList();
 
@@ -218,7 +221,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         {
             var firstItem = g.First();
             var createdAt = g.Min(x => x.CreatedAt);
-            var transactionId = $"{g.Key.ActionType}_{g.Key.SourceType}_{g.Key.SourceId}_{createdAt:yyyyMMdd_HHmmss}";
+            var transactionId = g.Key;
 
             return new InventoryTransactionDto
             {
@@ -240,32 +243,35 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 InvoiceDate = firstItem.VatInvoice?.InvoiceDate,
                 InvoiceTotalAmount = firstItem.VatInvoice?.TotalAmount,
                 InvoiceFileUrl = firstItem.VatInvoice?.FileUrl,
-                Items = g.Select(item => new InventoryTransactionItemDto
+                Items = g.Select(item =>
                 {
-                    ItemId = item.SupplyInventory?.ItemModelId
-                             ?? item.ReusableItem?.ItemModelId
-                             ?? 0,
-                    SupplyInventoryLotId = item.SupplyInventoryLotId,
-                    ItemName = item.SupplyInventory?.ItemModel?.Name
-                               ?? item.ReusableItem?.ItemModel?.Name
-                               ?? string.Empty,
-                    QuantityChange = item.QuantityChange ?? 0,
-                    FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
-                    Unit = item.SupplyInventory?.ItemModel?.Unit
-                           ?? item.ReusableItem?.ItemModel?.Unit
-                           ?? string.Empty,
-                    ItemType = item.SupplyInventory?.ItemModel?.ItemType
-                               ?? item.ReusableItem?.ItemModel?.ItemType
-                               ?? string.Empty,
-                    TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
-                        (item.SupplyInventory?.ItemModel?.TargetGroups
-                         ?? item.ReusableItem?.ItemModel?.TargetGroups
-                         ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
-                        .Select(tg => tg.Name)),
-                    CategoryName = item.SupplyInventory?.ItemModel?.Category?.Name
-                                   ?? item.ReusableItem?.ItemModel?.Category?.Name,
-                    ReceivedDate = item.ReceivedDate,
-                    ExpiredDate = item.ExpiredDate
+                    var itemModel = ResolveItemModel(item);
+                    var resolvedItemModelId = item.ItemModelId
+                                              ?? item.SupplyInventory?.ItemModelId
+                                              ?? item.ReusableItem?.ItemModelId
+                                              ?? 0;
+
+                    return new InventoryTransactionItemDto
+                    {
+                        ItemId = resolvedItemModelId,
+                        ItemModelId = resolvedItemModelId,
+                        SupplyInventoryLotId = item.SupplyInventoryLotId,
+                        LotId = item.SupplyInventoryLotId,
+                        ReusableItemId = IsUnitLevelReusableAction(item) ? item.ReusableItemId : null,
+                        SerialNumber = IsUnitLevelReusableAction(item) ? item.ReusableItem?.SerialNumber : null,
+                        ItemName = itemModel?.Name ?? string.Empty,
+                        QuantityChange = item.QuantityChange ?? 0,
+                        FormattedQuantityChange = FormatQuantityChange(item.ActionType ?? string.Empty, item.QuantityChange ?? 0),
+                        Unit = itemModel?.Unit ?? string.Empty,
+                        ItemType = itemModel?.ItemType ?? string.Empty,
+                        TargetGroup = TargetGroupTranslations.JoinAsVietnamese(
+                            (itemModel?.TargetGroups
+                             ?? Enumerable.Empty<RESQ.Infrastructure.Entities.Logistics.TargetGroup>())
+                            .Select(tg => tg.Name)),
+                        CategoryName = itemModel?.Category?.Name,
+                        ReceivedDate = item.ReceivedDate,
+                        ExpiredDate = item.ExpiredDate
+                    };
                 }).ToList()
             };
         }).ToList();
@@ -327,6 +333,43 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         }
 
         return text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
+    }
+
+    private static ItemModel? ResolveItemModel(InventoryLog log)
+    {
+        return log.ItemModel
+               ?? log.SupplyInventory?.ItemModel
+               ?? log.ReusableItem?.ItemModel;
+    }
+
+    private static bool IsUnitLevelReusableAction(InventoryLog log)
+    {
+        return log.ReusableItemId.HasValue
+               && (log.QuantityChange ?? 0) == 1;
+    }
+
+    private static string BuildTransactionGroupKey(InventoryLog log)
+    {
+        var actionType = (log.ActionType ?? string.Empty).ToLowerInvariant();
+        var sourceType = (log.SourceType ?? string.Empty).ToLowerInvariant();
+        var performedBy = log.PerformedBy?.ToString() ?? "system";
+
+        if (actionType == nameof(InventoryActionType.Import).ToLowerInvariant()
+            && log.VatInvoiceId.HasValue)
+        {
+            return $"import|purchase|vat:{log.VatInvoiceId.Value}|by:{performedBy}";
+        }
+
+        if (actionType == nameof(InventoryActionType.Import).ToLowerInvariant()
+            && sourceType == nameof(InventorySourceType.Donation).ToLowerInvariant()
+            && log.SourceId.HasValue)
+        {
+            var batchTime = log.CreatedAt?.ToUniversalTime().ToString("yyyyMMddHHmmss") ?? "no-created-at";
+            return $"import|donation|source:{log.SourceId.Value}|by:{performedBy}|batch:{batchTime}";
+        }
+
+        var createdAtBucket = log.CreatedAt?.ToUniversalTime().ToString("yyyyMMddHHmmss") ?? "no-created-at";
+        return $"{actionType}|{sourceType}|source:{log.SourceId?.ToString() ?? "none"}|by:{performedBy}|created:{createdAtBucket}";
     }
 
     /// <inheritdoc/>

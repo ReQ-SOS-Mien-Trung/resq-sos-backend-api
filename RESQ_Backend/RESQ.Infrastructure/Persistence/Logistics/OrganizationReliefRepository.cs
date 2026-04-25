@@ -61,37 +61,33 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         var isReusable = string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
 
         var inventoryRepo = _unitOfWork.GetRepository<SupplyInventory>();
-        SupplyInventory? inventory = null;
-        if (!isReusable)
-        {
-            inventory = await inventoryRepo.GetByPropertyAsync(
-                i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId,
-                tracked: true);
+        var inventory = await inventoryRepo.GetByPropertyAsync(
+            i => i.DepotId == model.ReceivedAt && i.ItemModelId == model.ItemModelId,
+            tracked: true);
 
-            if (inventory == null)
+        if (inventory == null)
+        {
+            inventory = new SupplyInventory
             {
-                inventory = new SupplyInventory
-                {
-                    DepotId = model.ReceivedAt,
-                    ItemModelId = model.ItemModelId,
-                    Quantity = model.Quantity,
-                    MissionReservedQuantity = 0,
-                    TransferReservedQuantity = 0,
-                    LastStockedAt = DateTime.UtcNow
-                };
-                await inventoryRepo.AddAsync(inventory);
-            }
-            else
-            {
-                inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
-                inventory.LastStockedAt = DateTime.UtcNow;
-                await inventoryRepo.UpdateAsync(inventory);
-            }
+                DepotId = model.ReceivedAt,
+                ItemModelId = model.ItemModelId,
+                Quantity = model.Quantity,
+                MissionReservedQuantity = 0,
+                TransferReservedQuantity = 0,
+                LastStockedAt = DateTime.UtcNow
+            };
+            await inventoryRepo.AddAsync(inventory);
+        }
+        else
+        {
+            inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
+            inventory.LastStockedAt = DateTime.UtcNow;
+            await inventoryRepo.UpdateAsync(inventory);
         }
 
         var lotRepo = _unitOfWork.GetRepository<SupplyInventoryLot>();
         SupplyInventoryLot? lotEntity = null;
-        if (!isReusable && inventory != null)
+        if (!isReusable)
         {
             lotEntity = new SupplyInventoryLot
             {
@@ -112,6 +108,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         {
             SupplyInventory = inventory,
             SupplyInventoryLot = lotEntity,
+            ItemModelId = model.ItemModelId,
             ActionType = InventoryActionType.Import.ToString(),
             SourceType = InventorySourceType.Donation.ToString(),
             QuantityChange = model.Quantity,
@@ -335,12 +332,14 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
         var lotRepo = _unitOfWork.GetRepository<SupplyInventoryLot>();
         var logRepo = _unitOfWork.GetRepository<InventoryLog>();
         var categoryRepo = _unitOfWork.GetRepository<Category>();
+        var batchLoggedAt = DateTime.UtcNow;
 
         var orgReliefEntities = new List<OrganizationReliefItem>();
         var inventoryEntities = new List<DepotSupplyInventory>();
         var reusableEntities = new List<ReusableItem>();
         var lotEntities = new List<SupplyInventoryLot>();
         var logEntities = new List<InventoryLog>();
+        var reusableImportLogsBySourceAndItemModel = new Dictionary<(int OrganizationId, int ItemModelId), InventoryLog>();
 
         var existingInventories = await inventoryRepo.AsQueryable(tracked: true)
             .Where(i => i.DepotId == depotId
@@ -355,27 +354,27 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
             var isReusable = string.Equals(model.ItemType, "Reusable", StringComparison.OrdinalIgnoreCase);
             orgReliefEntities.Add(OrganizationReliefItemMapper.ToEntity(model));
 
+            if (!inventoriesByItemModelId.TryGetValue(model.ItemModelId, out var inventory))
+            {
+                inventory = new DepotSupplyInventory
+                {
+                    DepotId = model.ReceivedAt,
+                    ItemModelId = model.ItemModelId,
+                    Quantity = 0,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = DateTime.UtcNow
+                };
+
+                inventoriesByItemModelId[model.ItemModelId] = inventory;
+                inventoryEntities.Add(inventory);
+            }
+
+            inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
+            inventory.LastStockedAt = DateTime.UtcNow;
+
             if (!isReusable)
             {
-                if (!inventoriesByItemModelId.TryGetValue(model.ItemModelId, out var inventory))
-                {
-                    inventory = new DepotSupplyInventory
-                    {
-                        DepotId = model.ReceivedAt,
-                        ItemModelId = model.ItemModelId,
-                        Quantity = 0,
-                        MissionReservedQuantity = 0,
-                        TransferReservedQuantity = 0,
-                        LastStockedAt = DateTime.UtcNow
-                    };
-
-                    inventoriesByItemModelId[model.ItemModelId] = inventory;
-                    inventoryEntities.Add(inventory);
-                }
-
-                inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
-                inventory.LastStockedAt = DateTime.UtcNow;
-
                 var lotEntity = new SupplyInventoryLot
                 {
                     SupplyInventory = inventory,
@@ -385,7 +384,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                     ExpiredDate = model.ExpiredDate,
                     SourceType = InventorySourceType.Donation.ToString(),
                     SourceId = model.OrganizationId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = batchLoggedAt
                 };
                 lotEntities.Add(lotEntity);
 
@@ -393,6 +392,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                 {
                     SupplyInventory = inventory,
                     SupplyInventoryLot = lotEntity,
+                    ItemModelId = model.ItemModelId,
                     ActionType = InventoryActionType.Import.ToString(),
                     SourceType = InventorySourceType.Donation.ToString(),
                     QuantityChange = model.Quantity,
@@ -401,7 +401,7 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                     Note = model.Notes,
                     ReceivedDate = model.ReceivedDate,
                     ExpiredDate = model.ExpiredDate,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = batchLoggedAt
                 });
 
                 continue;
@@ -423,20 +423,31 @@ public class OrganizationReliefRepository(IUnitOfWork unitOfWork) : IOrganizatio
                 };
 
                 reusableEntities.Add(reusableEntity);
-                logEntities.Add(new InventoryLog
+            }
+
+            var reusableLogKey = (model.OrganizationId, model.ItemModelId);
+            if (!reusableImportLogsBySourceAndItemModel.TryGetValue(reusableLogKey, out var reusableImportLog))
+            {
+                reusableImportLog = new InventoryLog
                 {
-                    ReusableItem = reusableEntity,
+                    SupplyInventory = inventory,
+                    ItemModelId = model.ItemModelId,
                     ActionType = InventoryActionType.Import.ToString(),
                     SourceType = InventorySourceType.Donation.ToString(),
-                    QuantityChange = 1,
+                    QuantityChange = 0,
                     SourceId = model.OrganizationId,
                     PerformedBy = model.ReceivedBy,
                     Note = model.Notes,
                     ReceivedDate = model.ReceivedDate,
-                    ExpiredDate = model.ExpiredDate,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    ExpiredDate = null,
+                    CreatedAt = batchLoggedAt
+                };
+
+                reusableImportLogsBySourceAndItemModel[reusableLogKey] = reusableImportLog;
+                logEntities.Add(reusableImportLog);
             }
+
+            reusableImportLog.QuantityChange = (reusableImportLog.QuantityChange ?? 0) + model.Quantity;
         }
 
         await orgReliefRepo.AddRangeAsync(orgReliefEntities);

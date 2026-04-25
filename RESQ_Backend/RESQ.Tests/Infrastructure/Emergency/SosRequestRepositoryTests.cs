@@ -171,6 +171,39 @@ public class SosRequestRepositoryTests
         Assert.Equal(1, result.TotalCount);
     }
 
+    [Fact]
+    public async Task GetStatusCountsAsync_GroupsByStatusWithinReceivedAtRange()
+    {
+        await using var context = CreateContext();
+
+        var nullReceivedAt = CreateSosRequestEntity(
+            5,
+            10.79,
+            106.70,
+            "Pending",
+            new DateTime(2026, 4, 15, 0, 0, 0, DateTimeKind.Utc));
+        nullReceivedAt.ReceivedAt = null;
+
+        context.SosRequests.AddRange(
+            CreateSosRequestEntity(1, 10.75, 106.66, "Pending", new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)),
+            CreateSosRequestEntity(2, 10.76, 106.67, "Assigned", new DateTime(2026, 4, 2, 0, 0, 0, DateTimeKind.Utc)),
+            CreateSosRequestEntity(3, 10.77, 106.68, "Assigned", new DateTime(2026, 4, 30, 23, 59, 59, DateTimeKind.Utc)),
+            CreateSosRequestEntity(4, 10.78, 106.69, "Resolved", new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc)),
+            nullReceivedAt);
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetStatusCountsAsync(
+            new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 4, 30, 23, 59, 59, DateTimeKind.Utc));
+
+        Assert.Equal(1, result[SosRequestStatus.Pending.ToString()]);
+        Assert.Equal(2, result[SosRequestStatus.Assigned.ToString()]);
+        Assert.False(result.ContainsKey(SosRequestStatus.Resolved.ToString()));
+    }
+
     private static SosRequest CreateSosRequestEntity(
         int id,
         double? latitude,

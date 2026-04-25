@@ -194,19 +194,19 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         var lotRepo = _unitOfWork.GetRepository<SupplyInventoryLot>();
         var categoryRepo = _unitOfWork.GetRepository<Category>();
 
-        var consumableItemModelIds = items
-            .Where(x => !string.Equals(x.itemType, ItemType.Reusable.ToString(), StringComparison.OrdinalIgnoreCase))
+        var allItemModelIds = items
             .Select(x => x.model.ItemModelId)
             .Distinct()
             .ToList();
 
-        var existingInventories = consumableItemModelIds.Count == 0
+        var existingInventories = allItemModelIds.Count == 0
             ? []
             : await inventoryRepo.AsQueryable(tracked: true)
                 .Where(i => i.DepotId == depotId
                     && i.ItemModelId.HasValue
-                    && consumableItemModelIds.Contains(i.ItemModelId.Value))
+                    && allItemModelIds.Contains(i.ItemModelId.Value))
                 .ToListAsync(cancellationToken);
+        var batchLoggedAt = DateTime.UtcNow;
 
         var inventoryByItemModelId = existingInventories
             .Where(x => x.ItemModelId.HasValue)
@@ -217,6 +217,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
         var lotEntities = new List<SupplyInventoryLot>();
         var logEntities = new List<InventoryLog>();
         var vatInvoiceItemEntities = new List<VatInvoiceItem>();
+        var reusableImportLogsByInvoiceAndItemModel = new Dictionary<(int VatInvoiceId, int ItemModelId), InventoryLog>();
 
         foreach (var (model, unitPrice, itemType) in items)
         {
@@ -228,30 +229,30 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                 ItemModelId = model.ItemModelId,
                 Quantity = model.Quantity,
                 UnitPrice = unitPrice,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = batchLoggedAt
             });
+
+            if (!inventoryByItemModelId.TryGetValue(model.ItemModelId, out var inventory))
+            {
+                inventory = new SupplyInventory
+                {
+                    DepotId = model.ReceivedAt,
+                    ItemModelId = model.ItemModelId,
+                    Quantity = 0,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
+                    LastStockedAt = DateTime.UtcNow
+                };
+
+                inventoryByItemModelId[model.ItemModelId] = inventory;
+                newInventoryEntities.Add(inventory);
+            }
+
+            inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
+            inventory.LastStockedAt = DateTime.UtcNow;
 
             if (!isReusable)
             {
-                if (!inventoryByItemModelId.TryGetValue(model.ItemModelId, out var inventory))
-                {
-                    inventory = new SupplyInventory
-                    {
-                        DepotId = model.ReceivedAt,
-                        ItemModelId = model.ItemModelId,
-                        Quantity = 0,
-                        MissionReservedQuantity = 0,
-                        TransferReservedQuantity = 0,
-                        LastStockedAt = DateTime.UtcNow
-                    };
-
-                    inventoryByItemModelId[model.ItemModelId] = inventory;
-                    newInventoryEntities.Add(inventory);
-                }
-
-                inventory.Quantity = (inventory.Quantity ?? 0) + model.Quantity;
-                inventory.LastStockedAt = DateTime.UtcNow;
-
                 var lot = new SupplyInventoryLot
                 {
                     SupplyInventory = inventory,
@@ -261,7 +262,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                     ExpiredDate = model.ExpiredDate,
                     SourceType = InventorySourceType.Purchase.ToString(),
                     SourceId = model.VatInvoiceId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = batchLoggedAt
                 };
                 lotEntities.Add(lot);
 
@@ -269,6 +270,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                 {
                     SupplyInventory = inventory,
                     SupplyInventoryLot = lot,
+                    ItemModelId = model.ItemModelId,
                     VatInvoiceId = model.VatInvoiceId,
                     ActionType = InventoryActionType.Import.ToString(),
                     SourceType = InventorySourceType.Purchase.ToString(),
@@ -278,7 +280,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                     Note = model.Notes,
                     ReceivedDate = model.ReceivedDate,
                     ExpiredDate = model.ExpiredDate,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = batchLoggedAt
                 });
 
                 continue;
@@ -298,22 +300,32 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                     UpdatedAt = DateTime.UtcNow
                 };
                 reusableEntities.Add(reusableEntity);
+            }
 
-                logEntities.Add(new InventoryLog
+            var reusableLogKey = (model.VatInvoiceId, model.ItemModelId);
+            if (!reusableImportLogsByInvoiceAndItemModel.TryGetValue(reusableLogKey, out var reusableImportLog))
+            {
+                reusableImportLog = new InventoryLog
                 {
-                    ReusableItem = reusableEntity,
+                    SupplyInventory = inventory,
+                    ItemModelId = model.ItemModelId,
                     VatInvoiceId = model.VatInvoiceId,
                     ActionType = InventoryActionType.Import.ToString(),
                     SourceType = InventorySourceType.Purchase.ToString(),
-                    QuantityChange = 1,
+                    QuantityChange = 0,
                     SourceId = null,
                     PerformedBy = model.ReceivedBy,
                     Note = model.Notes,
                     ReceivedDate = model.ReceivedDate,
-                    ExpiredDate = model.ExpiredDate,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    ExpiredDate = null,
+                    CreatedAt = batchLoggedAt
+                };
+
+                reusableImportLogsByInvoiceAndItemModel[reusableLogKey] = reusableImportLog;
+                logEntities.Add(reusableImportLog);
             }
+
+            reusableImportLog.QuantityChange = (reusableImportLog.QuantityChange ?? 0) + model.Quantity;
         }
 
         if (vatInvoiceItemEntities.Count > 0)

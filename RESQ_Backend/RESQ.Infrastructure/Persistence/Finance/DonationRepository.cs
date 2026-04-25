@@ -74,12 +74,11 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
     public async Task<List<DonationModel>> GetPendingDonationsPastDeadlineAsync(DateTime currentTimeUtc, CancellationToken cancellationToken = default)
     {
         var pendingStatus = Status.Pending.ToString();
-        var fallbackThreshold = currentTimeUtc.AddMinutes(-RESQ.Application.Common.Constants.DonationPaymentConstants.PaymentTimeoutMinutes);
 
         var entities = await _unitOfWork.Set<Donation>()
             .Where(x => x.Status == pendingStatus &&
-                        ((x.ResponseDeadline.HasValue && x.ResponseDeadline <= currentTimeUtc) ||
-                         (!x.ResponseDeadline.HasValue && x.CreatedAt <= fallbackThreshold)))
+                        x.ResponseDeadline.HasValue &&
+                        x.ResponseDeadline < currentTimeUtc)
             .ToListAsync(cancellationToken);
 
         return entities.Select(DonationMapper.ToModel).ToList();

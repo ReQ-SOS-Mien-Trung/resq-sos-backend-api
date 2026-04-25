@@ -10,6 +10,7 @@ public class RescueTeamMemberModel
     public Guid UserId { get; private set; }
     public TeamMemberStatus Status { get; private set; }
     public DateTime JoinedAt { get; private set; }
+    public int? SourceEventId { get; private set; }
     public bool IsLeader { get; private set; }
     public string? RoleInTeam { get; private set; }
 
@@ -20,7 +21,7 @@ public class RescueTeamMemberModel
     /// <summary>
     /// Tạo member mới - đã check-in tại AP, trạng thái Accepted ngay lập tức.
     /// </summary>
-    internal static RescueTeamMemberModel Create(Guid userId, bool isLeader, string rescuerType, string? roleInTeam)
+    internal static RescueTeamMemberModel Create(Guid userId, bool isLeader, string rescuerType, string? roleInTeam, int? sourceEventId = null)
     {
         if (isLeader && !string.Equals(rescuerType, "Core", StringComparison.OrdinalIgnoreCase))
             throw new TeamMemberDomainException("Đội trưởng phải là nhân sự nòng cốt (Core Rescuer).");
@@ -30,6 +31,7 @@ public class RescueTeamMemberModel
             UserId = userId,
             Status = TeamMemberStatus.Accepted,
             JoinedAt = DateTime.UtcNow,
+            SourceEventId = sourceEventId,
             IsLeader = isLeader,
             RoleInTeam = roleInTeam
         };

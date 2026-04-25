@@ -74,6 +74,7 @@ public static class RescueTeamMapper
             SetPrivateProperty(mem, nameof(mem.UserId), m.UserId);
             SetPrivateProperty(mem, nameof(mem.Status), memStatus);
             SetPrivateProperty(mem, nameof(mem.JoinedAt), m.InvitedAt); // DB column still "invited_at", maps to JoinedAt
+            SetPrivateProperty(mem, nameof(mem.SourceEventId), m.SourceEventId);
             SetPrivateProperty(mem, nameof(mem.IsLeader), m.IsLeader);
             SetPrivateProperty(mem, nameof(mem.RoleInTeam), m.RoleInTeam);
 

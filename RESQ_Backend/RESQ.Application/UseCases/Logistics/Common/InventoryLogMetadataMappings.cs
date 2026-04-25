@@ -65,7 +65,6 @@ public static class InventoryLogMetadataMappings
 
         return actionType.Equals(nameof(InventoryActionType.Export), StringComparison.OrdinalIgnoreCase)
                || actionType.Equals(nameof(InventoryActionType.TransferOut), StringComparison.OrdinalIgnoreCase)
-               || actionType.Equals(nameof(InventoryActionType.Reserve), StringComparison.OrdinalIgnoreCase)
                || actionType.Equals(nameof(InventoryActionType.MissionPickup), StringComparison.OrdinalIgnoreCase)
                || actionType.Equals(nameof(InventoryActionType.DepotClosureExternalDisposal), StringComparison.OrdinalIgnoreCase)
                || actionType.Equals(nameof(InventoryActionType.DepotClosureReusableDecommissioned), StringComparison.OrdinalIgnoreCase);

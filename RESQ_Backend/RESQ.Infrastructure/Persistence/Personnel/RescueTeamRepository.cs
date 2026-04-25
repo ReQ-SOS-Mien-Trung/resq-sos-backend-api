@@ -148,6 +148,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                 UserId = member.UserId,
                 Status = member.Status.ToString(),
                 InvitedAt = member.JoinedAt,
+                SourceEventId = member.SourceEventId,
                 IsLeader = member.IsLeader,
                 RoleInTeam = member.RoleInTeam,
                 CheckedIn = true
@@ -177,6 +178,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                         UserId = domainMem.UserId,
                         Status = domainMem.Status.ToString(),
                         InvitedAt = domainMem.JoinedAt, // DB column "invited_at" maps to domain JoinedAt
+                        SourceEventId = domainMem.SourceEventId,
                         IsLeader = domainMem.IsLeader,
                         RoleInTeam = domainMem.RoleInTeam,
                         CheckedIn = true
@@ -185,6 +187,7 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
                 else
                 {
                     efMem.Status = domainMem.Status.ToString();
+                    efMem.SourceEventId = domainMem.SourceEventId;
                 }
             }
         }

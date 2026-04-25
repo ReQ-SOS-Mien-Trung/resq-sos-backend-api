@@ -60,8 +60,9 @@ public static class SosRequestAiAnalysisHelper
         var suggestedSeverity = metadata.AnalysisResult?.SuggestedSeverity
             ?? metadata.AnalysisResult?.SeverityLevel
             ?? analysis.SuggestedSeverityLevel;
-        var handlingReason = metadata.AnalysisResult?.HandlingReason
-            ?? analysis.Explanation;
+        var handlingReason = AiTextSanitizer.RemoveBackendEnglishSuffix(
+            metadata.AnalysisResult?.HandlingReason
+            ?? analysis.Explanation);
 
         return new SosRequestAiAnalysisSummary
         {
