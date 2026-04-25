@@ -10,7 +10,7 @@ using RESQ.Infrastructure.Mappers.Emergency;
 namespace RESQ.Infrastructure.Persistence.Emergency;
 
 public class SosRequestRepository(IUnitOfWork unitOfWork)
-    : ISosRequestRepository, ISosRequestBulkReadRepository, ISosRequestMapReadRepository
+    : ISosRequestRepository, ISosRequestBulkReadRepository, ISosRequestMapReadRepository, ISosRequestStatisticsRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
@@ -53,6 +53,29 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         return entities
             .OrderByDescending(x => x.CreatedAt)
             .Select(SosRequestMapper.ToDomain);
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetStatusCountsAsync(
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _unitOfWork.GetRepository<SosRequest>()
+            .AsQueryable(tracked: false)
+            .Where(x =>
+                x.ReceivedAt.HasValue
+                && x.ReceivedAt.Value >= from
+                && x.ReceivedAt.Value <= to
+                && x.Status != null)
+            .GroupBy(x => x.Status!)
+            .Select(group => new
+            {
+                Status = group.Key,
+                Count = group.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(row => row.Status, row => row.Count, StringComparer.Ordinal);
     }
 
     public async Task<List<SosRequestModel>> GetByBoundsAsync(

@@ -11,6 +11,7 @@ using RESQ.Application.UseCases.Emergency.Queries;
 using RESQ.Application.UseCases.Emergency.Queries.GetMySosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosPriorityLevelMetadata;
+using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestStatusCounts;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
@@ -138,6 +139,18 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
         });
 
         return Ok(pagedResult);
+    }
+
+    /// <summary>Count SOS requests by status within a received-at time range.</summary>
+    [HttpGet("status-counts")]
+    [Authorize(Policy = PermissionConstants.SosRequestView)]
+    [ProducesResponseType(typeof(GetSosRequestStatusCountsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSosRequestStatusCounts(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
+    {
+        var result = await _mediator.Send(new GetSosRequestStatusCountsQuery(from, to));
+        return Ok(result);
     }
 
     /// <summary>Xem chi tiết một SOS request theo ID.</summary>
