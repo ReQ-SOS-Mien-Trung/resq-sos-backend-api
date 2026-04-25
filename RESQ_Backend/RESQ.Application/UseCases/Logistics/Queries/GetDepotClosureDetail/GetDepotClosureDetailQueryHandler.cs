@@ -233,10 +233,6 @@ public class GetDepotClosureDetailQueryHandler(
             });
         }
 
-        response.TransferDetail = response.TransferDetails.Count == 1
-            ? response.TransferDetails[0]
-            : null;
-
         return response;
     }
 }

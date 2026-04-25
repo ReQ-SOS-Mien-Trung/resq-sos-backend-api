@@ -50,7 +50,6 @@ public class DepotClosureDetailResponse
     public bool HasTransferRecords { get; set; }
     public bool HasExternalResolutionRecords { get; set; }
     public List<ClosureInventoryItemDto> RemainingInventoryItems { get; set; } = [];
-    public DepotClosureTransferDetailDto? TransferDetail { get; set; }
     public List<DepotClosureTransferDetailDto> TransferDetails { get; set; } = [];
     public List<DepotClosureExternalItemDetailResponse> ExternalItems { get; set; } = [];
 }
