@@ -38,6 +38,7 @@ public interface IAssemblyEventRepository
 
     /// <summary>Kiểm tra rescuer đã check-in tại sự kiện chưa.</summary>
     Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
+    Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default);
 
     /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện (phân trang).
     /// <para><paramref name="search"/>: tìm đồng thời theo firstName, lastName, phone hoặc email (OR).</para>

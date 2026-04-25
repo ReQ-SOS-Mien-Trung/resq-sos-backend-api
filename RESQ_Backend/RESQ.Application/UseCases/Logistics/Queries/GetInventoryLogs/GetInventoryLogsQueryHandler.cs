@@ -63,6 +63,8 @@ public class GetInventoryLogsQueryHandler(
             ReceivedDate = log.ReceivedDate.ToVietnamTime(),
             ExpiredDate = log.ExpiredDate.ToVietnamTime(),
             PerformedByName = log.PerformedByName,
+            ItemModelId = log.ItemModelId,
+            ItemModelName = log.ItemModelName,
             SerialNumber    = log.SerialNumber,
             LotId           = log.LotId,
             ReusableItemId  = log.ReusableItemId,

@@ -407,6 +407,7 @@ public class UpdateMissionStatusCommandHandlerTests
         public Task<bool> CheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> ReturnCheckInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<bool> HasParticipantCheckedOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersAsync(int eventId, int pageNumber, int pageSize, RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null, string? abilitySubgroupCode = null, string? abilityCategoryCode = null, string? search = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();

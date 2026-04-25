@@ -2,4 +2,8 @@ using MediatR;
 
 namespace RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 
-public record RemoveTeamMemberCommand(int TeamId, Guid UserId) : IRequest;
+public record RemoveTeamMemberCommand(
+    int TeamId,
+    Guid UserId,
+    Guid CallerUserId,
+    bool CanOverrideTeamMemberRemoval) : IRequest;

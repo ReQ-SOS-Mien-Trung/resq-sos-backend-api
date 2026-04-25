@@ -17,6 +17,9 @@ public partial class InventoryLog
     [Column("depot_supply_inventory_id")]
     public int? DepotSupplyInventoryId { get; set; }
 
+    [Column("item_model_id")]
+    public int? ItemModelId { get; set; }
+
     /// <summary>
     /// Set for Reusable item log entries - one log row per individual unit.
     /// Null for Consumable log entries (which use DepotSupplyInventoryId instead).
@@ -69,6 +72,10 @@ public partial class InventoryLog
     [ForeignKey("SupplyInventoryLotId")]
     [InverseProperty("InventoryLogs")]
     public virtual SupplyInventoryLot? SupplyInventoryLot { get; set; }
+
+    [ForeignKey("ItemModelId")]
+    [InverseProperty("InventoryLogs")]
+    public virtual ItemModel? ItemModel { get; set; }
 
     [ForeignKey("ReusableItemId")]
     public virtual ReusableItem? ReusableItem { get; set; }
