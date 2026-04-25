@@ -249,6 +249,10 @@ public class AssignedTeamDto
     public double? Longitude { get; set; }
     public DateTime? LocationUpdatedAt { get; set; }
     public DateTime? AssignedAt { get; set; }
+    public DateTime? SafetyLatestCheckInAt { get; set; }
+    public DateTime? SafetyTimeoutAt { get; set; }
+    public string? SafetyStatus { get; set; }
+    public int? GeneratedSosRequestId { get; set; }
     public string? ReportStatus { get; set; }
     public DateTime? ReportLastEditedAt { get; set; }
     public DateTime? ReportSubmittedAt { get; set; }

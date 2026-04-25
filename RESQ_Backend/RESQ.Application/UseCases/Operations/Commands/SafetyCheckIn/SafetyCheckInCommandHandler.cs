@@ -55,6 +55,12 @@ public class SafetyCheckInCommandHandler : IRequestHandler<SafetyCheckInCommand,
         var activities = await _missionActivityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
 
         MissionTeamSafetyHelper.ExtendSafetyTimeout(missionTeam, activities);
+        await _missionTeamRepository.UpdateSafetyStateAsync(
+            missionTeam.Id,
+            missionTeam.SafetyLatestCheckInAt,
+            missionTeam.SafetyTimeoutAt,
+            missionTeam.SafetyStatus,
+            cancellationToken);
 
         await _unitOfWork.SaveAsync();
 

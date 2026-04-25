@@ -77,6 +77,12 @@ public class UpdateMissionStatusCommandHandler(
             foreach (var team in missionTeams)
             {
                 MissionTeamSafetyHelper.InitializeSafetyTimeout(team, mission);
+                await _missionTeamRepository.UpdateSafetyStateAsync(
+                    team.Id,
+                    team.SafetyLatestCheckInAt,
+                    team.SafetyTimeoutAt,
+                    team.SafetyStatus,
+                    cancellationToken);
             }
 
             var autoStartedActivityIds = await MissionActivityAutoStartHelper.AutoStartFirstActivitiesPerTeamAsync(
@@ -106,6 +112,12 @@ public class UpdateMissionStatusCommandHandler(
             {
                 team.SafetyStatus = "Inactive";
                 team.SafetyTimeoutAt = null;
+                await _missionTeamRepository.UpdateSafetyStateAsync(
+                    team.Id,
+                    team.SafetyLatestCheckInAt,
+                    team.SafetyTimeoutAt,
+                    team.SafetyStatus,
+                    cancellationToken);
             }
         }
 

@@ -161,6 +161,12 @@ public class MissionActivityStatusExecutionService(
         {
             var missionActivities = await _activityRepository.GetByMissionIdAsync(activity.MissionId ?? 0, cancellationToken);
             MissionTeamSafetyHelper.ExtendSafetyTimeout(assignedMissionTeam, missionActivities);
+            await _missionTeamRepository.UpdateSafetyStateAsync(
+                assignedMissionTeam.Id,
+                assignedMissionTeam.SafetyLatestCheckInAt,
+                assignedMissionTeam.SafetyTimeoutAt,
+                assignedMissionTeam.SafetyStatus,
+                cancellationToken);
         }
 
         var isCollectActivity = string.Equals(activity.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase);
