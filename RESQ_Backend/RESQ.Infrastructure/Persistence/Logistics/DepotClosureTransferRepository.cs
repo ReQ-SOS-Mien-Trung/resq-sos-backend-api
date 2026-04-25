@@ -138,6 +138,63 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
         return entities.Select(ToDomain).ToList();
     }
 
+    public async Task<List<DepotClosureTransferItemDetailListItem>> GetDetailedItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default)
+    {
+        var consumableItems = await _unitOfWork.Set<DepotClosureTransferConsumableReservation>()
+            .AsNoTracking()
+            .Where(x => x.TransferId == transferId)
+            .Select(x => new DepotClosureTransferItemDetailListItem
+            {
+                ItemModelId = x.ItemModelId,
+                ItemName = x.SupplyInventory != null && x.SupplyInventory.ItemModel != null
+                    ? x.SupplyInventory.ItemModel.Name ?? string.Empty
+                    : string.Empty,
+                ItemType = x.SupplyInventory != null && x.SupplyInventory.ItemModel != null
+                    ? x.SupplyInventory.ItemModel.ItemType ?? "Consumable"
+                    : "Consumable",
+                Unit = x.SupplyInventory != null && x.SupplyInventory.ItemModel != null
+                    ? x.SupplyInventory.ItemModel.Unit
+                    : null,
+                Quantity = x.ReservedQuantity,
+                LotId = x.SupplyInventoryLotId,
+                ReusableItemId = null,
+                SerialNumber = null
+            })
+            .ToListAsync(cancellationToken);
+
+        var reusableItems = await _unitOfWork.Set<DepotClosureTransferReusableItem>()
+            .AsNoTracking()
+            .Where(x => x.TransferId == transferId
+                        && x.ReusableItem != null
+                        && x.ReusableItem.ItemModelId.HasValue)
+            .Select(x => new DepotClosureTransferItemDetailListItem
+            {
+                ItemModelId = x.ReusableItem!.ItemModelId!.Value,
+                ItemName = x.ReusableItem.ItemModel != null
+                    ? x.ReusableItem.ItemModel.Name ?? string.Empty
+                    : string.Empty,
+                ItemType = x.ReusableItem.ItemModel != null
+                    ? x.ReusableItem.ItemModel.ItemType ?? "Reusable"
+                    : "Reusable",
+                Unit = x.ReusableItem.ItemModel != null
+                    ? x.ReusableItem.ItemModel.Unit
+                    : null,
+                Quantity = 1,
+                LotId = null,
+                ReusableItemId = x.ReusableItemId,
+                SerialNumber = x.ReusableItem.SerialNumber
+            })
+            .ToListAsync(cancellationToken);
+
+        return consumableItems
+            .Concat(reusableItems)
+            .OrderBy(x => x.ItemType)
+            .ThenBy(x => x.ItemName)
+            .ThenBy(x => x.LotId)
+            .ThenBy(x => x.ReusableItemId)
+            .ToList();
+    }
+
     public async Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<DepotClosureTransfer>();

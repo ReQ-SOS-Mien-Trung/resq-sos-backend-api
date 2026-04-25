@@ -372,6 +372,9 @@ public class InitiateDepotClosureCommandHandlerTests
         public Task<List<DepotClosureTransferItemRecord>> GetItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task<List<DepotClosureTransferItemDetailListItem>> GetDetailedItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
         public Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }

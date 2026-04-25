@@ -29,6 +29,18 @@ public class DepotClosureTransferItemListItem
     public int Quantity { get; set; }
 }
 
+public class DepotClosureTransferItemDetailListItem
+{
+    public int ItemModelId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public string ItemType { get; set; } = string.Empty;
+    public string? Unit { get; set; }
+    public int Quantity { get; set; }
+    public int? LotId { get; set; }
+    public int? ReusableItemId { get; set; }
+    public string? SerialNumber { get; set; }
+}
+
 /// <summary>
 /// Repository quản lý bản ghi chuyển hàng khi đóng kho (depot_closure_transfers).
 /// </summary>
@@ -62,6 +74,8 @@ public interface IDepotClosureTransferRepository
     Task<List<DepotClosureTransferListItem>> GetByRelatedDepotIdAsync(int depotId, CancellationToken cancellationToken = default);
 
     Task<List<DepotClosureTransferItemRecord>> GetItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default);
+
+    Task<List<DepotClosureTransferItemDetailListItem>> GetDetailedItemsByTransferIdAsync(int transferId, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(DepotClosureTransferRecord record, CancellationToken cancellationToken = default);
 }

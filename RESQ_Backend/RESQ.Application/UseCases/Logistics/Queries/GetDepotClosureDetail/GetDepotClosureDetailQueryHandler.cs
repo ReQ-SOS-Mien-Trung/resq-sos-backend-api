@@ -201,7 +201,21 @@ public class GetDepotClosureDetailQueryHandler(
 
         foreach (var transfer in transfers)
         {
-            var items = await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken);
+            var detailedItems = await transferRepository.GetDetailedItemsByTransferIdAsync(transfer.Id, cancellationToken);
+            if (detailedItems.Count == 0)
+            {
+                detailedItems = (await transferRepository.GetItemsByTransferIdAsync(transfer.Id, cancellationToken))
+                    .Select(item => new DepotClosureTransferItemDetailListItem
+                    {
+                        ItemModelId = item.ItemModelId,
+                        ItemName = item.ItemName,
+                        ItemType = item.ItemType,
+                        Unit = item.Unit,
+                        Quantity = item.Quantity
+                    })
+                    .ToList();
+            }
+
             response.TransferDetails.Add(new DepotClosureTransferDetailDto
             {
                 Id = transfer.Id,
@@ -223,13 +237,16 @@ public class GetDepotClosureDetailQueryHandler(
                 CancelledAt = transfer.CancelledAt,
                 CancelledBy = transfer.CancelledBy,
                 CancellationReason = transfer.CancellationReason,
-                Items = items.Select(item => new DepotClosureTransferItemDetailDto
+                Items = detailedItems.Select(item => new DepotClosureTransferItemDetailDto
                 {
                     ItemModelId = item.ItemModelId,
                     ItemName = item.ItemName,
                     ItemType = item.ItemType,
                     Unit = item.Unit,
-                    Quantity = item.Quantity
+                    Quantity = item.Quantity,
+                    LotId = item.LotId,
+                    ReusableItemId = item.ReusableItemId,
+                    SerialNumber = item.SerialNumber
                 }).ToList()
             });
         }
