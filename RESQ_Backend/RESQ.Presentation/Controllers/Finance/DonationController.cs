@@ -2,18 +2,18 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models.Finance.Momo;
+using RESQ.Application.Common.Models.Finance.ZaloPay;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Commands.CreateDonation;
 using RESQ.Application.UseCases.Finance.Commands.ProcessMomoPayment;
 using RESQ.Application.UseCases.Finance.Commands.ProcessPayosPaymentReturn;
+using RESQ.Application.UseCases.Finance.Commands.ProcessZaloPayPayment;
 using RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
 using RESQ.Application.UseCases.Finance.Commands.VerifyZaloPayPayment;
 using RESQ.Application.UseCases.Finance.Queries.GetDonations;
 using RESQ.Application.UseCases.Finance.Queries.GetPaymentMethodsMetadata;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicDonations;
 using RESQ.Domain.Enum.Finance;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace RESQ.Presentation.Controllers.Finance;
@@ -196,104 +196,127 @@ public class DonationController : ControllerBase
         return Redirect(cancelUrl ?? "https://resq-sos-mientrung.vercel.app/fail");
     }
 
+    /// <summary>
+    /// Redirect endpoint: ZaloPay redirects the user here after payment (via embed_data.redirecturl).
+    /// Backend verifies the payment via Query API, then redirects the user to the frontend success/fail page.
+    /// This ensures the DB is updated even when ZaloPay's server-to-server callback does not fire.
+    /// </summary>
     [HttpGet("zalopay-return")]
     [AllowAnonymous]
-    public async Task<IActionResult> ZaloPayReturn()
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> ZaloPayReturn([FromQuery] string? apptransid, [FromQuery] int? status)
     {
-        var (successUrl, failUrl) = GetZaloPayFrontendUrls();
-        var appTransId = GetFirstNonEmptyQueryValue(Request.Query, "apptransid", "app_trans_id");
-        var statusRaw = GetFirstNonEmptyQueryValue(Request.Query, "status", "return_code");
-        var checksumRaw = GetFirstNonEmptyQueryValue(Request.Query, "checksum", "mac");
-        var returnParams = JsonSerializer.Serialize(
-            Request.Query.ToDictionary(
-                entry => entry.Key,
-                entry => entry.Value.ToString()));
+        var zaloPayConfig = _configuration.GetSection("ZaloPay");
+        var successUrl = zaloPayConfig["RedirectUrl"] ?? "https://resq-sos-mientrung.vercel.app/success";
+        var failUrl = zaloPayConfig["CancelUrl"] ?? "https://resq-sos-mientrung.vercel.app/fail";
 
-        _logger.LogInformation(
-            "ZaloPay return received. AppTransId={AppTransId}, Status={Status}, Checksum={Checksum}, ReturnParams={ReturnParams}",
-            appTransId,
-            statusRaw,
-            MaskValue(checksumRaw),
-            returnParams);
-
-        if (string.IsNullOrWhiteSpace(appTransId))
+        // ZaloPay sends status=1 for success in the redirect query string
+        if (status.HasValue && status.Value != 1)
         {
-            _logger.LogWarning("ZaloPay return: missing apptransid/app_trans_id.");
+            _logger.LogInformation("ZaloPay return: user cancelled or failed (status={Status}, apptransid={AppTransId}).", status, apptransid);
+            return Redirect(failUrl);
+        }
+
+        if (string.IsNullOrWhiteSpace(apptransid))
+        {
+            _logger.LogWarning("ZaloPay return: missing apptransid.");
             return Redirect(failUrl);
         }
 
         try
         {
-            var checksumVerification = VerifyZaloPayRedirectChecksum(Request.Query, out var checksumFailureReason);
-            if (checksumVerification == ZaloPayRedirectChecksumVerification.Invalid)
-            {
-                _logger.LogWarning(
-                    "ZaloPay return: invalid redirect checksum for AppTransId={AppTransId}. Reason={Reason}. ReturnParams={ReturnParams}",
-                    appTransId,
-                    checksumFailureReason,
-                    returnParams);
-                return Redirect(failUrl);
-            }
+            var command = new VerifyZaloPayPaymentCommand { AppTransId = apptransid };
+            var verified = await _mediator.Send(command);
 
-            if (checksumVerification == ZaloPayRedirectChecksumVerification.Missing)
-            {
-                _logger.LogWarning(
-                    "ZaloPay return: checksum missing for AppTransId={AppTransId}. Proceeding with Query API verification. ReturnParams={ReturnParams}",
-                    appTransId,
-                    returnParams);
-            }
-
-            var verified = await _mediator.Send(new VerifyZaloPayPaymentCommand
-            {
-                AppTransId = appTransId,
-                SignedRedirectStatus = statusRaw,
-                HasValidRedirectChecksum = checksumVerification == ZaloPayRedirectChecksumVerification.Valid
-            });
-
-            _logger.LogInformation(
-                "ZaloPay return: verify result={Result} for AppTransId={AppTransId} (redirect status={Status}).",
-                verified,
-                appTransId,
-                statusRaw);
-
+            _logger.LogInformation("ZaloPay return: verify result={Result} for apptransid={AppTransId}.", verified, apptransid);
             return Redirect(verified ? successUrl : failUrl);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", appTransId);
+            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", apptransid);
             return Redirect(failUrl);
         }
     }
 
+    /// <summary>Webhook nhận kết quả thanh toán từ ZaloPay (IPN callback).</summary>
+    [HttpPost("zalopay-callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ProcessZaloPayCallback()
+    {
+        try
+        {
+            Request.EnableBuffering();
+            string jsonBody;
+            using (var reader = new StreamReader(Request.Body, leaveOpen: true))
+            {
+                jsonBody = await reader.ReadToEndAsync();
+                Request.Body.Position = 0;
+            }
+
+            if (string.IsNullOrWhiteSpace(jsonBody))
+            {
+                return Ok(new { return_code = 2, return_message = "invalid payload" });
+            }
+
+            var gatewayService = _paymentGatewayFactory.GetService(PaymentMethodCode.ZALOPAY);
+
+            var isValidSignature = gatewayService.VerifyWebhookSignature(jsonBody);
+
+            if (!isValidSignature)
+            {
+                _logger.LogWarning("ZaloPay Webhook signature mismatch.");
+                return Ok(new { return_code = 2, return_message = "mac not equal" });
+            }
+
+            var callbackData = JsonSerializer.Deserialize<ZaloPayCallbackRequest>(jsonBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (callbackData == null || string.IsNullOrEmpty(callbackData.Data) || string.IsNullOrEmpty(callbackData.Mac))
+            {
+                return Ok(new { return_code = 2, return_message = "invalid payload format" });
+            }
+
+            var command = new ProcessZaloPayPaymentCommand
+            {
+                CallbackData = callbackData
+            };
+
+            var success = await _mediator.Send(command);
+
+            return Ok(new
+            {
+                return_code = success ? 1 : 2,
+                return_message = success ? "success" : "failed"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing ZaloPay webhook");
+            return Ok(new { return_code = 2, return_message = "internal error" });
+        }
+    }
+
+    /// <summary>Xác minh kết quả thanh toán ZaloPay trực tiếp (fallback khi IPN không đến).</summary>
     [HttpGet("zalopay-verify")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> VerifyZaloPayPayment([FromQuery] string apptransid)
     {
         if (string.IsNullOrWhiteSpace(apptransid))
-        {
-            return BadRequest(new { success = false, message = "Vui long cung cap ma giao dich apptransid." });
-        }
+            return BadRequest(new { success = false, message = "Vui lòng cung cấp mã giao dịch apptransid." });
 
         try
         {
-            var success = await _mediator.Send(new VerifyZaloPayPaymentCommand
-            {
-                AppTransId = apptransid
-            });
-
-            return Ok(new
-            {
-                success,
-                message = success
-                    ? "Xac minh va ghi nhan thanh toan thanh cong."
-                    : "Thanh toan chua duoc xac nhan hoac da duoc xu ly truoc do."
-            });
+            var command = new VerifyZaloPayPaymentCommand { AppTransId = apptransid };
+            var success = await _mediator.Send(command);
+            return Ok(new { success, message = success ? "Xác minh và ghi nhận thanh toán thành công." : "Thanh toán chưa được xác nhận hoặc đã xử lý trước đó." });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying ZaloPay payment for apptransid={AppTransId}", apptransid);
-            return Ok(new { success = false, message = "Da xay ra loi trong qua trinh xac minh." });
+            return Ok(new { success = false, message = "Đã xảy ra lỗi trong quá trình xác minh." });
         }
     }
 
@@ -323,116 +346,5 @@ public class DonationController : ControllerBase
             _logger.LogError(ex, "Error verifying PayOS payment for orderId={OrderId}", orderId);
             return Ok(new { success = false, message = "Da xay ra loi trong qua trinh xac minh." });
         }
-    }
-
-    private (string SuccessUrl, string FailUrl) GetZaloPayFrontendUrls()
-    {
-        var config = _configuration.GetSection("ZaloPay");
-        var successUrl = config["FrontendSuccessUrl"] ?? config["RedirectUrl"];
-        var failUrl = config["FrontendFailUrl"] ?? config["CancelUrl"];
-
-        if (string.IsNullOrWhiteSpace(successUrl))
-        {
-            throw new InvalidOperationException("Cau hinh ZaloPay thieu FrontendSuccessUrl/RedirectUrl.");
-        }
-
-        if (string.IsNullOrWhiteSpace(failUrl))
-        {
-            throw new InvalidOperationException("Cau hinh ZaloPay thieu FrontendFailUrl/CancelUrl.");
-        }
-
-        return (successUrl, failUrl);
-    }
-
-    private ZaloPayRedirectChecksumVerification VerifyZaloPayRedirectChecksum(IQueryCollection query, out string failureReason)
-    {
-        failureReason = string.Empty;
-        var key2 = _configuration["ZaloPay:Key2"];
-        if (string.IsNullOrWhiteSpace(key2))
-        {
-            failureReason = "missing-config-key2";
-            return ZaloPayRedirectChecksumVerification.Invalid;
-        }
-
-        var checksum = GetFirstNonEmptyQueryValue(query, "checksum", "mac");
-        if (string.IsNullOrWhiteSpace(checksum))
-        {
-            failureReason = "missing-checksum";
-            return ZaloPayRedirectChecksumVerification.Missing;
-        }
-
-        var appId = GetFirstNonEmptyQueryValue(query, "appid", "app_id");
-        var appTransId = GetFirstNonEmptyQueryValue(query, "apptransid", "app_trans_id");
-        var pmcId = query["pmcid"].ToString();
-        var bankCode = query["bankcode"].ToString();
-        var amount = query["amount"].ToString();
-        var discountAmount = query["discountamount"].ToString();
-        var status = GetFirstNonEmptyQueryValue(query, "status", "return_code");
-
-        if (string.IsNullOrWhiteSpace(appId) ||
-            string.IsNullOrWhiteSpace(appTransId) ||
-            string.IsNullOrWhiteSpace(amount) ||
-            string.IsNullOrWhiteSpace(status))
-        {
-            failureReason = "missing-required-redirect-fields";
-            return ZaloPayRedirectChecksumVerification.Invalid;
-        }
-
-        var checksumData = $"{appId}|{appTransId}|{pmcId}|{bankCode}|{amount}|{discountAmount}|{status}";
-        var computedChecksum = ComputeHmacSha256(checksumData, key2);
-        if (!computedChecksum.Equals(checksum, StringComparison.OrdinalIgnoreCase))
-        {
-            failureReason = "checksum-mismatch";
-            return ZaloPayRedirectChecksumVerification.Invalid;
-        }
-
-        return ZaloPayRedirectChecksumVerification.Valid;
-    }
-
-    private static string? GetFirstNonEmptyQueryValue(IQueryCollection query, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            var value = query[key].ToString();
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-        }
-
-        return null;
-    }
-
-    private static string MaskValue(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value.Length <= 8)
-        {
-            return "***";
-        }
-
-        return $"{value[..4]}***{value[^4..]}";
-    }
-
-    private enum ZaloPayRedirectChecksumVerification
-    {
-        Missing = 0,
-        Valid = 1,
-        Invalid = 2
-    }
-
-    private static string ComputeHmacSha256(string message, string secretKey)
-    {
-        var keyBytes = Encoding.UTF8.GetBytes(secretKey);
-        var messageBytes = Encoding.UTF8.GetBytes(message);
-
-        using var hmac = new HMACSHA256(keyBytes);
-        var hashBytes = hmac.ComputeHash(messageBytes);
-        var sb = new StringBuilder();
-        foreach (var b in hashBytes)
-        {
-            sb.Append(b.ToString("x2"));
-        }
-
-        return sb.ToString();
     }
 }
