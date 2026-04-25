@@ -2030,7 +2030,8 @@ namespace RESQ.Infrastructure.Migrations
                     responded_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     is_leader = table.Column<bool>(type: "boolean", nullable: false),
                     role_in_team = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    checked_in = table.Column<bool>(type: "boolean", nullable: false)
+                    checked_in = table.Column<bool>(type: "boolean", nullable: false),
+                    source_event_id = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -2369,6 +2370,7 @@ namespace RESQ.Infrastructure.Migrations
                         .Annotation("Npgsql:IdentitySequenceOptions", "'1000', '1', '', '', 'False', '1'")
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     depot_supply_inventory_id = table.Column<int>(type: "integer", nullable: true),
+                    item_model_id = table.Column<int>(type: "integer", nullable: true),
                     reusable_item_id = table.Column<int>(type: "integer", nullable: true),
                     vat_invoice_id = table.Column<int>(type: "integer", nullable: true),
                     action_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
@@ -2386,6 +2388,11 @@ namespace RESQ.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_inventory_logs", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_inventory_logs_item_models_item_model_id",
+                        column: x => x.item_model_id,
+                        principalTable: "item_models",
+                        principalColumn: "id");
                     table.ForeignKey(
                         name: "FK_inventory_logs_reusable_items_reusable_item_id",
                         column: x => x.reusable_item_id,
@@ -3042,6 +3049,13 @@ namespace RESQ.Infrastructure.Migrations
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
+                name: "uix_depot_managers_active_depot_user",
+                table: "depot_managers",
+                columns: new[] { "depot_id", "user_id" },
+                unique: true,
+                filter: "unassigned_at IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_depot_realtime_outbox_depot_version",
                 table: "depot_realtime_outbox",
                 columns: new[] { "depot_id", "version" });
@@ -3178,6 +3192,11 @@ namespace RESQ.Infrastructure.Migrations
                 name: "IX_inventory_logs_depot_supply_inventory_id",
                 table: "inventory_logs",
                 column: "depot_supply_inventory_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_inventory_logs_item_model_id",
+                table: "inventory_logs",
+                column: "item_model_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_inventory_logs_performed_by",
