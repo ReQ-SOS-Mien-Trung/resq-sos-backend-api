@@ -768,26 +768,109 @@ public partial class ResQDbContext : DbContext
 
     public override int SaveChanges()
     {
+        PopulateInventoryLogItemModelIds();
         CaptureDepotRealtimeOutboxEntries();
         return base.SaveChanges();
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        PopulateInventoryLogItemModelIds();
         CaptureDepotRealtimeOutboxEntries();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        PopulateInventoryLogItemModelIds();
         CaptureDepotRealtimeOutboxEntries();
         return base.SaveChangesAsync(cancellationToken);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        PopulateInventoryLogItemModelIds();
         CaptureDepotRealtimeOutboxEntries();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void PopulateInventoryLogItemModelIds()
+    {
+        var pendingLogs = ChangeTracker.Entries<InventoryLog>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
+            .Select(entry => entry.Entity)
+            .Where(log => !log.ItemModelId.HasValue)
+            .ToList();
+
+        if (pendingLogs.Count == 0)
+        {
+            return;
+        }
+
+        var trackedSupplyInventories = ChangeTracker.Entries<SupplyInventory>()
+            .Select(entry => entry.Entity)
+            .Where(entity => entity.Id > 0 && entity.ItemModelId.HasValue)
+            .ToDictionary(entity => entity.Id, entity => entity.ItemModelId!.Value);
+
+        var trackedReusableItems = ChangeTracker.Entries<ReusableItem>()
+            .Select(entry => entry.Entity)
+            .Where(entity => entity.Id > 0 && entity.ItemModelId.HasValue)
+            .ToDictionary(entity => entity.Id, entity => entity.ItemModelId!.Value);
+
+        var supplyInventoryIds = pendingLogs
+            .Where(log => !log.ItemModelId.HasValue && log.DepotSupplyInventoryId.HasValue && !trackedSupplyInventories.ContainsKey(log.DepotSupplyInventoryId.Value))
+            .Select(log => log.DepotSupplyInventoryId!.Value)
+            .Distinct()
+            .ToList();
+
+        var reusableItemIds = pendingLogs
+            .Where(log => !log.ItemModelId.HasValue && log.ReusableItemId.HasValue && !trackedReusableItems.ContainsKey(log.ReusableItemId.Value))
+            .Select(log => log.ReusableItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        Dictionary<int, int> dbSupplyInventoryMap = [];
+        if (supplyInventoryIds.Count > 0)
+        {
+            dbSupplyInventoryMap = Set<SupplyInventory>()
+                .Where(entity => supplyInventoryIds.Contains(entity.Id) && entity.ItemModelId.HasValue)
+                .Select(entity => new { entity.Id, ItemModelId = entity.ItemModelId!.Value })
+                .ToDictionary(entity => entity.Id, entity => entity.ItemModelId);
+        }
+
+        Dictionary<int, int> dbReusableItemMap = [];
+        if (reusableItemIds.Count > 0)
+        {
+            dbReusableItemMap = Set<ReusableItem>()
+                .Where(entity => reusableItemIds.Contains(entity.Id) && entity.ItemModelId.HasValue)
+                .Select(entity => new { entity.Id, ItemModelId = entity.ItemModelId!.Value })
+                .ToDictionary(entity => entity.Id, entity => entity.ItemModelId);
+        }
+
+        foreach (var log in pendingLogs)
+        {
+            log.ItemModelId ??= log.ItemModel?.Id;
+            log.ItemModelId ??= log.SupplyInventory?.ItemModelId;
+            log.ItemModelId ??= log.ReusableItem?.ItemModelId;
+
+            if (!log.ItemModelId.HasValue && log.DepotSupplyInventoryId.HasValue)
+            {
+                if (trackedSupplyInventories.TryGetValue(log.DepotSupplyInventoryId.Value, out var trackedItemModelId)
+                    || dbSupplyInventoryMap.TryGetValue(log.DepotSupplyInventoryId.Value, out trackedItemModelId))
+                {
+                    log.ItemModelId = trackedItemModelId;
+                }
+            }
+
+            if (!log.ItemModelId.HasValue && log.ReusableItemId.HasValue)
+            {
+                if (trackedReusableItems.TryGetValue(log.ReusableItemId.Value, out var trackedItemModelId)
+                    || dbReusableItemMap.TryGetValue(log.ReusableItemId.Value, out trackedItemModelId))
+                {
+                    log.ItemModelId = trackedItemModelId;
+                }
+            }
+        }
     }
 
     private bool _isCapturingOutbox;

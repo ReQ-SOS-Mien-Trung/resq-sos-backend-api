@@ -87,21 +87,15 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         CancellationToken cancellationToken = default)
     {
         var todayStart = today;
-        var todayEnd = todayStart.AddDays(1);
 
-        var yesterdayStart = yesterday;
-        var yesterdayEnd = yesterdayStart.AddDays(1);
-
+        // Cumulative: tổng rescuer hiện tại vs tổng trước khi hôm nay bắt đầu
         var currentCount = await _context.Set<User>()
-            .Where(u => u.RoleId == 3
-                && u.CreatedAt >= todayStart
-                && u.CreatedAt < todayEnd)
+            .Where(u => u.RoleId == 3)
             .CountAsync(cancellationToken);
 
         var previousCount = await _context.Set<User>()
             .Where(u => u.RoleId == 3
-                && u.CreatedAt >= yesterdayStart
-                && u.CreatedAt < yesterdayEnd)
+                && u.CreatedAt < todayStart)
             .CountAsync(cancellationToken);
 
         return (currentCount, previousCount);
@@ -114,13 +108,10 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         CancellationToken cancellationToken = default)
     {
         var todayStart = today;
-        var todayEnd = todayStart.AddDays(1);
 
-        var yesterdayStart = yesterday;
-        var yesterdayEnd = yesterdayStart.AddDays(1);
-
-        var todayMissions = await _context.Set<Mission>()
-            .Where(m => m.CompletedAt >= todayStart && m.CompletedAt < todayEnd
+        // Cumulative: tổng tất cả mission đã kết thúc vs tổng trước khi hôm nay bắt đầu
+        var allMissions = await _context.Set<Mission>()
+            .Where(m => m.CompletedAt != null
                 && (m.Status == "Completed" || m.Status == "Incompleted"))
             .GroupBy(_ => 1)
             .Select(g => new
@@ -130,8 +121,8 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var yesterdayMissions = await _context.Set<Mission>()
-            .Where(m => m.CompletedAt >= yesterdayStart && m.CompletedAt < yesterdayEnd
+        var prevMissions = await _context.Set<Mission>()
+            .Where(m => m.CompletedAt != null && m.CompletedAt < todayStart
                 && (m.Status == "Completed" || m.Status == "Incompleted"))
             .GroupBy(_ => 1)
             .Select(g => new
@@ -142,10 +133,10 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
             .FirstOrDefaultAsync(cancellationToken);
 
         return (
-            todayMissions?.Completed ?? 0,
-            todayMissions?.Total ?? 0,
-            yesterdayMissions?.Completed ?? 0,
-            yesterdayMissions?.Total ?? 0
+            allMissions?.Completed ?? 0,
+            allMissions?.Total ?? 0,
+            prevMissions?.Completed ?? 0,
+            prevMissions?.Total ?? 0
         );
     }
 
@@ -156,17 +147,13 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
         CancellationToken cancellationToken = default)
     {
         var todayStart = today;
-        var todayEnd = todayStart.AddDays(1);
 
-        var yesterdayStart = yesterday;
-        var yesterdayEnd = yesterdayStart.AddDays(1);
-
+        // Cumulative: tổng tất cả SOS requests vs tổng trước khi hôm nay bắt đầu
         var todayCount = await _context.Set<SosRequest>()
-            .Where(s => s.ReceivedAt >= todayStart && s.ReceivedAt < todayEnd)
             .CountAsync(cancellationToken);
 
         var yesterdayCount = await _context.Set<SosRequest>()
-            .Where(s => s.ReceivedAt >= yesterdayStart && s.ReceivedAt < yesterdayEnd)
+            .Where(s => s.ReceivedAt < todayStart)
             .CountAsync(cancellationToken);
 
         return (todayCount, yesterdayCount);

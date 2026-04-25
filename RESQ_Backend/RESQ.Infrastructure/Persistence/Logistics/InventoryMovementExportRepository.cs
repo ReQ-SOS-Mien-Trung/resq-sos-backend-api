@@ -26,6 +26,10 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
             .Include(l => l.SupplyInventory)
                 .ThenInclude(d => d!.ItemModel)
                     .ThenInclude(r => r!.TargetGroups)
+            .Include(l => l.ItemModel)
+                .ThenInclude(r => r!.Category)
+            .Include(l => l.ItemModel)
+                .ThenInclude(r => r!.TargetGroups)
             .Include(l => l.SupplyInventoryLot)
             .Include(l => l.ReusableItem)
                 .ThenInclude(r => r!.ItemModel)
@@ -124,7 +128,7 @@ public class InventoryMovementExportRepository(IUnitOfWork unitOfWork) : IInvent
         var rowNumber = 1;
         return logs.Select(log =>
         {
-            var itemModel = log.SupplyInventory?.ItemModel ?? log.ReusableItem?.ItemModel;
+            var itemModel = log.ItemModel ?? log.SupplyInventory?.ItemModel ?? log.ReusableItem?.ItemModel;
             var quantityChange = log.QuantityChange ?? 0;
             var actionType = log.ActionType ?? string.Empty;
 
