@@ -665,8 +665,8 @@ public class CreateMissionCommandHandler(
             foreach (var s in shortages)
             {
                 allErrors.Add(s.NotFound
-                    ? $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không có trong kho."
-                    : $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' (ID={s.ItemModelId}) không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
+                    ? $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' không có trong kho."
+                    : $"Kho {depot.DepotId}: vật phẩm '{s.ItemName}' không đủ số lượng — yêu cầu {s.RequestedQuantity}, khả dụng {s.AvailableQuantity}.");
             }
         }
 

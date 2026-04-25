@@ -68,6 +68,49 @@ public class CreateMissionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ThrowsBadRequestWithoutItemId_WhenSupplyAvailabilityFails()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository();
+        var depotInventoryRepository = new StubDepotInventoryRepository
+        {
+            AvailabilityShortages =
+            [
+                new SupplyShortageResult
+                {
+                    ItemModelId = 26,
+                    ItemName = "Bộ sơ cứu cơ bản",
+                    RequestedQuantity = 737,
+                    AvailableQuantity = 658,
+                    NotFound = false
+                }
+            ]
+        };
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork);
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(BuildCommand(CreateCollectActivity(quantity: 737)), CancellationToken.None));
+
+        Assert.Contains("vật phẩm 'Bộ sơ cứu cơ bản' không đủ số lượng", ex.Message);
+        Assert.Contains("yêu cầu 737, khả dụng 658", ex.Message);
+        Assert.DoesNotContain("ID=26", ex.Message);
+        Assert.DoesNotContain("(ID=", ex.Message);
+        Assert.Empty(depotInventoryRepository.ReserveCalls);
+        Assert.Equal(0, unitOfWork.TransactionCalls);
+    }
+
+    [Fact]
     public async Task Handle_ReservesOnlyCollectSuppliesActivities()
     {
         var missionRepository = new StubMissionRepository();
@@ -1021,6 +1064,7 @@ public class CreateMissionCommandHandlerTests
     {
         public List<(int DepotId, List<(int ItemModelId, string ItemName, int RequestedQuantity)> Items)> AvailabilityChecks { get; } = [];
         public List<(int DepotId, List<(int ItemModelId, int Quantity)> Items)> ReserveCalls { get; } = [];
+        public List<SupplyShortageResult> AvailabilityShortages { get; set; } = [];
         public InvalidOperationException? ReserveException { get; set; }
 
         public Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -1050,7 +1094,7 @@ public class CreateMissionCommandHandlerTests
         public Task<List<SupplyShortageResult>> CheckSupplyAvailabilityAsync(int depotId, List<(int ItemModelId, string ItemName, int RequestedQuantity)> items, CancellationToken cancellationToken = default)
         {
             AvailabilityChecks.Add((depotId, items));
-            return Task.FromResult(new List<SupplyShortageResult>());
+            return Task.FromResult(AvailabilityShortages);
         }
 
         public Task<MissionSupplyReservationResult> ReserveSuppliesAsync(int depotId, List<(int ItemModelId, int Quantity)> items, CancellationToken cancellationToken = default)
