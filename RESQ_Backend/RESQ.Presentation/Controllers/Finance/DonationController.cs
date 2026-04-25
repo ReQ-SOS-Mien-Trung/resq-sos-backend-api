@@ -198,7 +198,6 @@ public class DonationController : ControllerBase
 
     [HttpGet("zalopay-return")]
     [AllowAnonymous]
-    [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<IActionResult> ZaloPayReturn()
     {
         var (successUrl, failUrl) = GetZaloPayFrontendUrls();
