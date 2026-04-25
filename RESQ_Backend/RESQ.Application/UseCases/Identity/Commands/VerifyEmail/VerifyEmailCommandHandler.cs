@@ -26,14 +26,14 @@ namespace RESQ.Application.UseCases.Identity.Commands.VerifyEmail
             if (user is null)
             {
                 _logger.LogWarning("Email verification failed: Invalid token");
-                throw new BadRequestException("M├ú x├íc minh kh├┤ng hß╗úp lß╗ç hoß║╖c ─æ├ú hß║┐t hß║ín");
+                throw new BadRequestException("Mã xác minh không hợp lệ hoặc đã hết hạn");
             }
 
             // Check if token is expired
             if (user.EmailVerificationTokenExpiry.HasValue && user.EmailVerificationTokenExpiry.Value < DateTime.UtcNow)
             {
                 _logger.LogWarning("Email verification failed: Token expired for Email={email}", user.Email);
-                throw new BadRequestException("M├ú x├íc minh ─æ├ú hß║┐t hß║ín. Vui l├▓ng y├¬u cß║ºu gß╗¡i lß║íi email x├íc minh.");
+                throw new BadRequestException("Mã xác minh đã hết hạn. Vui lòng yêu cầu gửi lại email xác minh.");
             }
 
             // Check if already verified
@@ -43,7 +43,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.VerifyEmail
                 return new VerifyEmailResponse
                 {
                     Success = true,
-                    Message = "Email ─æ├ú ─æ╞░ß╗úc x├íc minh tr╞░ß╗¢c ─æ├│",
+                    Message = "Email đã được xác minh trước đó",
                     Email = user.Email
                 };
             }
@@ -59,7 +59,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.VerifyEmail
 
             if (succeedCount < 1)
             {
-                throw new BadRequestException("Kh├┤ng thß╗â x├íc minh email. Vui l├▓ng thß╗¡ lß║íi.");
+                throw new BadRequestException("Không thể xác minh email. Vui lòng thử lại.");
             }
 
             _logger.LogInformation("Email verified successfully for Email={email}", user.Email);
@@ -67,7 +67,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.VerifyEmail
             return new VerifyEmailResponse
             {
                 Success = true,
-                Message = "X├íc minh email th├ánh c├┤ng. Bß║ín c├│ thß╗â ─æ─âng nhß║¡p ngay b├óy giß╗¥.",
+                Message = "Xác minh email thành công. Bạn có thể đăng nhập ngay bây giờ.",
                 Email = user.Email
             };
         }

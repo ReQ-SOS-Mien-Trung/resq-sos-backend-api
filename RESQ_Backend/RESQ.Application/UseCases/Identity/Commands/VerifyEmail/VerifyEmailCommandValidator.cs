@@ -7,7 +7,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.VerifyEmail
         public VerifyEmailCommandValidator()
         {
             RuleFor(x => x.Token)
-                .NotEmpty().WithMessage("M├ú x├íc minh l├á bß║»t buß╗Öc");
+                .NotEmpty().WithMessage("Mã xác minh là bắt buộc");
         }
     }
 }
