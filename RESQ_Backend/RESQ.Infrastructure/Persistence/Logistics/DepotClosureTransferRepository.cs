@@ -156,6 +156,7 @@ public class DepotClosureTransferRepository(IUnitOfWork unitOfWork, ResQDbContex
         entity.CancellationReason = record.CancellationReason;
 
         await repo.UpdateAsync(entity);
+        await _unitOfWork.SaveAsync();
     }
 
     // -- Mappers --------------------------------------------------------------
