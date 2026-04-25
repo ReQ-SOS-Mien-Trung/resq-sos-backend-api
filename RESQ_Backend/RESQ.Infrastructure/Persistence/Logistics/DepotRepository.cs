@@ -285,16 +285,18 @@ public class DepotRepository(IUnitOfWork unitOfWork, ResQDbContext dbContext) : 
                          && dm.UnassignedAt == null,
                       cancellationToken);
 
-        if (!alreadyActiveInDb)
+        if (alreadyActiveInDb)
         {
-            await _unitOfWork.GetRepository<DepotManager>().AddAsync(new DepotManager
-            {
-                DepotId    = depot.Id,
-                UserId     = newManager.UserId,
-                AssignedAt = newManager.AssignedAt,
-                AssignedBy = assignedBy
-            });
+            throw new RESQ.Domain.Entities.Logistics.Exceptions.DepotManagerAlreadyAssignedException(newManager.UserId);
         }
+
+        await _unitOfWork.GetRepository<DepotManager>().AddAsync(new DepotManager
+        {
+            DepotId    = depot.Id,
+            UserId     = newManager.UserId,
+            AssignedAt = newManager.AssignedAt,
+            AssignedBy = assignedBy
+        });
 
         // Cập nhật status + LastUpdatedAt của kho
         var depotEntity = await _unitOfWork.GetRepository<Depot>()

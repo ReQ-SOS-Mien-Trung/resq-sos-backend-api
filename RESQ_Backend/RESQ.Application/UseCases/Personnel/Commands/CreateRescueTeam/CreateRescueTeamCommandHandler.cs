@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -24,62 +24,76 @@ public class CreateRescueTeamCommandHandler(
 {
     public async Task<int> Handle(CreateRescueTeamCommand request, CancellationToken ct)
     {
-        // Validate AP tồn tại
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
-        // Event chỉ dùng để đối chiếu danh sách participant/check-in của rescuer khi tạo team.
         if (ap.Status == AssemblyPointStatus.Unavailable || ap.Status == AssemblyPointStatus.Closed)
             throw new BadRequestException($"Điểm tập kết {ap.Name} đang ({ap.Status}), không thể tạo đội mới tại đây.");
 
-        var latestEvent = await assemblyEventRepository.GetLatestEventByAssemblyPointAsync(request.AssemblyPointId, ct)
-            ?? throw new BadRequestException($"Điểm tập kết id = {request.AssemblyPointId} hiện chưa có sự kiện tập trung nào để đối chiếu check-in.");
-        var resolvedEventId = latestEvent.EventId;
-
-        // Tạo đội ở trạng thái Gathering (rescuer đã có mặt tại AP)
         var team = RescueTeamModel.Create(
-            request.Name, request.Type, request.AssemblyPointId, request.ManagedBy, request.MaxMembers);
+            request.Name,
+            request.Type,
+            request.AssemblyPointId,
+            request.ManagedBy,
+            request.MaxMembers);
 
         team.LoadAssemblyPointName(ap.Name!);
 
         if (request.Members != null && request.Members.Any())
         {
+            var eventCache = new Dictionary<int, (int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)>();
+
             foreach (var mem in request.Members)
             {
                 var user = await userRepository.GetByIdAsync(mem.UserId, ct)
                     ?? throw new NotFoundException($"Không tìm thấy thành viên có ID {mem.UserId}");
 
-                // Validate Role ID = 3 (Rescuer)
+                if (!eventCache.TryGetValue(mem.EventId, out var sourceEvent))
+                {
+                    sourceEvent = await assemblyEventRepository.GetEventByIdAsync(mem.EventId, ct)
+                        ?? throw new NotFoundException($"Không tìm thấy sự kiện tập trung id = {mem.EventId}.");
+                    eventCache[mem.EventId] = sourceEvent;
+                }
+
+                if (sourceEvent.AssemblyPointId != request.AssemblyPointId)
+                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} không thuộc điểm tập kết được chọn.");
+
+                if (!Enum.TryParse<AssemblyEventStatus>(sourceEvent.Status, true, out var eventStatus) ||
+                    (eventStatus != AssemblyEventStatus.Gathering &&
+                     eventStatus != AssemblyEventStatus.Completed &&
+                     eventStatus != AssemblyEventStatus.Cancelled))
+                {
+                    throw new BadRequestException($"Sự kiện tập trung id = {mem.EventId} không hợp lệ để tạo đội.");
+                }
+
                 if (user.RoleId != 3)
                     throw new BadRequestException($"Người dùng {user.LastName} {user.FirstName} không phải là nhân sự cứu hộ (Role Rescuer).");
 
-                // Validate Leader must be Core
                 if (mem.IsLeader && !string.Equals(user.RescuerType?.ToString(), RescuerType.Core.ToString(), StringComparison.OrdinalIgnoreCase))
                     throw new BadRequestException($"Thành viên {user.LastName} {user.FirstName} không thể làm đội trưởng vì không phải là nhân sự nòng cốt (Core Rescuer).");
 
                 if (await teamRepository.IsUserInActiveTeamAsync(mem.UserId, ct))
-                    throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đã tham gia một đội cứu hộ khác.");
+                    throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đang thuộc đội cứu hộ khác.");
 
-                // Validate rescuer đã check-in tại sự kiện tập trung
-                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(resolvedEventId, mem.UserId, ct);
+                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(mem.EventId, mem.UserId, ct);
                 if (!isCheckedIn)
-                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in tại điểm tập kết.");
+                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in hợp lệ trong sự kiện tập trung đã chọn.");
 
                 string? roleInTeam = null;
 
                 if (request.Type != RescueTeamType.Mixed)
                 {
-                    string requiredCategory = request.Type switch
+                    var requiredCategory = request.Type switch
                     {
                         RescueTeamType.Rescue => "RESCUE",
                         RescueTeamType.Medical => "MEDICAL",
                         RescueTeamType.Transportation => "TRANSPORTATION",
-                        _ => ""
+                        _ => string.Empty
                     };
 
                     if (!string.IsNullOrEmpty(requiredCategory))
                     {
-                        bool hasRequired = await teamRepository.HasRequiredAbilityCategoryAsync(mem.UserId, requiredCategory, ct);
+                        var hasRequired = await teamRepository.HasRequiredAbilityCategoryAsync(mem.UserId, requiredCategory, ct);
                         if (!hasRequired)
                             throw new BadRequestException($"Thành viên {user.LastName} {user.FirstName} không có kỹ năng thuộc nhóm {requiredCategory} để tham gia đội {request.Type}.");
 
@@ -91,14 +105,17 @@ public class CreateRescueTeamCommandHandler(
                     roleInTeam = await teamRepository.GetTopAbilityCategoryAsync(mem.UserId, ct);
                 }
 
-                // Thêm member ở trạng thái Accepted (đã có mặt tại AP)
-                team.AddMember(mem.UserId, mem.IsLeader, user.RescuerType?.ToString() ?? "Volunteer", roleInTeam ?? "Thành viên");
+                team.AddMember(
+                    mem.UserId,
+                    mem.IsLeader,
+                    user.RescuerType?.ToString() ?? "Volunteer",
+                    roleInTeam ?? "Thành viên",
+                    mem.EventId);
             }
         }
 
         await teamRepository.CreateAsync(team, ct);
 
-        // Sync User.AssemblyPointId cho tất cả member về AP của team
         var memberIds = request.Members?.Select(m => m.UserId).ToList() ?? [];
         if (memberIds.Count > 0)
             await assemblyPointRepository.BulkUpdateRescuerAssemblyPointAsync(memberIds, request.AssemblyPointId, ct);
@@ -119,12 +136,10 @@ public class CreateRescueTeamCommandHandler(
             },
             ct);
 
-        // Gửi thông báo cho tất cả rescuer trong đội
         if (memberIds.Count > 0)
         {
             var title = "Thông báo đội cứu hộ";
-            var body = $"Bạn đã được phân công vào đội cứu hộ \"{request.Name}\". " +
-                       "Vui lòng tập hợp theo hướng dẫn của đội trưởng.";
+            var body = $"Bạn đã được phân công vào đội cứu hộ \"{request.Name}\". Vui lòng tập hợp theo hướng dẫn của đội trưởng.";
 
             foreach (var userId in memberIds)
             {

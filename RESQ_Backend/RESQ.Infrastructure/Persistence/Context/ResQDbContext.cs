@@ -295,6 +295,18 @@ public partial class ResQDbContext : DbContext
                 .IsRowVersion();
         });
 
+        modelBuilder.Entity<DepotManager>(entity =>
+        {
+            entity.HasIndex(e => e.DepotId)
+                .HasDatabaseName("IX_depot_managers_depot_id");
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_depot_managers_user_id");
+            entity.HasIndex(e => new { e.DepotId, e.UserId })
+                .HasDatabaseName("uix_depot_managers_active_depot_user")
+                .HasFilter("unassigned_at IS NULL")
+                .IsUnique();
+        });
+
         modelBuilder.Entity<SystemFundTransaction>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("system_fund_transactions_pkey");

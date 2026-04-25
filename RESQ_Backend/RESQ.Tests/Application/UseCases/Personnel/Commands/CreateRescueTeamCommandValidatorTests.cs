@@ -6,10 +6,6 @@ using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Tests.Application.UseCases.Personnel.Commands;
 
-/// <summary>
-/// FE-02 – Rescuer Management: CreateRescueTeam validator tests.
-/// Covers: GPS Tracking & Availability Management, Skills & Ability Category System.
-/// </summary>
 public class CreateRescueTeamCommandValidatorTests
 {
     private readonly CreateRescueTeamCommandValidator _validator = new();
@@ -18,7 +14,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenNameIsEmpty()
     {
         var result = _validator.TestValidate(BuildCommand(name: ""));
-
         result.ShouldHaveValidationErrorFor(x => x.Name);
     }
 
@@ -26,7 +21,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenNameExceeds255Characters()
     {
         var result = _validator.TestValidate(BuildCommand(name: new string('A', 256)));
-
         result.ShouldHaveValidationErrorFor(x => x.Name);
     }
 
@@ -34,7 +28,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenTypeIsInvalidEnum()
     {
         var result = _validator.TestValidate(BuildCommand(type: (RescueTeamType)999));
-
         result.ShouldHaveValidationErrorFor(x => x.Type);
     }
 
@@ -42,7 +35,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenAssemblyPointIdIsZero()
     {
         var result = _validator.TestValidate(BuildCommand(assemblyPointId: 0));
-
         result.ShouldHaveValidationErrorFor(x => x.AssemblyPointId);
     }
 
@@ -50,7 +42,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenManagedByIsEmpty()
     {
         var result = _validator.TestValidate(BuildCommand(managedBy: Guid.Empty));
-
         result.ShouldHaveValidationErrorFor(x => x.ManagedBy);
     }
 
@@ -58,7 +49,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenMaxMembersIs5()
     {
         var result = _validator.TestValidate(BuildCommand(maxMembers: 5, memberCount: 5));
-
         result.ShouldHaveValidationErrorFor(x => x.MaxMembers);
     }
 
@@ -66,7 +56,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenMaxMembersIs9()
     {
         var result = _validator.TestValidate(BuildCommand(maxMembers: 9, memberCount: 9));
-
         result.ShouldHaveValidationErrorFor(x => x.MaxMembers);
     }
 
@@ -74,7 +63,26 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenMemberCountDoesNotMatchMaxMembers()
     {
         var result = _validator.TestValidate(BuildCommand(maxMembers: 6, memberCount: 4));
+        result.ShouldHaveValidationErrorFor(x => x.Members);
+    }
 
+    [Fact]
+    public void Validate_Fails_WhenAnyMemberEventIdIsInvalid()
+    {
+        var command = BuildCommand();
+        command.Members[0].EventId = 0;
+
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.Members);
+    }
+
+    [Fact]
+    public void Validate_Fails_WhenMembersContainDuplicateRescuer()
+    {
+        var command = BuildCommand();
+        command.Members[1].UserId = command.Members[0].UserId;
+
+        var result = _validator.TestValidate(command);
         result.ShouldHaveValidationErrorFor(x => x.Members);
     }
 
@@ -82,14 +90,13 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenNoLeaderInMembers()
     {
         var members = Enumerable.Range(0, 6)
-            .Select(_ => new AddMemberRequestDto { UserId = Guid.NewGuid(), IsLeader = false })
+            .Select(_ => new AddMemberRequestDto { UserId = Guid.NewGuid(), EventId = 100, IsLeader = false })
             .ToList();
 
         var command = new CreateRescueTeamCommand(
             "TestTeam", RescueTeamType.Rescue, 1, Guid.NewGuid(), 6, members);
 
         var result = _validator.TestValidate(command);
-
         result.ShouldHaveValidationErrorFor(x => x.Members);
     }
 
@@ -97,14 +104,13 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenMultipleLeadersInMembers()
     {
         var members = Enumerable.Range(0, 6)
-            .Select(i => new AddMemberRequestDto { UserId = Guid.NewGuid(), IsLeader = i < 2 })
+            .Select(i => new AddMemberRequestDto { UserId = Guid.NewGuid(), EventId = 100 + i, IsLeader = i < 2 })
             .ToList();
 
         var command = new CreateRescueTeamCommand(
             "TestTeam", RescueTeamType.Rescue, 1, Guid.NewGuid(), 6, members);
 
         var result = _validator.TestValidate(command);
-
         result.ShouldHaveValidationErrorFor(x => x.Members);
     }
 
@@ -112,7 +118,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Passes_WhenCommandIsValid()
     {
         var result = _validator.TestValidate(BuildCommand());
-
         result.ShouldNotHaveAnyValidationErrors();
     }
 
@@ -123,7 +128,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Passes_ForAllValidMaxMemberCounts(int maxMembers)
     {
         var result = _validator.TestValidate(BuildCommand(maxMembers: maxMembers, memberCount: maxMembers));
-
         result.ShouldNotHaveAnyValidationErrors();
     }
 
@@ -135,7 +139,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Passes_ForAllValidTeamTypes(RescueTeamType type)
     {
         var result = _validator.TestValidate(BuildCommand(type: type));
-
         result.ShouldNotHaveAnyValidationErrors();
     }
 
@@ -152,6 +155,7 @@ public class CreateRescueTeamCommandValidatorTests
             .Select(i => new AddMemberRequestDto
             {
                 UserId = Guid.NewGuid(),
+                EventId = 100 + i,
                 IsLeader = i == 0
             })
             .ToList();

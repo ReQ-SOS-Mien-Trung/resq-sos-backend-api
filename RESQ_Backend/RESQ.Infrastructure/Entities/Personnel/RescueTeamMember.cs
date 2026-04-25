@@ -37,6 +37,9 @@ public class RescueTeamMember
     [Column("checked_in")]
     public bool CheckedIn { get; set; }
 
+    [Column("source_event_id")]
+    public int? SourceEventId { get; set; }
+
     [ForeignKey("TeamId")]
     public virtual RescueTeam? Team { get; set; }
 

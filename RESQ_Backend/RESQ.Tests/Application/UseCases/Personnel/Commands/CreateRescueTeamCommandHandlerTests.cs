@@ -17,7 +17,7 @@ namespace RESQ.Tests.Application.UseCases.Personnel.Commands;
 public class CreateRescueTeamCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_AllowsCoordinatorToCreateTeam_FromCheckedInMembersUsingLatestEvent()
+    public async Task Handle_AllowsCoordinatorToCreateTeam_FromMultipleSelectedEvents()
     {
         var leaderId = Guid.NewGuid();
         var memberIds = new[]
@@ -30,6 +30,16 @@ public class CreateRescueTeamCommandHandlerTests
             Guid.NewGuid()
         };
 
+        var memberEventMap = new Dictionary<Guid, int>
+        {
+            [memberIds[0]] = 501,
+            [memberIds[1]] = 501,
+            [memberIds[2]] = 501,
+            [memberIds[3]] = 502,
+            [memberIds[4]] = 502,
+            [memberIds[5]] = 503
+        };
+
         var assemblyPointRepository = new StubAssemblyPointRepository(new AssemblyPointModel
         {
             Id = 10,
@@ -37,8 +47,17 @@ public class CreateRescueTeamCommandHandlerTests
             Status = AssemblyPointStatus.Available
         });
         var assemblyEventRepository = new StubAssemblyEventRepository(
-            latestEvent: (501, AssemblyEventStatus.Completed.ToString()),
-            checkedInUsers: memberIds.ToHashSet());
+            eventsById: new Dictionary<int, (int EventId, int AssemblyPointId, string Status)>
+            {
+                [501] = (501, 10, AssemblyEventStatus.Gathering.ToString()),
+                [502] = (502, 10, AssemblyEventStatus.Completed.ToString()),
+                [503] = (503, 10, AssemblyEventStatus.Cancelled.ToString())
+            },
+            checkedInUsersByEvent: memberEventMap
+                .GroupBy(x => x.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.Key).ToHashSet()));
         var userRepository = new StubUserRepository(memberIds.ToDictionary(
             id => id,
             id => new UserModel
@@ -71,19 +90,22 @@ public class CreateRescueTeamCommandHandlerTests
             memberIds.Select((id, index) => new AddMemberRequestDto
             {
                 UserId = id,
+                EventId = memberEventMap[id],
                 IsLeader = index == 0
             }).ToList());
 
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.Equal(1, result);
-        Assert.Equal(501, assemblyEventRepository.LastCheckedEventId);
         Assert.Equal(memberIds.Length, assemblyPointRepository.BulkUpdatedUserIds.Count);
         Assert.Equal(1, unitOfWork.SaveCalls);
+        Assert.Equal(memberIds.Length, teamRepository.CreatedTeam!.Members.Count);
+        Assert.Contains(teamRepository.CreatedTeam.Members, m => m.UserId == leaderId && m.SourceEventId == 501);
+        Assert.Contains(teamRepository.CreatedTeam.Members, m => m.SourceEventId == 503);
     }
 
     [Fact]
-    public async Task Handle_Throws_WhenAssemblyPointHasNoAssemblyEvent()
+    public async Task Handle_Throws_WhenMemberEventDoesNotBelongToAssemblyPoint()
     {
         var memberId = Guid.NewGuid();
 
@@ -95,7 +117,12 @@ public class CreateRescueTeamCommandHandlerTests
                 Name = "AP-01",
                 Status = AssemblyPointStatus.Available
             }),
-            new StubAssemblyEventRepository(latestEvent: null, checkedInUsers: [memberId]),
+            new StubAssemblyEventRepository(
+                eventsById: new Dictionary<int, (int EventId, int AssemblyPointId, string Status)>
+                {
+                    [999] = (999, 11, AssemblyEventStatus.Completed.ToString())
+                },
+                checkedInUsersByEvent: new Dictionary<int, HashSet<Guid>>()),
             new StubUserRepository(new Dictionary<Guid, UserModel>
             {
                 [memberId] = new()
@@ -122,6 +149,7 @@ public class CreateRescueTeamCommandHandlerTests
                 .Select(index => new AddMemberRequestDto
                 {
                     UserId = index == 0 ? memberId : Guid.NewGuid(),
+                    EventId = 999,
                     IsLeader = index == 0
                 })
                 .ToList());
@@ -129,7 +157,7 @@ public class CreateRescueTeamCommandHandlerTests
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(
             () => handler.Handle(command, CancellationToken.None));
 
-        Assert.Contains("chưa có sự kiện tập trung nào", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("không thuộc điểm tập kết", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class StubAssemblyPointRepository(AssemblyPointModel? assemblyPoint) : IAssemblyPointRepository
@@ -162,22 +190,26 @@ public class CreateRescueTeamCommandHandlerTests
     }
 
     private sealed class StubAssemblyEventRepository(
-        (int EventId, string Status)? latestEvent,
-        HashSet<Guid> checkedInUsers) : IAssemblyEventRepository
+        Dictionary<int, (int EventId, int AssemblyPointId, string Status)> eventsById,
+        Dictionary<int, HashSet<Guid>> checkedInUsersByEvent) : IAssemblyEventRepository
     {
-        public int? LastCheckedEventId { get; private set; }
-
-        public Task<(int EventId, string Status)?> GetLatestEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.FromResult(latestEvent);
-
         public Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default)
-        {
-            LastCheckedEventId = eventId;
-            return Task.FromResult(checkedInUsers.Contains(rescuerId));
-        }
+            => Task.FromResult(checkedInUsersByEvent.TryGetValue(eventId, out var users) && users.Contains(rescuerId));
+
+        public Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default)
+            => Task.FromResult(checkedInUsersByEvent.TryGetValue(eventId, out var users) && users.Count > 0);
 
         public Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
             => Task.FromResult(((int EventId, string Status)?)null);
+
+        public Task<(int EventId, string Status)?> GetLatestEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+            => Task.FromResult(((int EventId, string Status)?)null);
+
+        public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default)
+            => Task.FromResult(eventsById.TryGetValue(eventId, out var evt)
+                ? ((int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?)
+                    (evt.EventId, evt.AssemblyPointId, evt.Status, DateTime.UtcNow, DateTime.UtcNow.AddHours(1))
+                : null);
 
         public Task<int> CreateEventAsync(int assemblyPointId, DateTime assemblyDate, DateTime checkInDeadline, Guid createdBy, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task AssignParticipantsAsync(int eventId, List<Guid> rescuerIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -189,7 +221,6 @@ public class CreateRescueTeamCommandHandlerTests
         public Task<PagedResult<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents.AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Guid?> GetEventCreatedByAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> HasParticipantCheckedOutAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<bool> MarkParticipantAbsentAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -223,17 +254,17 @@ public class CreateRescueTeamCommandHandlerTests
 
     private sealed class StubRescueTeamRepository : IRescueTeamRepository
     {
-        private RescueTeamModel? _createdTeam;
+        public RescueTeamModel? CreatedTeam { get; private set; }
 
         public Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default)
         {
             team.SetId(1);
-            _createdTeam = team;
+            CreatedTeam = team;
             return Task.CompletedTask;
         }
 
         public Task<RescueTeamModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
-            => Task.FromResult(_createdTeam);
+            => Task.FromResult(CreatedTeam);
 
         public Task<bool> IsUserInActiveTeamAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);

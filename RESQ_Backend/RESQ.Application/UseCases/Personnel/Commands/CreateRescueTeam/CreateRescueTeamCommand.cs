@@ -1,13 +1,13 @@
 using MediatR;
-using RESQ.Domain.Enum.Personnel;
 using RESQ.Application.UseCases.Personnel.RescueTeams.DTOs;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 
 public record CreateRescueTeamCommand(
-    string Name, 
-    RescueTeamType Type, 
+    string Name,
+    RescueTeamType Type,
     int AssemblyPointId,
-    Guid ManagedBy, 
+    Guid ManagedBy,
     int MaxMembers,
     List<AddMemberRequestDto> Members) : IRequest<int>;

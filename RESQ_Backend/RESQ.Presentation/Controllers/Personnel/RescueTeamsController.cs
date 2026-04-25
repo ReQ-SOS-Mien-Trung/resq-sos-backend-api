@@ -122,10 +122,15 @@ public class RescueTeamsController(IMediator mediator, IAuthorizationService aut
 
     /// <summary>Xóa thành viên khỏi đội cứu hộ.</summary>
     [HttpDelete("{id}/members/{userId}")]
-    [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
+    [Authorize(Policy = PermissionConstants.PersonnelTeamAvailabilityManage)]
     public async Task<IActionResult> RemoveMember(int id, Guid userId)
     {
-        await mediator.Send(new RemoveTeamMemberCommand(id, userId));
+        var callerUserId = GetCurrentUserId();
+        var canOverrideTeamMemberRemoval = (await authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.PolicyPersonnelManage))
+            .Succeeded;
+
+        await mediator.Send(new RemoveTeamMemberCommand(id, userId, callerUserId, canOverrideTeamMemberRemoval));
         return NoContent();
     }
 
