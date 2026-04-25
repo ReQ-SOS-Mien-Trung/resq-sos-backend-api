@@ -17,6 +17,8 @@ public sealed record SosAiAnalysisTask(
     double RuleBasedScore,
     string? RuleBasedPriority,
     string? RuleVersion,
+    int? RuleConfigId,
+    string? RuleConfigVersion,
     string? RuleBreakdownJson,
     DateTime QueuedAtUtc)
 {
@@ -36,6 +38,8 @@ public sealed record SosAiAnalysisTask(
             ruleEvaluation.TotalScore,
             ruleEvaluation.PriorityLevel.ToString(),
             ruleEvaluation.RuleVersion,
+            ruleEvaluation.ConfigId,
+            ruleEvaluation.ConfigVersion,
             ruleEvaluation.BreakdownJson ?? ruleEvaluation.DetailsJson,
             DateTime.UtcNow);
     }

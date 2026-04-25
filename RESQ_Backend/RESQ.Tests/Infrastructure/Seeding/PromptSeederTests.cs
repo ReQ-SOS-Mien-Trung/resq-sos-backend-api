@@ -107,4 +107,17 @@ public class PromptSeederTests
         Assert.DoesNotContain(prompts, prompt => prompt.SystemPrompt?.Contains(deprecatedField) == true);
         Assert.DoesNotContain(prompts, prompt => prompt.UserPromptTemplate?.Contains(deprecatedField) == true);
     }
+
+    [Fact]
+    public void CreatePrompts_ActiveSosPriorityPrompt_UsesHundredPointAdjustmentContract()
+    {
+        var prompt = SystemSeeder.CreatePrompts()
+            .Single(item => item.IsActive && item.PromptType == "SosPriorityAnalysis");
+
+        Assert.Contains("0.0-100.0", prompt.SystemPrompt);
+        Assert.Contains("final adjusted score on the 0-100 scale", prompt.SystemPrompt);
+        Assert.Contains("score_adjustment_delta", prompt.SystemPrompt);
+        Assert.Contains("rule_config", prompt.SystemPrompt);
+        Assert.DoesNotContain("0.0-10.0", prompt.SystemPrompt);
+    }
 }
