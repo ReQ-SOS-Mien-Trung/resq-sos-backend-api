@@ -95,13 +95,13 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
                 return false;
             }
 
-            // 5. Send confirmation email (fire-and-forget)
+            // 5. Send confirmation email
             if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
-                _ = _emailService.SendDonationSuccessEmailAsync(
+                await _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
                     donation.FundCampaignName ?? "Campaign", donation.FundCampaignCode ?? "RESQ",
-                    donation.Id, cancellationToken
+                    donation.Id, CancellationToken.None
                 );
             }
 
