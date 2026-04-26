@@ -241,6 +241,7 @@ public class SubmitMissionTeamReportCommandHandler(
                 activityStatusUpdates.Select(statusUpdate => assignedActivities[statusUpdate.ActivityId].SosRequestId),
                 mission.Activities,
                 sosRequestRepository,
+                sosClusterRepository,
                 sosRequestUpdateRepository,
                 missionActivityRepository,
                 teamIncidentRepository,

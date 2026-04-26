@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
@@ -20,6 +21,7 @@ internal static class MissionActivitySosRequestSyncHelper
         IEnumerable<int?> sosRequestIds,
         IEnumerable<MissionActivityModel> missionActivities,
         ISosRequestRepository sosRequestRepository,
+        ISosClusterRepository sosClusterRepository,
         ISosRequestUpdateRepository sosRequestUpdateRepository,
         IMissionActivityRepository missionActivityRepository,
         ITeamIncidentRepository teamIncidentRepository,
@@ -36,6 +38,8 @@ internal static class MissionActivitySosRequestSyncHelper
             return;
 
         var activitySnapshot = missionActivities.ToList();
+        var affectedClusterIds = new HashSet<int>();
+        var sosRequestOverrides = new Dictionary<int, SosRequestModel>();
 
         foreach (var sosRequestId in touchedSosIds)
         {
@@ -62,6 +66,13 @@ internal static class MissionActivitySosRequestSyncHelper
                 continue;
             }
 
+            if (sosRequest.ClusterId.HasValue)
+            {
+                affectedClusterIds.Add(sosRequest.ClusterId.Value);
+            }
+
+            sosRequestOverrides[sosRequest.Id] = sosRequest;
+
             if (sosRequest.Status == SosRequestStatus.Incident)
             {
                 logger.LogInformation(
@@ -81,6 +92,7 @@ internal static class MissionActivitySosRequestSyncHelper
 
                 sosRequest.SetStatus(SosRequestStatus.Resolved);
                 await sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+                sosRequestOverrides[sosRequest.Id] = sosRequest;
 
                 logger.LogInformation(
                     "Marked SosRequestId={SosRequestId} as Resolved because all related mission activities succeeded.",
@@ -105,12 +117,21 @@ internal static class MissionActivitySosRequestSyncHelper
             sosRequest.SetPriorityLevel(escalatedPriority);
 
             await sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+            sosRequestOverrides[sosRequest.Id] = sosRequest;
 
             logger.LogInformation(
                 "Reopened SosRequestId={SosRequestId} for re-clustering after related mission activity failure. NewPriority={Priority}.",
                 sosRequestId,
                 escalatedPriority);
         }
+
+        await SosClusterStatusSyncHelper.SyncByClusterIdsAsync(
+            affectedClusterIds,
+            sosClusterRepository,
+            sosRequestRepository,
+            logger,
+            cancellationToken,
+            sosRequestOverrides);
 
         await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
             touchedSosIds.Select(id => (int?)id),
