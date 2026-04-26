@@ -114,6 +114,26 @@ public interface IDepotInventoryRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Team xác nhận đã lấy hàng theo snapshot đã reserve cho activity.
+    /// Reusable dùng đúng unit ids đã lưu trong PlannedPickupReusableUnits để tránh lấy nhầm reservation của mission khác.
+    /// </summary>
+    Task<MissionSupplyPickupExecutionResult> ConsumeReservedSuppliesFromSnapshotAsync(
+        int depotId,
+        List<(int ItemModelId, int Quantity)> items,
+        IReadOnlyDictionary<int, IReadOnlyCollection<int>> reusableItemIdsByItem,
+        Guid performedBy,
+        int activityId,
+        int missionId,
+        CancellationToken cancellationToken = default)
+        => ConsumeReservedSuppliesAsync(
+            depotId,
+            items,
+            performedBy,
+            activityId,
+            missionId,
+            cancellationToken);
+
+    /// <summary>
     /// Depot manager xác nhận nhận lại vật phẩm từ mission và nhập kho theo dữ liệu thực tế.
     /// Consumable được nhập lại theo quantity; Reusable được nhận lại theo từng unit id,
     /// hoặc quantity fallback cho legacy mission chưa có unit snapshot.
