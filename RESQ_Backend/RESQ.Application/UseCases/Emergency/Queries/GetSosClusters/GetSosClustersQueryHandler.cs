@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Enum.Emergency;
 namespace RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
@@ -28,6 +29,7 @@ public class GetSosClustersQueryHandler(
         var sosTypes = request.SosTypes?
             .Distinct()
             .ToArray();
+        var sortOptions = SosSortParser.Normalize(request.SortOptions);
 
         var pagedClusters = await _sosClusterRepository.GetPagedAsync(
             pageNumber,
@@ -36,6 +38,7 @@ public class GetSosClustersQueryHandler(
             statuses,
             priorities,
             sosTypes,
+            sortOptions,
             cancellationToken);
 
         var items = pagedClusters.Items

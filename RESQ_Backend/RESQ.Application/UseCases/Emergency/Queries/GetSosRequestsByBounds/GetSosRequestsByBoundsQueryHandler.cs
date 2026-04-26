@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -28,6 +29,7 @@ public class GetSosRequestsByBoundsQueryHandler(
         var normalizedSosTypes = request.SosTypes?
             .Distinct()
             .ToArray();
+        var sortOptions = SosSortParser.Normalize(request.SortOptions);
 
         _logger.LogInformation(
             "Handling {handler} - retrieving SOS requests within bounds ({minLat}, {maxLat}, {minLng}, {maxLng})",
@@ -45,6 +47,7 @@ public class GetSosRequestsByBoundsQueryHandler(
             normalizedStatuses,
             normalizedPriorities,
             normalizedSosTypes,
+            sortOptions,
             cancellationToken);
 
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(

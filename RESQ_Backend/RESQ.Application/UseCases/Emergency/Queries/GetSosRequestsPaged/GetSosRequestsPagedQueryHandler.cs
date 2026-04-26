@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -30,6 +31,7 @@ public class GetSosRequestsPagedQueryHandler(
         var normalizedSosTypes = request.SosTypes?
             .Distinct()
             .ToArray();
+        var sortOptions = SosSortParser.Normalize(request.SortOptions);
 
         var pagedResult = await _sosRequestRepository.GetAllPagedAsync(
             request.PageNumber,
@@ -37,6 +39,7 @@ public class GetSosRequestsPagedQueryHandler(
             normalizedStatuses,
             normalizedPriorities,
             normalizedSosTypes,
+            sortOptions,
             cancellationToken);
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
             pagedResult.Items.Select(x => x.Id),

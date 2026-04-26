@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -16,6 +17,7 @@ public interface ISosRequestRepository
         IReadOnlyCollection<SosRequestStatus>? statuses = null,
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
+        IReadOnlyList<SosSortOption>? sortOptions = null,
         CancellationToken cancellationToken = default)
     {
         var normalizedPageNumber = pageNumber <= 0 ? 1 : pageNumber;
@@ -30,10 +32,12 @@ public interface ISosRequestRepository
             .Where(request => statusSet is null || statusSet.Count == 0 || statusSet.Contains(request.Status))
             .Where(request => prioritySet is null || prioritySet.Count == 0 || (request.PriorityLevel.HasValue && prioritySet.Contains(request.PriorityLevel.Value)))
             .Where(request => sosTypeSet is null || sosTypeSet.Count == 0 || (!string.IsNullOrWhiteSpace(request.SosType) && sosTypeSet.Contains(request.SosType)))
-            .OrderByDescending(request => request.CreatedAt)
             .ToList();
 
-        var items = filtered
+        var sorted = SosSortParser.ApplyToRequests(filtered, sortOptions)
+            .ToList();
+
+        var items = sorted
             .Skip((normalizedPageNumber - 1) * normalizedPageSize)
             .Take(normalizedPageSize)
             .ToList();

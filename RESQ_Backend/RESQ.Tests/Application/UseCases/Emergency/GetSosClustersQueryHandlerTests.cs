@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Domain.Entities.Emergency;
@@ -164,11 +165,19 @@ public class GetSosClustersQueryHandlerTests
                 SosRequestId: 10,
                 Statuses: [SosClusterStatus.Pending],
                 Priorities: [SosPriorityLevel.High, SosPriorityLevel.High],
-                SosTypes: [SosRequestType.Rescue, SosRequestType.Rescue]),
+                SosTypes: [SosRequestType.Rescue, SosRequestType.Rescue],
+                SortOptions:
+                [
+                    new SosSortOption(SosSortField.Severity, SosSortDirection.Desc),
+                    new SosSortOption(SosSortField.Time, SosSortDirection.Desc)
+                ]),
             CancellationToken.None);
 
         Assert.Equal([SosPriorityLevel.High], repository.LastPriorities?.ToArray());
         Assert.Equal([SosRequestType.Rescue], repository.LastSosTypes?.ToArray());
+        Assert.Equal(
+            [new SosSortOption(SosSortField.Severity, SosSortDirection.Desc), new SosSortOption(SosSortField.Time, SosSortDirection.Desc)],
+            repository.LastSortOptions);
         Assert.Single(result.Items);
     }
 
@@ -204,6 +213,7 @@ public class GetSosClustersQueryHandlerTests
     {
         public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
         public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
+        public IReadOnlyList<SosSortOption>? LastSortOptions { get; private set; }
 
         public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken ct = default)
             => Task.FromResult<IEnumerable<SosClusterModel>>(clusters);
@@ -215,20 +225,21 @@ public class GetSosClustersQueryHandlerTests
             IReadOnlyCollection<SosClusterStatus>? statuses = null,
             IReadOnlyCollection<SosPriorityLevel>? priorities = null,
             IReadOnlyCollection<SosRequestType>? sosTypes = null,
+            IReadOnlyList<SosSortOption>? sortOptions = null,
             CancellationToken cancellationToken = default)
         {
             LastPriorities = priorities;
             LastSosTypes = sosTypes;
+            LastSortOptions = sortOptions;
 
             var statusSet = statuses?.ToHashSet();
             var filtered = clusters
                 .Where(cluster => !sosRequestId.HasValue || cluster.SosRequestIds.Contains(sosRequestId.Value))
                 .Where(cluster => statusSet is null || statusSet.Count == 0 || statusSet.Contains(cluster.Status))
-                .OrderByDescending(cluster => cluster.CreatedAt)
-                .ThenByDescending(cluster => cluster.Id)
                 .ToList();
+            var sorted = SosSortParser.ApplyToClusters(filtered, sortOptions).ToList();
 
-            var items = filtered
+            var items = sorted
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToList();

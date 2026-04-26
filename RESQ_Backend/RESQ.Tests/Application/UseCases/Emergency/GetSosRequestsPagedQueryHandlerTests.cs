@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsPaged;
 using RESQ.Domain.Entities.Emergency;
@@ -32,12 +33,20 @@ public class GetSosRequestsPagedQueryHandlerTests
             PageSize = 2,
             Statuses = [SosRequestStatus.Assigned],
             Priorities = [SosPriorityLevel.High, SosPriorityLevel.High],
-            SosTypes = [SosRequestType.Rescue, SosRequestType.Rescue]
+            SosTypes = [SosRequestType.Rescue, SosRequestType.Rescue],
+            SortOptions =
+            [
+                new SosSortOption(SosSortField.Severity, SosSortDirection.Desc),
+                new SosSortOption(SosSortField.Time, SosSortDirection.Desc)
+            ]
         }, CancellationToken.None);
 
         Assert.Equal([SosRequestStatus.Assigned], repository.LastStatuses);
         Assert.Equal([SosPriorityLevel.High], repository.LastPriorities);
         Assert.Equal([SosRequestType.Rescue], repository.LastSosTypes);
+        Assert.Equal(
+            [new SosSortOption(SosSortField.Severity, SosSortDirection.Desc), new SosSortOption(SosSortField.Time, SosSortDirection.Desc)],
+            repository.LastSortOptions);
         Assert.Equal([2], result.Items.Select(item => item.Id).ToArray());
         Assert.Equal(1, result.TotalCount);
         Assert.Equal(1, result.PageNumber);
@@ -72,6 +81,7 @@ public class GetSosRequestsPagedQueryHandlerTests
         public IReadOnlyCollection<SosRequestStatus>? LastStatuses { get; private set; }
         public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
         public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
+        public IReadOnlyList<SosSortOption>? LastSortOptions { get; private set; }
 
         public Task CreateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -84,11 +94,13 @@ public class GetSosRequestsPagedQueryHandlerTests
             IReadOnlyCollection<SosRequestStatus>? statuses = null,
             IReadOnlyCollection<SosPriorityLevel>? priorities = null,
             IReadOnlyCollection<SosRequestType>? sosTypes = null,
+            IReadOnlyList<SosSortOption>? sortOptions = null,
             CancellationToken cancellationToken = default)
         {
             LastStatuses = statuses;
             LastPriorities = priorities;
             LastSosTypes = sosTypes;
+            LastSortOptions = sortOptions;
 
             var query = requests.AsEnumerable();
             if (statuses is { Count: > 0 })
@@ -98,9 +110,7 @@ public class GetSosRequestsPagedQueryHandlerTests
             if (sosTypes is { Count: > 0 })
                 query = query.Where(request => !string.IsNullOrWhiteSpace(request.SosType) && sosTypes.Select(sosType => sosType.ToString()).Contains(request.SosType));
 
-            var filtered = query
-                .OrderByDescending(request => request.CreatedAt)
-                .ToList();
+            var filtered = SosSortParser.ApplyToRequests(query, sortOptions).ToList();
 
             var items = filtered
                 .Skip((pageNumber - 1) * pageSize)

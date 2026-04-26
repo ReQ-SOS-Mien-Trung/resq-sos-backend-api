@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.UseCases.Emergency.Commands.CancelSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Emergency.Commands.UpdateSosRequestVictim;
@@ -113,6 +114,11 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
             });
         }
 
+        if (!SosSortParser.TryParse(query.Sort, out var sortOptions, out var sortError))
+        {
+            return BadRequest(new { message = sortError });
+        }
+
         if (hasAllBounds)
         {
             var boundsResult = await _mediator.Send(new GetSosRequestsByBoundsQuery
@@ -123,7 +129,8 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
                 MaxLng = query.MaxLng,
                 Statuses = query.Statuses,
                 Priorities = query.Priorities,
-                SosTypes = query.SosTypes
+                SosTypes = query.SosTypes,
+                SortOptions = sortOptions
             });
 
             return Ok(boundsResult);
@@ -135,7 +142,8 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
             PageSize = query.PageSize,
             Statuses = query.Statuses,
             Priorities = query.Priorities,
-            SosTypes = query.SosTypes
+            SosTypes = query.SosTypes,
+            SortOptions = sortOptions
         });
 
         return Ok(pagedResult);

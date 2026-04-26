@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Application.Common.Sorting;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Persistence.Base;
@@ -174,6 +175,115 @@ public class SosClusterRepositoryTests
         Assert.Equal(1, cluster.Id);
         Assert.Equal([101], cluster.SosRequestIds);
         Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortsBySeverityDescendingThenTimeDescending_AndKeepsUnknownLast()
+    {
+        await using var context = CreateContext();
+
+        context.SosClusters.AddRange(
+            new SosCluster
+            {
+                Id = 1,
+                Status = "Pending",
+                SeverityLevel = "Medium",
+                CreatedAt = new DateTime(2026, 4, 3, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 2,
+                Status = "Pending",
+                SeverityLevel = "Critical",
+                CreatedAt = new DateTime(2026, 4, 1, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 3,
+                Status = "Pending",
+                SeverityLevel = "High",
+                CreatedAt = new DateTime(2026, 4, 4, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 4,
+                Status = "Pending",
+                SeverityLevel = null,
+                CreatedAt = new DateTime(2026, 4, 5, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 5,
+                Status = "Pending",
+                SeverityLevel = "Unknown",
+                CreatedAt = new DateTime(2026, 4, 6, 8, 0, 0, DateTimeKind.Utc)
+            });
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetPagedAsync(
+            pageNumber: 1,
+            pageSize: 10,
+            sortOptions:
+            [
+                new SosSortOption(SosSortField.Severity, SosSortDirection.Desc),
+                new SosSortOption(SosSortField.Time, SosSortDirection.Desc)
+            ]);
+
+        Assert.Equal([2, 3, 1, 5, 4], result.Items.Select(x => x.Id).ToArray());
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortsBySeverityAscending_WithAliases()
+    {
+        await using var context = CreateContext();
+
+        context.SosClusters.AddRange(
+            new SosCluster
+            {
+                Id = 1,
+                Status = "Pending",
+                SeverityLevel = "Severe",
+                CreatedAt = new DateTime(2026, 4, 1, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 2,
+                Status = "Pending",
+                SeverityLevel = "Moderate",
+                CreatedAt = new DateTime(2026, 4, 2, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 3,
+                Status = "Pending",
+                SeverityLevel = "Minor",
+                CreatedAt = new DateTime(2026, 4, 3, 8, 0, 0, DateTimeKind.Utc)
+            },
+            new SosCluster
+            {
+                Id = 4,
+                Status = "Pending",
+                SeverityLevel = "Critical",
+                CreatedAt = new DateTime(2026, 4, 4, 8, 0, 0, DateTimeKind.Utc)
+            });
+
+        await context.SaveChangesAsync();
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetPagedAsync(
+            pageNumber: 1,
+            pageSize: 10,
+            sortOptions:
+            [
+                new SosSortOption(SosSortField.Severity, SosSortDirection.Asc),
+                new SosSortOption(SosSortField.Time, SosSortDirection.Desc)
+            ]);
+
+        Assert.Equal([3, 2, 1, 4], result.Items.Select(x => x.Id).ToArray());
     }
 
     [Fact]
