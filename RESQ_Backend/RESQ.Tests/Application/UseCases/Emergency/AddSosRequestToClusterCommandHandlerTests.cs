@@ -23,18 +23,29 @@ public class AddSosRequestToClusterCommandHandlerTests
             sosRequestRepository: new StubSosRequestRepository());
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101], CoordinatorId), CancellationToken.None));
     }
 
     [Fact]
-    public async Task Handle_ThrowsNotFound_WhenSosDoesNotExist()
+    public async Task Handle_ThrowsNotFound_WhenAnySosDoesNotExist()
     {
+        var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201] };
+        var existing = BuildSosRequest(201, clusterId: 7);
+        var incoming = BuildSosRequest(101, clusterId: null);
+        var sosRequestRepository = new StubSosRequestRepository(existing, incoming);
+        var unitOfWork = new StubUnitOfWork();
         var handler = BuildHandler(
-            clusterRepository: new StubSosClusterRepository(new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201] }),
-            sosRequestRepository: new StubSosRequestRepository());
+            clusterRepository: new StubSosClusterRepository(cluster),
+            sosRequestRepository: sosRequestRepository,
+            unitOfWork: unitOfWork);
 
-        await Assert.ThrowsAsync<NotFoundException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101, 102], CoordinatorId), CancellationToken.None));
+
+        Assert.Contains("102", ex.Message, StringComparison.Ordinal);
+        Assert.Null(sosRequestRepository.GetById(101)!.ClusterId);
+        Assert.Equal(0, sosRequestRepository.UpdateCalls);
+        Assert.Equal(0, unitOfWork.ExecuteInTransactionCalls);
     }
 
     [Theory]
@@ -50,7 +61,7 @@ public class AddSosRequestToClusterCommandHandlerTests
             sosRequestRepository: new StubSosRequestRepository(existing, incoming));
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101], CoordinatorId), CancellationToken.None));
     }
 
     [Theory]
@@ -58,7 +69,7 @@ public class AddSosRequestToClusterCommandHandlerTests
     [InlineData(SosRequestStatus.InProgress)]
     [InlineData(SosRequestStatus.Resolved)]
     [InlineData(SosRequestStatus.Cancelled)]
-    public async Task Handle_ThrowsBadRequest_WhenSosStatusIsNotPendingOrIncident(SosRequestStatus status)
+    public async Task Handle_ThrowsBadRequest_WhenAnySosStatusIsNotPendingOrIncident(SosRequestStatus status)
     {
         var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201] };
         var existing = BuildSosRequest(201, clusterId: 7);
@@ -68,7 +79,30 @@ public class AddSosRequestToClusterCommandHandlerTests
             sosRequestRepository: new StubSosRequestRepository(existing, incoming));
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101], CoordinatorId), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Handle_DoesNotPartiallyUpdate_WhenOneIncomingSosIsInvalid()
+    {
+        var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201] };
+        var existing = BuildSosRequest(201, clusterId: 7);
+        var validIncoming = BuildSosRequest(101, clusterId: null);
+        var invalidIncoming = BuildSosRequest(102, clusterId: null, status: SosRequestStatus.Assigned);
+        var sosRequestRepository = new StubSosRequestRepository(existing, validIncoming, invalidIncoming);
+        var unitOfWork = new StubUnitOfWork();
+        var handler = BuildHandler(
+            clusterRepository: new StubSosClusterRepository(cluster),
+            sosRequestRepository: sosRequestRepository,
+            unitOfWork: unitOfWork);
+
+        await Assert.ThrowsAsync<BadRequestException>(() =>
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101, 102], CoordinatorId), CancellationToken.None));
+
+        Assert.Null(sosRequestRepository.GetById(101)!.ClusterId);
+        Assert.Null(sosRequestRepository.GetById(102)!.ClusterId);
+        Assert.Equal(0, sosRequestRepository.UpdateCalls);
+        Assert.Equal(0, unitOfWork.ExecuteInTransactionCalls);
     }
 
     [Fact]
@@ -82,7 +116,7 @@ public class AddSosRequestToClusterCommandHandlerTests
             sosRequestRepository: new StubSosRequestRepository(existing, incoming));
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101], CoordinatorId), CancellationToken.None));
     }
 
     [Fact]
@@ -96,7 +130,7 @@ public class AddSosRequestToClusterCommandHandlerTests
             sosRequestRepository: new StubSosRequestRepository(existing, incoming));
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101], CoordinatorId), CancellationToken.None));
     }
 
     [Fact]
@@ -111,25 +145,33 @@ public class AddSosRequestToClusterCommandHandlerTests
             groupingConfigRepository: new StubSosClusterGroupingConfigRepository(maximumDistanceKm: 5));
 
         await Assert.ThrowsAsync<BadRequestException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101], CoordinatorId), CancellationToken.None));
     }
 
     [Fact]
     public async Task Handle_ThrowsBadRequest_WhenCombinedRequestsExceedClusterLimit()
     {
-        var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201, 202, 203, 204, 205] };
-        var existingRequests = Enumerable.Range(201, 5)
+        var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201, 202, 203, 204] };
+        var existingRequests = Enumerable.Range(201, 4)
             .Select((id, index) => BuildSosRequest(id, clusterId: 7, lat: 10.0 + (index * 0.001), lon: 106.0))
             .ToArray();
-        var incoming = BuildSosRequest(101, clusterId: null, lat: 10.005, lon: 106.0);
+        var incomingOne = BuildSosRequest(101, clusterId: null, lat: 10.005, lon: 106.0);
+        var incomingTwo = BuildSosRequest(102, clusterId: null, lat: 10.006, lon: 106.0);
+        var sosRequestRepository = new StubSosRequestRepository([.. existingRequests, incomingOne, incomingTwo]);
+        var unitOfWork = new StubUnitOfWork();
         var handler = BuildHandler(
             clusterRepository: new StubSosClusterRepository(cluster),
-            sosRequestRepository: new StubSosRequestRepository([.. existingRequests, incoming]));
+            sosRequestRepository: sosRequestRepository,
+            unitOfWork: unitOfWork);
 
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101, 102], CoordinatorId), CancellationToken.None));
 
         Assert.Contains("5 SOS request", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(sosRequestRepository.GetById(101)!.ClusterId);
+        Assert.Null(sosRequestRepository.GetById(102)!.ClusterId);
+        Assert.Equal(0, sosRequestRepository.UpdateCalls);
+        Assert.Equal(0, unitOfWork.ExecuteInTransactionCalls);
     }
 
     [Fact]
@@ -137,13 +179,14 @@ public class AddSosRequestToClusterCommandHandlerTests
     {
         var cluster = new SosClusterModel { Id = 7, Status = SosClusterStatus.Pending, SosRequestIds = [201] };
         var existing = BuildSosRequest(201, clusterId: 7, structuredData: PeopleCountJson(adult: 60));
-        var incoming = BuildSosRequest(101, clusterId: null, lat: 10.001, structuredData: PeopleCountJson(adult: 41));
+        var incomingOne = BuildSosRequest(101, clusterId: null, lat: 10.001, structuredData: PeopleCountJson(adult: 20));
+        var incomingTwo = BuildSosRequest(102, clusterId: null, lat: 10.002, structuredData: PeopleCountJson(adult: 21));
         var handler = BuildHandler(
             clusterRepository: new StubSosClusterRepository(cluster),
-            sosRequestRepository: new StubSosRequestRepository(existing, incoming));
+            sosRequestRepository: new StubSosRequestRepository(existing, incomingOne, incomingTwo));
 
         var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
-            handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None));
+            handler.Handle(new AddSosRequestToClusterCommand(7, [101, 102], CoordinatorId), CancellationToken.None));
 
         Assert.Contains("100", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -156,9 +199,9 @@ public class AddSosRequestToClusterCommandHandlerTests
             Id = 7,
             Status = SosClusterStatus.Pending,
             CreatedAt = DateTime.UtcNow,
-            SosRequestIds = [201, 202, 203, 204]
+            SosRequestIds = [201, 202, 203]
         };
-        var existingRequests = Enumerable.Range(201, 4)
+        var existingRequests = Enumerable.Range(201, 3)
             .Select((id, index) => BuildSosRequest(
                 id,
                 clusterId: 7,
@@ -166,25 +209,31 @@ public class AddSosRequestToClusterCommandHandlerTests
                 lon: 106.0,
                 structuredData: PeopleCountJson(adult: 20)))
             .ToArray();
-        var incoming = BuildSosRequest(
+        var incomingOne = BuildSosRequest(
             101,
             clusterId: null,
             lat: 10.004,
             lon: 106.0,
             structuredData: PeopleCountJson(adult: 20));
+        var incomingTwo = BuildSosRequest(
+            102,
+            clusterId: null,
+            lat: 10.005,
+            lon: 106.0,
+            structuredData: PeopleCountJson(adult: 20));
         var handler = BuildHandler(
             clusterRepository: new StubSosClusterRepository(cluster),
-            sosRequestRepository: new StubSosRequestRepository([.. existingRequests, incoming]));
+            sosRequestRepository: new StubSosRequestRepository([.. existingRequests, incomingOne, incomingTwo]));
 
-        var response = await handler.Handle(new AddSosRequestToClusterCommand(7, 101, CoordinatorId), CancellationToken.None);
+        var response = await handler.Handle(new AddSosRequestToClusterCommand(7, [101, 102], CoordinatorId), CancellationToken.None);
 
         Assert.Equal(5, response.UpdatedCluster!.SosRequestCount);
         Assert.Equal(100, response.UpdatedCluster.VictimEstimated);
-        Assert.Equal([201, 202, 203, 204, 101], response.UpdatedCluster.SosRequestIds);
+        Assert.Equal([201, 202, 203, 101, 102], response.UpdatedCluster.SosRequestIds);
     }
 
     [Fact]
-    public async Task Handle_AddsPendingSosToPendingCluster_AndRecomputesAggregate()
+    public async Task Handle_AddsPendingSosRequestsToPendingCluster_AndRecomputesAggregate()
     {
         var cluster = new SosClusterModel
         {
@@ -200,7 +249,7 @@ public class AddSosRequestToClusterCommandHandlerTests
             lon: 106.0,
             priority: SosPriorityLevel.High,
             structuredData: """{"incident":{"people_count":{"adult":1,"child":0,"elderly":0}}}""");
-        var incoming = BuildSosRequest(
+        var incomingOne = BuildSosRequest(
             101,
             clusterId: null,
             lat: 10.02,
@@ -208,8 +257,16 @@ public class AddSosRequestToClusterCommandHandlerTests
             priority: SosPriorityLevel.Critical,
             status: SosRequestStatus.Pending,
             structuredData: """{"incident":{"people_count":{"adult":2,"child":1,"elderly":1}}}""");
+        var incomingTwo = BuildSosRequest(
+            102,
+            clusterId: null,
+            lat: 10.04,
+            lon: 106.02,
+            priority: SosPriorityLevel.Medium,
+            status: SosRequestStatus.Incident,
+            structuredData: """{"incident":{"people_count":{"adult":3,"child":0,"elderly":2}}}""");
         var clusterRepository = new StubSosClusterRepository(cluster);
-        var sosRequestRepository = new StubSosRequestRepository(existing, incoming);
+        var sosRequestRepository = new StubSosRequestRepository(existing, incomingOne, incomingTwo);
         var unitOfWork = new StubUnitOfWork();
         var handler = BuildHandler(
             clusterRepository: clusterRepository,
@@ -217,24 +274,27 @@ public class AddSosRequestToClusterCommandHandlerTests
             unitOfWork: unitOfWork);
 
         var response = await handler.Handle(
-            new AddSosRequestToClusterCommand(7, 101, CoordinatorId),
+            new AddSosRequestToClusterCommand(7, [101, 102], CoordinatorId),
             CancellationToken.None);
 
         Assert.NotNull(response.UpdatedCluster);
         Assert.Equal(7, response.ClusterId);
-        Assert.Equal(101, response.AddedSosRequestId);
+        Assert.Equal([101, 102], response.AddedSosRequestIds);
         Assert.Equal(SosClusterStatus.Pending, response.UpdatedCluster!.Status);
-        Assert.Equal(2, response.UpdatedCluster.SosRequestCount);
-        Assert.Equal([201, 101], response.UpdatedCluster.SosRequestIds);
-        Assert.Equal(10.01, response.UpdatedCluster.CenterLatitude!.Value, 3);
+        Assert.Equal(3, response.UpdatedCluster.SosRequestCount);
+        Assert.Equal([201, 101, 102], response.UpdatedCluster.SosRequestIds);
+        Assert.Equal(10.02, response.UpdatedCluster.CenterLatitude!.Value, 3);
         Assert.Equal(106.02, response.UpdatedCluster.CenterLongitude!.Value, 3);
         Assert.Equal("Critical", response.UpdatedCluster.SeverityLevel);
-        Assert.Equal(5, response.UpdatedCluster.VictimEstimated);
+        Assert.Equal(10, response.UpdatedCluster.VictimEstimated);
         Assert.Equal(1, response.UpdatedCluster.ChildrenCount);
-        Assert.Equal(1, response.UpdatedCluster.ElderlyCount);
+        Assert.Equal(3, response.UpdatedCluster.ElderlyCount);
         Assert.Equal(7, sosRequestRepository.GetById(101)!.ClusterId);
+        Assert.Equal(7, sosRequestRepository.GetById(102)!.ClusterId);
         Assert.Equal(SosRequestStatus.Pending, sosRequestRepository.GetById(101)!.Status);
+        Assert.Equal(SosRequestStatus.Incident, sosRequestRepository.GetById(102)!.Status);
         Assert.Equal(1, clusterRepository.UpdateCalls);
+        Assert.Equal(2, sosRequestRepository.UpdateCalls);
         Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
     }
 
@@ -256,7 +316,7 @@ public class AddSosRequestToClusterCommandHandlerTests
             unitOfWork: new StubUnitOfWork());
 
         var response = await handler.Handle(
-            new AddSosRequestToClusterCommand(7, 101, CoordinatorId),
+            new AddSosRequestToClusterCommand(7, [101], CoordinatorId),
             CancellationToken.None);
 
         Assert.Equal(SosClusterStatus.Pending, response.UpdatedCluster!.Status);
@@ -332,9 +392,13 @@ public class AddSosRequestToClusterCommandHandlerTests
             => Task.CompletedTask;
     }
 
-    private sealed class StubSosRequestRepository(params SosRequestModel[] sosRequests) : ISosRequestRepository
+    private sealed class StubSosRequestRepository(params SosRequestModel[] sosRequests)
+        : ISosRequestRepository, ISosRequestBulkReadRepository
     {
         private readonly Dictionary<int, SosRequestModel> _requests = sosRequests.ToDictionary(request => request.Id);
+
+        public int UpdateCalls { get; private set; }
+        public int BulkReadCalls { get; private set; }
 
         public SosRequestModel? GetById(int id) => _requests.GetValueOrDefault(id);
 
@@ -343,6 +407,7 @@ public class AddSosRequestToClusterCommandHandlerTests
 
         public Task UpdateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default)
         {
+            UpdateCalls++;
             _requests[sosRequest.Id] = sosRequest;
             return Task.CompletedTask;
         }
@@ -355,6 +420,16 @@ public class AddSosRequestToClusterCommandHandlerTests
 
         public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
             => Task.FromResult(GetById(id));
+
+        public Task<List<SosRequestModel>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+        {
+            BulkReadCalls++;
+            return Task.FromResult(ids
+                .Distinct()
+                .Where(_requests.ContainsKey)
+                .Select(id => _requests[id])
+                .ToList());
+        }
 
         public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default)
             => Task.FromResult(_requests.Values.Where(request => request.ClusterId == clusterId));
