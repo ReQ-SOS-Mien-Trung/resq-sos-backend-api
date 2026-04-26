@@ -1,3 +1,4 @@
+using RESQ.Application.Common.Sorting;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -13,5 +14,6 @@ public interface ISosRequestMapReadRepository
         IReadOnlyCollection<SosRequestStatus>? statuses = null,
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
+        IReadOnlyList<SosSortOption>? sortOptions = null,
         CancellationToken cancellationToken = default);
 }

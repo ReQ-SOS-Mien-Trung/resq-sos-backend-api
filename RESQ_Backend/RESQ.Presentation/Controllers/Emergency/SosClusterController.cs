@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.AddSosRequestToCluster;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosCluster;
@@ -93,9 +94,15 @@ public class SosClusterController(IMediator mediator) : ControllerBase
         [FromQuery] int? sosRequestId = null,
         [FromQuery] List<SosClusterStatus>? statuses = null,
         [FromQuery] List<SosPriorityLevel>? priorities = null,
-        [FromQuery] List<SosRequestType>? sosTypes = null)
+        [FromQuery] List<SosRequestType>? sosTypes = null,
+        [FromQuery] string? sort = null)
     {
-        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId, statuses, priorities, sosTypes));
+        if (!SosSortParser.TryParse(sort, out var sortOptions, out var sortError))
+        {
+            return BadRequest(new { message = sortError });
+        }
+
+        var result = await _mediator.Send(new GetSosClustersQuery(pageNumber, pageSize, sosRequestId, statuses, priorities, sosTypes, sortOptions));
         return Ok(result);
     }
 

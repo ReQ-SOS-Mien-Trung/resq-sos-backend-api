@@ -1,5 +1,7 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
@@ -38,6 +40,7 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
         IReadOnlyCollection<SosClusterStatus>? statuses = null,
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
+        IReadOnlyList<SosSortOption>? sortOptions = null,
         CancellationToken cancellationToken = default)
     {
         var statusNames = statuses?
@@ -82,9 +85,8 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var entities = await query
-            .OrderByDescending(cluster => cluster.CreatedAt)
-            .ThenByDescending(cluster => cluster.Id)
+        var orderedQuery = OrderWithSortOptions(query, sortOptions);
+        var entities = await orderedQuery
             .Skip((normalizedPageNumber - 1) * normalizedPageSize)
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
@@ -99,6 +101,73 @@ public class SosClusterRepository(IUnitOfWork unitOfWork) : ISosClusterRepositor
             normalizedPageNumber,
             normalizedPageSize);
     }
+
+    private static IOrderedQueryable<SosCluster> OrderWithSortOptions(
+        IQueryable<SosCluster> query,
+        IReadOnlyList<SosSortOption>? sortOptions)
+    {
+        IOrderedQueryable<SosCluster>? ordered = null;
+
+        foreach (var option in SosSortParser.Normalize(sortOptions))
+        {
+            ordered = option.Field switch
+            {
+                SosSortField.Time => ApplyTimeSort(query, ordered, option.Direction),
+                SosSortField.Severity => ApplySeveritySort(query, ordered, option.Direction),
+                _ => ordered
+            };
+        }
+
+        return ApplyOrder(query, ordered, cluster => cluster.Id, descending: true);
+    }
+
+    private static IOrderedQueryable<SosCluster> ApplyTimeSort(
+        IQueryable<SosCluster> query,
+        IOrderedQueryable<SosCluster>? ordered,
+        SosSortDirection direction)
+    {
+        ordered = ApplyOrder(query, ordered, cluster => cluster.CreatedAt == null, descending: false);
+        return ApplyOrder(query, ordered, cluster => cluster.CreatedAt, direction == SosSortDirection.Desc);
+    }
+
+    private static IOrderedQueryable<SosCluster> ApplySeveritySort(
+        IQueryable<SosCluster> query,
+        IOrderedQueryable<SosCluster>? ordered,
+        SosSortDirection direction)
+    {
+        ordered = ApplyOrder(query, ordered, ClusterSeverityUnknownExpression, descending: false);
+        return ApplyOrder(query, ordered, ClusterSeverityRankExpression, direction == SosSortDirection.Desc);
+    }
+
+    private static Expression<Func<SosCluster, bool>> ClusterSeverityUnknownExpression =>
+        cluster => cluster.SeverityLevel == null
+            || (cluster.SeverityLevel.ToLower() != "critical"
+                && cluster.SeverityLevel.ToLower() != "high"
+                && cluster.SeverityLevel.ToLower() != "severe"
+                && cluster.SeverityLevel.ToLower() != "medium"
+                && cluster.SeverityLevel.ToLower() != "moderate"
+                && cluster.SeverityLevel.ToLower() != "low"
+                && cluster.SeverityLevel.ToLower() != "minor");
+
+    private static Expression<Func<SosCluster, int>> ClusterSeverityRankExpression =>
+        cluster => cluster.SeverityLevel != null && cluster.SeverityLevel.ToLower() == "critical" ? 4
+            : cluster.SeverityLevel != null && (cluster.SeverityLevel.ToLower() == "high" || cluster.SeverityLevel.ToLower() == "severe") ? 3
+            : cluster.SeverityLevel != null && (cluster.SeverityLevel.ToLower() == "medium" || cluster.SeverityLevel.ToLower() == "moderate") ? 2
+            : cluster.SeverityLevel != null && (cluster.SeverityLevel.ToLower() == "low" || cluster.SeverityLevel.ToLower() == "minor") ? 1
+            : 0;
+
+    private static IOrderedQueryable<SosCluster> ApplyOrder<TKey>(
+        IQueryable<SosCluster> query,
+        IOrderedQueryable<SosCluster>? ordered,
+        Expression<Func<SosCluster, TKey>> keySelector,
+        bool descending)
+        => ordered is null
+            ? descending
+                ? query.OrderByDescending(keySelector)
+                : query.OrderBy(keySelector)
+            : descending
+                ? ordered.ThenByDescending(keySelector)
+                : ordered.ThenBy(keySelector);
 
     public async Task<int> CreateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default)
     {

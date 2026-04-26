@@ -13,4 +13,5 @@ public class GetSosRequestsQueryParameters
     public List<SosRequestType>? SosTypes { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public string? Sort { get; set; }
 }
