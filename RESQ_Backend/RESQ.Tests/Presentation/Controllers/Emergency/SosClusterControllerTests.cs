@@ -84,12 +84,12 @@ public class SosClusterControllerTests
     }
 
     [Fact]
-    public async Task AddSosRequestToCluster_ForwardsRouteValuesAndUserIdToMediator()
+    public async Task AddSosRequestToCluster_ForwardsRouteBodyValuesAndUserIdToMediator()
     {
         var response = new AddSosRequestToClusterResponse
         {
             ClusterId = 7,
-            AddedSosRequestId = 101
+            AddedSosRequestIds = [101, 102]
         };
         var mediator = new RecordingMediator(_ => response);
         var controller = new SosClusterController(mediator)
@@ -108,13 +108,15 @@ public class SosClusterControllerTests
             }
         };
 
-        var result = await controller.AddSosRequestToCluster(7, 101);
+        var result = await controller.AddSosRequestToCluster(
+            7,
+            new AddSosRequestsToClusterRequestDto { SosRequestIds = [101, 102] });
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentCommand = Assert.IsType<AddSosRequestToClusterCommand>(Assert.Single(mediator.SentRequests));
 
         Assert.Equal(7, sentCommand.ClusterId);
-        Assert.Equal(101, sentCommand.SosRequestId);
+        Assert.Equal([101, 102], sentCommand.SosRequestIds);
         Assert.Equal(Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"), sentCommand.RequestedByUserId);
         Assert.Same(response, okResult.Value);
     }
