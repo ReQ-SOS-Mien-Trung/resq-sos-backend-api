@@ -1,4 +1,5 @@
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Enum.Emergency;
 
@@ -15,6 +16,7 @@ public interface ISosClusterRepository
         IReadOnlyCollection<SosClusterStatus>? statuses = null,
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
+        IReadOnlyList<SosSortOption>? sortOptions = null,
         CancellationToken cancellationToken = default)
     {
         var normalizedPageNumber = pageNumber <= 0 ? 1 : pageNumber;
@@ -24,11 +26,12 @@ public interface ISosClusterRepository
         var filtered = (await GetAllAsync(cancellationToken))
             .Where(cluster => !sosRequestId.HasValue || cluster.SosRequestIds.Contains(sosRequestId.Value))
             .Where(cluster => statusSet is null || statusSet.Count == 0 || statusSet.Contains(cluster.Status))
-            .OrderByDescending(cluster => cluster.CreatedAt)
-            .ThenByDescending(cluster => cluster.Id)
             .ToList();
 
-        var items = filtered
+        var sorted = SosSortParser.ApplyToClusters(filtered, sortOptions)
+            .ToList();
+
+        var items = sorted
             .Skip((normalizedPageNumber - 1) * normalizedPageSize)
             .Take(normalizedPageSize)
             .ToList();

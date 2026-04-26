@@ -55,7 +55,7 @@ public class SosClusterControllerRouteTests
         var httpPost = Assert.Single(method!
             .GetCustomAttributes(typeof(HttpPostAttribute), inherit: false)
             .Cast<HttpPostAttribute>());
-        Assert.Equal("{clusterId:int}/sos-requests/{sosRequestId:int}", httpPost.Template);
+        Assert.Equal("{clusterId:int}/sos-requests", httpPost.Template);
 
         var authorize = Assert.Single(method
             .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)

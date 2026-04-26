@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.UseCases.Emergency.Queries;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestStatusCounts;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
@@ -35,7 +36,8 @@ public class SosRequestControllerTests
             MaxLng = 106.70,
             Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned],
             Priorities = [SosPriorityLevel.High, SosPriorityLevel.Critical],
-            SosTypes = [SosRequestType.Rescue, SosRequestType.Relief]
+            SosTypes = [SosRequestType.Rescue, SosRequestType.Relief],
+            Sort = "severity:desc,time:desc"
         };
 
         var result = await controller.GetSosRequests(query);
@@ -50,6 +52,9 @@ public class SosRequestControllerTests
         Assert.Equal([SosRequestStatus.Pending, SosRequestStatus.Assigned], sentQuery.Statuses);
         Assert.Equal([SosPriorityLevel.High, SosPriorityLevel.Critical], sentQuery.Priorities);
         Assert.Equal([SosRequestType.Rescue, SosRequestType.Relief], sentQuery.SosTypes);
+        Assert.Equal(
+            [new SosSortOption(SosSortField.Severity, SosSortDirection.Desc), new SosSortOption(SosSortField.Time, SosSortDirection.Desc)],
+            sentQuery.SortOptions);
         Assert.Same(response, okResult.Value);
     }
 
@@ -71,7 +76,8 @@ public class SosRequestControllerTests
             PageSize = 25,
             Statuses = [SosRequestStatus.Pending],
             Priorities = [SosPriorityLevel.Medium],
-            SosTypes = [SosRequestType.Both]
+            SosTypes = [SosRequestType.Both],
+            Sort = "time:asc,severity:desc"
         };
 
         var result = await controller.GetSosRequests(query);
@@ -84,7 +90,28 @@ public class SosRequestControllerTests
         Assert.Equal([SosRequestStatus.Pending], sentQuery.Statuses);
         Assert.Equal([SosPriorityLevel.Medium], sentQuery.Priorities);
         Assert.Equal([SosRequestType.Both], sentQuery.SosTypes);
+        Assert.Equal(
+            [new SosSortOption(SosSortField.Time, SosSortDirection.Asc), new SosSortOption(SosSortField.Severity, SosSortDirection.Desc)],
+            sentQuery.SortOptions);
         Assert.Same(response, okResult.Value);
+    }
+
+    [Fact]
+    public async Task GetSosRequests_WithInvalidSort_ReturnsBadRequest()
+    {
+        var mediator = new RecordingMediator();
+        var controller = new SosRequestController(mediator, new AllowAuthorizationService());
+        var query = new GetSosRequestsQueryParameters
+        {
+            Sort = "priority:desc"
+        };
+
+        var result = await controller.GetSosRequests(query);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+
+        Assert.Empty(mediator.SentRequests);
+        Assert.Contains("Unsupported sort field", badRequest.Value!.ToString());
     }
 
     [Fact]

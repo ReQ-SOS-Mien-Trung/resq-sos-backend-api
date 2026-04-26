@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.UseCases.Emergency.Commands.AddSosRequestToCluster;
 using RESQ.Application.UseCases.Emergency.Commands.RemoveSosRequestFromCluster;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
@@ -32,7 +33,8 @@ public class SosClusterControllerTests
             sosRequestId: 99,
             statuses: statuses,
             priorities: priorities,
-            sosTypes: sosTypes);
+            sosTypes: sosTypes,
+            sort: "severity:desc,time:desc");
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentQuery = Assert.IsType<GetSosClustersQuery>(Assert.Single(mediator.SentRequests));
@@ -43,7 +45,24 @@ public class SosClusterControllerTests
         Assert.Same(statuses, sentQuery.Statuses);
         Assert.Same(priorities, sentQuery.Priorities);
         Assert.Same(sosTypes, sentQuery.SosTypes);
+        Assert.Equal(
+            [new SosSortOption(SosSortField.Severity, SosSortDirection.Desc), new SosSortOption(SosSortField.Time, SosSortDirection.Desc)],
+            sentQuery.SortOptions);
         Assert.IsType<PagedResult<SosClusterDto>>(okResult.Value);
+    }
+
+    [Fact]
+    public async Task GetClusters_WithInvalidSort_ReturnsBadRequest()
+    {
+        var mediator = new RecordingMediator();
+        var controller = new SosClusterController(mediator);
+
+        var result = await controller.GetClusters(sort: "severity:desc,severity:asc");
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+
+        Assert.Empty(mediator.SentRequests);
+        Assert.Contains("Duplicate sort field", badRequest.Value!.ToString());
     }
 
     [Fact]
@@ -84,12 +103,12 @@ public class SosClusterControllerTests
     }
 
     [Fact]
-    public async Task AddSosRequestToCluster_ForwardsRouteValuesAndUserIdToMediator()
+    public async Task AddSosRequestToCluster_ForwardsRouteBodyValuesAndUserIdToMediator()
     {
         var response = new AddSosRequestToClusterResponse
         {
             ClusterId = 7,
-            AddedSosRequestId = 101
+            AddedSosRequestIds = [101, 102]
         };
         var mediator = new RecordingMediator(_ => response);
         var controller = new SosClusterController(mediator)
@@ -108,13 +127,15 @@ public class SosClusterControllerTests
             }
         };
 
-        var result = await controller.AddSosRequestToCluster(7, 101);
+        var result = await controller.AddSosRequestToCluster(
+            7,
+            new AddSosRequestsToClusterRequestDto { SosRequestIds = [101, 102] });
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var sentCommand = Assert.IsType<AddSosRequestToClusterCommand>(Assert.Single(mediator.SentRequests));
 
         Assert.Equal(7, sentCommand.ClusterId);
-        Assert.Equal(101, sentCommand.SosRequestId);
+        Assert.Equal([101, 102], sentCommand.SosRequestIds);
         Assert.Equal(Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"), sentCommand.RequestedByUserId);
         Assert.Same(response, okResult.Value);
     }

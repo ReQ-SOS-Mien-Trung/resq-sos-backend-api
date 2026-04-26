@@ -19,7 +19,6 @@ public class AddSosRequestToClusterCommandHandler(
     ILogger<AddSosRequestToClusterCommandHandler> logger)
     : IRequestHandler<AddSosRequestToClusterCommand, AddSosRequestToClusterResponse>
 {
-    /// <summary>Khoảng cách tối đa (km) giữa 2 SOS request bất kỳ trong cùng một cluster.</summary>
     private const double DefaultMaxClusterSpreadKm = 10.0;
 
     private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
@@ -32,48 +31,34 @@ public class AddSosRequestToClusterCommandHandler(
         AddSosRequestToClusterCommand request,
         CancellationToken cancellationToken)
     {
+        var requestedIds = request.SosRequestIds?.ToList() ?? [];
+        ValidateRequestedSosRequestIds(requestedIds);
+
         _logger.LogInformation(
-            "Adding SosRequestId={SosRequestId} to ClusterId={ClusterId}, RequestedBy={UserId}",
-            request.SosRequestId,
+            "Adding {SosRequestCount} SOS requests to ClusterId={ClusterId}, RequestedBy={UserId}",
+            requestedIds.Count,
             request.ClusterId,
             request.RequestedByUserId);
 
         var cluster = await _sosClusterRepository.GetByIdAsync(request.ClusterId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy cluster với ID: {request.ClusterId}");
 
-        var sosRequest = await _sosRequestRepository.GetByIdAsync(request.SosRequestId, cancellationToken)
-            ?? throw new NotFoundException($"Không tìm thấy SOS request với ID: {request.SosRequestId}");
-
         if (cluster.Status is not SosClusterStatus.Pending and not SosClusterStatus.Suggested)
         {
             throw new ConflictException(
-                $"Chỉ được thêm SOS request vào cluster ở trạng thái Pending hoặc Suggested. " +
+                "Chỉ được thêm SOS request vào cluster ở trạng thái Pending hoặc Suggested. " +
                 $"Cluster #{request.ClusterId} hiện đang ở trạng thái {cluster.Status}.");
         }
 
-        if (sosRequest.Status is not SosRequestStatus.Pending and not SosRequestStatus.Incident)
-        {
-            throw new BadRequestException(
-                $"Chỉ được thêm các SOS request ở trạng thái Pending hoặc Incident. " +
-                $"SOS request #{request.SosRequestId} hiện đang ở trạng thái {sosRequest.Status}.");
-        }
-
-        if (sosRequest.ClusterId.HasValue)
-        {
-            if (sosRequest.ClusterId.Value == request.ClusterId)
-            {
-                throw new ConflictException(
-                    $"SOS request #{request.SosRequestId} đã thuộc cluster #{request.ClusterId}.");
-            }
-
-            throw new ConflictException(
-                $"SOS request #{request.SosRequestId} đã thuộc cluster khác (Cluster #{sosRequest.ClusterId.Value}).");
-        }
+        var incomingRequests = await GetIncomingSosRequestsAsync(requestedIds, cancellationToken);
+        ValidateAllRequestedSosRequestsExist(requestedIds, incomingRequests);
+        ValidateIncomingSosRequestStatuses(incomingRequests);
+        ValidateIncomingSosRequestClusterMembership(request.ClusterId, incomingRequests);
 
         var clusterRequests = (await _sosRequestRepository.GetByClusterIdAsync(request.ClusterId, cancellationToken))
             .ToList();
         var updatedRequests = clusterRequests
-            .Append(sosRequest)
+            .Concat(incomingRequests)
             .ToList();
 
         ValidateClusterRequestCount(updatedRequests);
@@ -91,9 +76,12 @@ public class AddSosRequestToClusterCommandHandler(
 
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
-            sosRequest.ClusterId = request.ClusterId;
-            sosRequest.LastUpdatedAt = now;
-            await _sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+            foreach (var sosRequest in incomingRequests)
+            {
+                sosRequest.ClusterId = request.ClusterId;
+                sosRequest.LastUpdatedAt = now;
+                await _sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+            }
 
             SosClusterAggregateBuilder.ApplyToCluster(cluster, aggregate);
             cluster.LastUpdatedAt = now;
@@ -109,9 +97,123 @@ public class AddSosRequestToClusterCommandHandler(
         return new AddSosRequestToClusterResponse
         {
             ClusterId = request.ClusterId,
-            AddedSosRequestId = request.SosRequestId,
+            AddedSosRequestIds = requestedIds,
             UpdatedCluster = ToDto(cluster)
         };
+    }
+
+    private async Task<List<SosRequestModel>> GetIncomingSosRequestsAsync(
+        IReadOnlyList<int> sosRequestIds,
+        CancellationToken cancellationToken)
+    {
+        List<SosRequestModel> fetchedRequests;
+        if (_sosRequestRepository is ISosRequestBulkReadRepository bulkReadRepository)
+        {
+            fetchedRequests = await bulkReadRepository.GetByIdsAsync(sosRequestIds, cancellationToken);
+        }
+        else
+        {
+            fetchedRequests = [];
+            foreach (var sosRequestId in sosRequestIds)
+            {
+                var sosRequest = await _sosRequestRepository.GetByIdAsync(sosRequestId, cancellationToken);
+                if (sosRequest is not null)
+                {
+                    fetchedRequests.Add(sosRequest);
+                }
+            }
+        }
+
+        var lookup = fetchedRequests
+            .GroupBy(sosRequest => sosRequest.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        return sosRequestIds
+            .Where(lookup.ContainsKey)
+            .Select(sosRequestId => lookup[sosRequestId])
+            .ToList();
+    }
+
+    private static void ValidateRequestedSosRequestIds(IReadOnlyList<int> sosRequestIds)
+    {
+        if (sosRequestIds.Count == 0)
+        {
+            throw new BadRequestException("Phải chọn ít nhất một SOS request để thêm vào cluster.");
+        }
+
+        var invalidIds = sosRequestIds
+            .Where(id => id <= 0)
+            .ToList();
+        if (invalidIds.Count > 0)
+        {
+            throw new BadRequestException($"Danh sách SOS request có ID không hợp lệ: {string.Join(", ", invalidIds)}.");
+        }
+
+        var duplicateIds = sosRequestIds
+            .GroupBy(id => id)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+        if (duplicateIds.Count > 0)
+        {
+            throw new BadRequestException($"Danh sách SOS request không được có ID trùng lặp: {string.Join(", ", duplicateIds)}.");
+        }
+    }
+
+    private static void ValidateAllRequestedSosRequestsExist(
+        IReadOnlyList<int> requestedIds,
+        IReadOnlyCollection<SosRequestModel> resolvedRequests)
+    {
+        var resolvedIds = resolvedRequests
+            .Select(sosRequest => sosRequest.Id)
+            .ToHashSet();
+        var missingIds = requestedIds
+            .Where(id => !resolvedIds.Contains(id))
+            .ToList();
+
+        if (missingIds.Count > 0)
+        {
+            throw new NotFoundException($"Không tìm thấy SOS request với ID: {string.Join(", ", missingIds)}");
+        }
+    }
+
+    private static void ValidateIncomingSosRequestStatuses(IReadOnlyCollection<SosRequestModel> sosRequests)
+    {
+        var invalidRequests = sosRequests
+            .Where(sosRequest => sosRequest.Status is not SosRequestStatus.Pending and not SosRequestStatus.Incident)
+            .ToList();
+
+        if (invalidRequests.Count > 0)
+        {
+            throw new BadRequestException(
+                "Chỉ được thêm các SOS request ở trạng thái Pending hoặc Incident. " +
+                $"Các request không hợp lệ: {string.Join(", ", invalidRequests.Select(r => $"#{r.Id} ({r.Status})"))}");
+        }
+    }
+
+    private static void ValidateIncomingSosRequestClusterMembership(
+        int clusterId,
+        IReadOnlyCollection<SosRequestModel> sosRequests)
+    {
+        var alreadyInCurrentCluster = sosRequests
+            .Where(sosRequest => sosRequest.ClusterId == clusterId)
+            .ToList();
+        if (alreadyInCurrentCluster.Count > 0)
+        {
+            throw new ConflictException(
+                $"Các SOS request sau đã thuộc cluster #{clusterId}: " +
+                $"{string.Join(", ", alreadyInCurrentCluster.Select(r => $"#{r.Id}"))}.");
+        }
+
+        var alreadyInOtherCluster = sosRequests
+            .Where(sosRequest => sosRequest.ClusterId.HasValue && sosRequest.ClusterId != clusterId)
+            .ToList();
+        if (alreadyInOtherCluster.Count > 0)
+        {
+            throw new ConflictException(
+                "Các SOS request sau đã thuộc cluster khác: " +
+                $"{string.Join(", ", alreadyInOtherCluster.Select(r => $"#{r.Id} (Cluster #{r.ClusterId})"))}.");
+        }
     }
 
     private static void ValidateClusterRequestCount(IReadOnlyCollection<SosRequestModel> sosRequests)
@@ -162,15 +264,12 @@ public class AddSosRequestToClusterCommandHandler(
                     throw new BadRequestException(
                         $"SOS request #{a.Id} và #{b.Id} cách nhau {distKm:F1} km, " +
                         $"vượt quá giới hạn {maxClusterSpreadKm:F1} km cho phép trong một cluster. " +
-                        $"Vui lòng chỉ nhóm các yêu cầu trong cùng khu vực địa lý.");
+                        "Vui lòng chỉ nhóm các yêu cầu trong cùng khu vực địa lý.");
                 }
             }
         }
     }
 
-    /// <summary>
-    /// Tính khoảng cách (km) giữa hai toạ độ GPS theo công thức Haversine.
-    /// </summary>
     private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
     {
         const double R = 6371.0;

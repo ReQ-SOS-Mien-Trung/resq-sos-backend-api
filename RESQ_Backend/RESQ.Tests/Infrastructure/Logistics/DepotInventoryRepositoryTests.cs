@@ -107,6 +107,64 @@ public class DepotInventoryRepositoryTests
     }
 
     [Fact]
+    public async Task ConsumeReservedSuppliesFromSnapshotAsync_WithReusableItem_UsesPlannedUnit()
+    {
+        await using var context = CreateContext();
+        context.ItemModels.Add(new ItemModel
+        {
+            Id = 108,
+            Name = "Bo den pin doi dau",
+            Unit = "bo",
+            ItemType = "Reusable"
+        });
+        context.ReusableItems.AddRange(
+            new ReusableItem
+            {
+                Id = 221,
+                DepotId = 3,
+                ItemModelId = 108,
+                SerialNumber = "HEADLAMP-221",
+                Status = "Reserved",
+                Condition = "Good"
+            },
+            new ReusableItem
+            {
+                Id = 222,
+                DepotId = 3,
+                ItemModelId = 108,
+                SerialNumber = "HEADLAMP-222",
+                Status = "Reserved",
+                Condition = "Good"
+            });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var unitOfWork = new UnitOfWork(context, NullLogger<UnitOfWork>.Instance);
+        var repository = new DepotInventoryRepository(unitOfWork, new StubInventoryQueryService());
+
+        var result = await repository.ConsumeReservedSuppliesFromSnapshotAsync(
+            depotId: 3,
+            items: [(108, 1)],
+            reusableItemIdsByItem: new Dictionary<int, IReadOnlyCollection<int>>
+            {
+                [108] = [222]
+            },
+            performedBy: Guid.NewGuid(),
+            activityId: 13,
+            missionId: 7);
+
+        context.ChangeTracker.Clear();
+        var firstUnit = await context.ReusableItems.SingleAsync(x => x.Id == 221);
+        var plannedUnit = await context.ReusableItems.SingleAsync(x => x.Id == 222);
+        var executionItem = Assert.Single(result.Items);
+        var executionUnit = Assert.Single(executionItem.ReusableUnits);
+
+        Assert.Equal(222, executionUnit.ReusableItemId);
+        Assert.Equal("Reserved", firstUnit.Status);
+        Assert.Equal("InUse", plannedUnit.Status);
+    }
+
+    [Fact]
     public async Task GetLotDetailedInventoryForClosureAsync_WithReusableItems_ReturnsRowsPerReusableUnit()
     {
         await using var context = CreateContext();

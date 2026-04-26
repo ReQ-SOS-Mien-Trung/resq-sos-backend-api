@@ -4,5 +4,5 @@ namespace RESQ.Application.UseCases.Emergency.Commands.AddSosRequestToCluster;
 
 public record AddSosRequestToClusterCommand(
     int ClusterId,
-    int SosRequestId,
+    List<int> SosRequestIds,
     Guid RequestedByUserId) : IRequest<AddSosRequestToClusterResponse>;

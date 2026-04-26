@@ -1,5 +1,7 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
@@ -86,6 +88,7 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         IReadOnlyCollection<SosRequestStatus>? statuses = null,
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
+        IReadOnlyList<SosSortOption>? sortOptions = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.GetRepository<SosRequest>()
@@ -122,10 +125,11 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         var entities = await query
             .ToListAsync(cancellationToken);
 
-        return entities
+        var domainItems = entities
             .Where(x => IsInsideBounds(x, minLat, maxLat, minLng, maxLng))
-            .OrderByDescending(x => x.CreatedAt)
-            .Select(SosRequestMapper.ToDomain)
+            .Select(SosRequestMapper.ToDomain);
+
+        return SosSortParser.ApplyToRequests(domainItems, sortOptions)
             .ToList();
     }
 
@@ -147,6 +151,7 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         IReadOnlyCollection<SosRequestStatus>? statuses = null,
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
+        IReadOnlyList<SosSortOption>? sortOptions = null,
         CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<SosRequest>();
@@ -175,7 +180,7 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
                     && (!hasPriorityFilter || (request.PriorityLevel != null && priorityNames!.Contains(request.PriorityLevel)))
                     && (!hasSosTypeFilter || (request.SosType != null && sosTypeNames!.Contains(request.SosType)))
                 : null,
-            orderBy: q => q.OrderByDescending(x => x.CreatedAt)
+            orderBy: q => ApplySort(q, sortOptions)
         );
 
         var domainItems = pagedEntities.Items
@@ -189,6 +194,70 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
             pagedEntities.PageSize
         );
     }
+
+    private static IOrderedQueryable<SosRequest> ApplySort(
+        IQueryable<SosRequest> query,
+        IReadOnlyList<SosSortOption>? sortOptions)
+    {
+        IOrderedQueryable<SosRequest>? ordered = null;
+
+        foreach (var option in SosSortParser.Normalize(sortOptions))
+        {
+            ordered = option.Field switch
+            {
+                SosSortField.Time => ApplyTimeSort(query, ordered, option.Direction),
+                SosSortField.Severity => ApplySeveritySort(query, ordered, option.Direction),
+                _ => ordered
+            };
+        }
+
+        return ApplyOrder(query, ordered, request => request.Id, descending: true);
+    }
+
+    private static IOrderedQueryable<SosRequest> ApplyTimeSort(
+        IQueryable<SosRequest> query,
+        IOrderedQueryable<SosRequest>? ordered,
+        SosSortDirection direction)
+    {
+        ordered = ApplyOrder(query, ordered, request => request.CreatedAt == null, descending: false);
+        return ApplyOrder(query, ordered, request => request.CreatedAt, direction == SosSortDirection.Desc);
+    }
+
+    private static IOrderedQueryable<SosRequest> ApplySeveritySort(
+        IQueryable<SosRequest> query,
+        IOrderedQueryable<SosRequest>? ordered,
+        SosSortDirection direction)
+    {
+        ordered = ApplyOrder(query, ordered, RequestPriorityUnknownExpression, descending: false);
+        return ApplyOrder(query, ordered, RequestPriorityRankExpression, direction == SosSortDirection.Desc);
+    }
+
+    private static Expression<Func<SosRequest, bool>> RequestPriorityUnknownExpression =>
+        request => request.PriorityLevel == null
+            || (request.PriorityLevel.ToLower() != "critical"
+                && request.PriorityLevel.ToLower() != "high"
+                && request.PriorityLevel.ToLower() != "medium"
+                && request.PriorityLevel.ToLower() != "low");
+
+    private static Expression<Func<SosRequest, int>> RequestPriorityRankExpression =>
+        request => request.PriorityLevel != null && request.PriorityLevel.ToLower() == "critical" ? 4
+            : request.PriorityLevel != null && request.PriorityLevel.ToLower() == "high" ? 3
+            : request.PriorityLevel != null && request.PriorityLevel.ToLower() == "medium" ? 2
+            : request.PriorityLevel != null && request.PriorityLevel.ToLower() == "low" ? 1
+            : 0;
+
+    private static IOrderedQueryable<SosRequest> ApplyOrder<TKey>(
+        IQueryable<SosRequest> query,
+        IOrderedQueryable<SosRequest>? ordered,
+        Expression<Func<SosRequest, TKey>> keySelector,
+        bool descending)
+        => ordered is null
+            ? descending
+                ? query.OrderByDescending(keySelector)
+                : query.OrderBy(keySelector)
+            : descending
+                ? ordered.ThenByDescending(keySelector)
+                : ordered.ThenBy(keySelector);
 
     public async Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {

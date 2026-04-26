@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Application.Common.Sorting;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequestsByBounds;
 using RESQ.Domain.Entities.Emergency;
@@ -81,6 +82,11 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             MaxLat = 10.80,
             MinLng = 106.60,
             MaxLng = 106.70,
+            SortOptions =
+            [
+                new SosSortOption(SosSortField.Severity, SosSortDirection.Desc),
+                new SosSortOption(SosSortField.Time, SosSortDirection.Desc)
+            ],
             Priorities = [SosPriorityLevel.High, SosPriorityLevel.High],
             SosTypes = [SosRequestType.Relief, SosRequestType.Relief]
         }, CancellationToken.None);
@@ -88,6 +94,9 @@ public class GetSosRequestsByBoundsQueryHandlerTests
         Assert.Equal([3], result.Select(x => x.Id).ToArray());
         Assert.Equal([SosPriorityLevel.High], repository.LastPriorities?.ToArray());
         Assert.Equal([SosRequestType.Relief], repository.LastSosTypes?.ToArray());
+        Assert.Equal(
+            [new SosSortOption(SosSortField.Severity, SosSortDirection.Desc), new SosSortOption(SosSortField.Time, SosSortDirection.Desc)],
+            repository.LastSortOptions);
     }
 
     [Fact]
@@ -181,6 +190,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
         public IReadOnlyCollection<SosRequestStatus>? LastStatuses { get; private set; }
         public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
         public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
+        public IReadOnlyList<SosSortOption>? LastSortOptions { get; private set; }
 
         public Task<List<SosRequestModel>> GetByBoundsAsync(
             double minLat,
@@ -190,6 +200,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             IReadOnlyCollection<SosRequestStatus>? statuses = null,
             IReadOnlyCollection<SosPriorityLevel>? priorities = null,
             IReadOnlyCollection<SosRequestType>? sosTypes = null,
+            IReadOnlyList<SosSortOption>? sortOptions = null,
             CancellationToken cancellationToken = default)
         {
             LastMinLat = minLat;
@@ -199,6 +210,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             LastStatuses = statuses;
             LastPriorities = priorities;
             LastSosTypes = sosTypes;
+            LastSortOptions = sortOptions;
 
             var query = requests
                 .Where(x => x.Location != null
@@ -222,9 +234,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
                 query = query.Where(x => !string.IsNullOrWhiteSpace(x.SosType) && sosTypes.Select(sosType => sosType.ToString()).Contains(x.SosType));
             }
 
-            return Task.FromResult(query
-                .OrderByDescending(x => x.CreatedAt)
-                .ToList());
+            return Task.FromResult(SosSortParser.ApplyToRequests(query, sortOptions).ToList());
         }
     }
 
