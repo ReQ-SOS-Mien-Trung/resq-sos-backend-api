@@ -322,10 +322,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var existingDocumentCategoryIdSet = existingDocumentCategoryIds.ToHashSet();
         var documentCategories = new[]
         {
-            new DocumentFileTypeCategory { Id = 1, Code = "RESCUE", Description = "Rescue document category" },
-            new DocumentFileTypeCategory { Id = 2, Code = "MEDICAL", Description = "Medical document category" },
-            new DocumentFileTypeCategory { Id = 3, Code = "TRANSPORTATION", Description = "Transportation document category" },
-            new DocumentFileTypeCategory { Id = 4, Code = "OTHER", Description = "Other document category" }
+            new DocumentFileTypeCategory { Id = 1, Code = "RESCUE", Description = "Tài liệu danh mục cứu hộ" },
+            new DocumentFileTypeCategory { Id = 2, Code = "MEDICAL", Description = "Tài liệu danh mục y tế" },
+            new DocumentFileTypeCategory { Id = 3, Code = "TRANSPORTATION", Description = "Tài liệu danh mục vận chuyển" },
+            new DocumentFileTypeCategory { Id = 4, Code = "OTHER", Description = "Tài liệu danh mục khác" }
         };
         _db.DocumentFileTypeCategories.AddRange(documentCategories
             .Where(category => !existingDocumentCategoryIdSet.Contains(category.Id)));
@@ -4876,8 +4876,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 1,
             Code = "WATER_SAFETY_CERT",
-            Name = "Water safety certificate",
-            Description = "Certificate for basic swimming, survival and water safety capability.",
+            Name = "Chứng chỉ an toàn dưới nước",
+            Description = "Chứng chỉ xác nhận khả năng bơi lội, sinh tồn và an toàn môi trường nước cơ bản.",
             IsActive = true,
             DocumentFileTypeCategoryId = 1,
             CreatedAt = now,
@@ -4887,8 +4887,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 2,
             Code = "WATER_RESCUE_CERT",
-            Name = "Water rescue certificate",
-            Description = "Professional water rescue certificate for floods and swift water.",
+            Name = "Chứng chỉ cứu hộ dưới nước",
+            Description = "Chứng chỉ nghiệp vụ cứu hộ, cứu nạn chuyên nghiệp dưới nước, dòng chảy xiết.",
             IsActive = true,
             DocumentFileTypeCategoryId = 1,
             CreatedAt = now,
@@ -4898,8 +4898,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 3,
             Code = "TECHNICAL_RESCUE_CERT",
-            Name = "Technical rescue certificate",
-            Description = "Certificate for technical rescue equipment, rope rescue, confined spaces or collapse response.",
+            Name = "Chứng chỉ cứu hộ kỹ thuật",
+            Description = "Chứng chỉ nghiệp vụ sử dụng thiết bị chuyên dụng, cứu hộ không gian hẹp, sập đổ, dùng dây thừng.",
             IsActive = true,
             DocumentFileTypeCategoryId = 1,
             CreatedAt = now,
@@ -4909,8 +4909,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 4,
             Code = "DISASTER_RESPONSE_CERT",
-            Name = "Disaster response certificate",
-            Description = "Certificate for rapid response, coordination and disaster response training.",
+            Name = "Chứng chỉ ứng phó thiên tai",
+            Description = "Chứng chỉ hoàn thành khóa huấn luyện phản ứng nhanh, điều phối và ứng phó thảm họa/thiên tai.",
             IsActive = true,
             DocumentFileTypeCategoryId = 1,
             CreatedAt = now,
@@ -4920,8 +4920,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 5,
             Code = "BASIC_FIRST_AID_CERT",
-            Name = "Basic first aid certificate",
-            Description = "Certificate for basic first aid and CPR training.",
+            Name = "Chứng chỉ Sơ cấp cứu cơ bản",
+            Description = "Chứng chỉ hoàn thành các khóa đào tạo sơ cấp cứu ban đầu, hô hấp nhân tạo, dành cho tình nguyện viên và nhân viên y tế nền tảng.",
             IsActive = true,
             DocumentFileTypeCategoryId = 2,
             CreatedAt = now,
@@ -4931,8 +4931,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 6,
             Code = "NURSING_PRACTICE_LICENSE",
-            Name = "Nursing practice license",
-            Description = "Professional nursing license issued by a competent authority.",
+            Name = "Chứng chỉ hành nghề Điều dưỡng",
+            Description = "Giấy phép hành nghề điều dưỡng, y tá do cơ quan có thẩm quyền cấp, chứng minh năng lực thực hành lâm sàng và chăm sóc người bệnh.",
             IsActive = true,
             DocumentFileTypeCategoryId = 2,
             CreatedAt = now,
@@ -4942,8 +4942,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 7,
             Code = "MOTORCYCLE_LICENSE",
-            Name = "Motorcycle license",
-            Description = "Valid motorcycle driving license.",
+            Name = "Giấy phép lái xe máy",
+            Description = "Bằng lái xe mô tô 2 bánh (Hạng A1, A2...).",
             IsActive = true,
             DocumentFileTypeCategoryId = 3,
             CreatedAt = now,
@@ -4953,8 +4953,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 8,
             Code = "CAR_TRUCK_LICENSE",
-            Name = "Car or truck license",
-            Description = "Valid car, pickup or truck driving license.",
+            Name = "Giấy phép lái xe ô tô / tải",
+            Description = "Bằng lái xe ô tô, xe bán tải, xe tải hạng nặng (Hạng B1, B2, C, D...).",
             IsActive = true,
             DocumentFileTypeCategoryId = 3,
             CreatedAt = now,
@@ -4964,8 +4964,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 9,
             Code = "OTHER",
-            Name = "Other",
-            Description = "Other supporting document.",
+            Name = "Khác",
+            Description = "Khác",
             IsActive = true,
             DocumentFileTypeCategoryId = 4,
             CreatedAt = now,
@@ -4975,8 +4975,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 10,
             Code = "PARAMEDIC_EMT_CERT",
-            Name = "Paramedic or EMT certificate",
-            Description = "Emergency medical technician or pre-hospital care certificate.",
+            Name = "Chứng chỉ Cấp cứu ngoại viện",
+            Description = "Chứng chỉ chuyên môn dành cho lực lượng cấp cứu tiền viện (115/EMT), chuyên gia xử lý chấn thương và duy trì sự sống trực tiếp tại hiện trường.",
             IsActive = true,
             DocumentFileTypeCategoryId = 2,
             CreatedAt = now,
@@ -4986,8 +4986,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 11,
             Code = "MEDICAL_DOCTOR_LICENSE",
-            Name = "Medical doctor license",
-            Description = "Professional medical practice license for doctors.",
+            Name = "Chứng chỉ hành nghề Bác sĩ",
+            Description = "Giấy phép hành nghề khám, chữa bệnh cấp cho Bác sĩ. Thể hiện thẩm quyền cao nhất trong chẩn đoán, phân loại mức độ nguy kịch và ra y lệnh.",
             IsActive = true,
             DocumentFileTypeCategoryId = 2,
             CreatedAt = now,
@@ -4997,8 +4997,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             Id = 12,
             Code = "INLAND_WATERWAY_LICENSE",
-            Name = "Inland waterway license",
-            Description = "License for operating motorized inland waterway vehicles.",
+            Name = "Bằng lái phương tiện thủy",
+            Description = "Chứng chỉ/Bằng lái phương tiện thủy nội địa dành cho người điều khiển Ca nô, xuồng máy có động cơ.",
             IsActive = true,
             DocumentFileTypeCategoryId = 3,
             CreatedAt = now,
