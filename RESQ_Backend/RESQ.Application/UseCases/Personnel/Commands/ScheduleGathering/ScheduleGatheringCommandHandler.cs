@@ -16,6 +16,8 @@ public class ScheduleGatheringCommandHandler(
     ILogger<ScheduleGatheringCommandHandler> logger)
     : IRequestHandler<ScheduleGatheringCommand, int>
 {
+    private static readonly TimeSpan SchedulingGracePeriod = TimeSpan.FromMinutes(1);
+
     public async Task<int> Handle(ScheduleGatheringCommand request, CancellationToken cancellationToken)
     {
         // 1. Chuẩn hóa sang UTC để lưu trữ.
@@ -24,7 +26,7 @@ public class ScheduleGatheringCommandHandler(
 
         // 2. Không cho phép lập lịch vào một thời điểm đã trôi qua.
         var nowUtc = DateTime.UtcNow;
-        if (assemblyDateUtc < nowUtc)
+        if (assemblyDateUtc < nowUtc.Subtract(SchedulingGracePeriod))
         {
             var nowInVietnam = nowUtc.ToVietnamTime();
             throw new BadRequestException(

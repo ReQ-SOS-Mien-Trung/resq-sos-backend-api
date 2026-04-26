@@ -61,7 +61,9 @@ public class GlobalExceptionMiddleware : IMiddleware
         {
             case ValidationException validationEx:
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Lỗi xác thực dữ liệu";
+                response.Message = GetFirstValidationError(validationEx)
+                    ?? validationEx.Message
+                    ?? "Lỗi xác thực dữ liệu";
                 response.Errors = validationEx.Errors;
                 _logger.LogWarning("Validation failed");
                 break;
@@ -130,6 +132,13 @@ public class GlobalExceptionMiddleware : IMiddleware
         });
 
         await context.Response.WriteAsync(json);
+    }
+
+    private static string? GetFirstValidationError(ValidationException validationEx)
+    {
+        return validationEx.Errors
+            .SelectMany(error => error.Value)
+            .FirstOrDefault(error => !string.IsNullOrWhiteSpace(error));
     }
 }
 
