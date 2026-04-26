@@ -232,6 +232,7 @@ public class ReportMissionActivityIncidentCommandHandlerTests
             missionTeamRepo ?? new StubMissionTeamRepo(BuildMissionTeam()),
             new StubTeamIncidentRepo(),
             new StubSosRequestRepo(),
+            new StubSosClusterRepo(),
             new StubSosPriorityRuleConfigRepo(),
             new StubSosRequestUpdateRepo(),
             new StubDepotRepo(),
@@ -304,6 +305,15 @@ public class ReportMissionActivityIncidentCommandHandlerTests
         public Task UpdateStatusAsync(int id, SosRequestStatus s, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateStatusByClusterIdAsync(int cid, SosRequestStatus s, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
+    }
+
+    private sealed class StubSosClusterRepo : ISosClusterRepository
+    {
+        public Task<SosClusterModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult<SosClusterModel?>(null);
+        public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosClusterModel>());
+        public Task<int> CreateAsync(SosClusterModel cluster, CancellationToken ct = default) => Task.FromResult(cluster.Id);
+        public Task UpdateAsync(SosClusterModel cluster, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class StubSosPriorityRuleConfigRepo : ISosPriorityRuleConfigRepository

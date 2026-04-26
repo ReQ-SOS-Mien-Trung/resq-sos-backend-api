@@ -21,6 +21,7 @@ public class MissionActivityStatusExecutionService(
     IPersonnelQueryRepository personnelQueryRepository,
     IDepotInventoryRepository depotInventoryRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosClusterRepository sosClusterRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ITeamIncidentRepository teamIncidentRepository,
     IRescueTeamRepository rescueTeamRepository,
@@ -35,6 +36,7 @@ public class MissionActivityStatusExecutionService(
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
+    private readonly ISosClusterRepository _sosClusterRepository = sosClusterRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly ITeamIncidentRepository _teamIncidentRepository = teamIncidentRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
@@ -319,6 +321,7 @@ public class MissionActivityStatusExecutionService(
                 [activity.SosRequestId],
                 missionActivities,
                 _sosRequestRepository,
+                _sosClusterRepository,
                 _sosRequestUpdateRepository,
                 _activityRepository,
                 _teamIncidentRepository,

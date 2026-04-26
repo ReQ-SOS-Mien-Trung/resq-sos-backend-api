@@ -18,6 +18,7 @@ using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Entities.Personnel;
+using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
@@ -146,6 +147,44 @@ public class MissionActivityStatusExecutionServiceTests
         Assert.Equal(existingImageUrl, result.ImageUrl);
         Assert.Equal(existingImageUrl, activityRepository.Get(5).ImageUrl);
         Assert.Null(Assert.Single(activityRepository.UpdateStatusCalls).imageUrl);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_MarksClusterCompleted_WhenLastClusterSosRequestIsResolved()
+    {
+        var activityRepository = CreateActivityRepository(new MissionActivityModel
+        {
+            Id = 20,
+            MissionId = 30,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = "RESCUE",
+            SosRequestId = 100
+        });
+
+        var sosRequestRepository = new RecordingSosRequestRepository(new SosRequestModel
+        {
+            Id = 100,
+            ClusterId = 7,
+            Status = SosRequestStatus.InProgress
+        });
+
+        var sosClusterRepository = new RecordingSosClusterRepository(new SosClusterModel
+        {
+            Id = 7,
+            Status = SosClusterStatus.InProgress,
+            SosRequestIds = [100]
+        });
+
+        var service = BuildService(
+            activityRepository,
+            new StubUnitOfWork(),
+            sosRequestRepository: sosRequestRepository,
+            sosClusterRepository: sosClusterRepository);
+
+        await service.ApplyAsync(30, 20, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Equal(SosRequestStatus.Resolved, sosRequestRepository.Get(100).Status);
+        Assert.Equal(SosClusterStatus.Completed, sosClusterRepository.UpdatedCluster?.Status);
     }
 
     [Fact]
@@ -324,7 +363,11 @@ public class MissionActivityStatusExecutionServiceTests
         StubUnitOfWork unitOfWork,
         IMissionTeamRepository? missionTeamRepository = null,
         IRescueTeamRepository? rescueTeamRepository = null,
-        IAssemblyEventRepository? assemblyEventRepository = null)
+        IAssemblyEventRepository? assemblyEventRepository = null,
+        ISosRequestRepository? sosRequestRepository = null,
+        ISosClusterRepository? sosClusterRepository = null,
+        ISosRequestUpdateRepository? sosRequestUpdateRepository = null,
+        ITeamIncidentRepository? teamIncidentRepository = null)
     {
         rescueTeamRepository ??= new RecordingRescueTeamRepository(null);
         missionTeamRepository ??= new RecordingMissionTeamRepository();
@@ -340,9 +383,10 @@ public class MissionActivityStatusExecutionServiceTests
             missionTeamRepository,
             new NoOpPersonnelQueryRepository(),
             new NoOpDepotInventoryRepository(),
-            new NoOpSosRequestRepository(),
-            new NoOpSosRequestUpdateRepository(),
-            new NoOpTeamIncidentRepository(),
+            sosRequestRepository ?? new NoOpSosRequestRepository(),
+            sosClusterRepository ?? new NoOpSosClusterRepository(),
+            sosRequestUpdateRepository ?? new NoOpSosRequestUpdateRepository(),
+            teamIncidentRepository ?? new NoOpTeamIncidentRepository(),
             rescueTeamRepository,
             unitOfWork,
             NullLogger<MissionActivityStatusExecutionService>.Instance,
@@ -576,12 +620,99 @@ public class MissionActivityStatusExecutionServiceTests
         public Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
+    private sealed class RecordingSosRequestRepository(params SosRequestModel[] sosRequests) : ISosRequestRepository
+    {
+        private readonly Dictionary<int, SosRequestModel> _sosRequests = sosRequests.ToDictionary(sosRequest => sosRequest.Id);
+
+        public SosRequestModel Get(int id) => _sosRequests[id];
+
+        public Task CreateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default)
+        {
+            _sosRequests[sosRequest.Id] = sosRequest;
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default)
+        {
+            _sosRequests[sosRequest.Id] = sosRequest;
+            return Task.CompletedTask;
+        }
+
+        public Task<IEnumerable<SosRequestModel>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_sosRequests.Values.Where(sosRequest => sosRequest.UserId == userId).AsEnumerable());
+
+        public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(_sosRequests.Values.AsEnumerable());
+
+        public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_sosRequests.TryGetValue(id, out var sosRequest) ? sosRequest : null);
+
+        public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_sosRequests.Values.Where(sosRequest => sosRequest.ClusterId == clusterId).AsEnumerable());
+
+        public Task UpdateStatusAsync(int id, SosRequestStatus status, CancellationToken cancellationToken = default)
+        {
+            if (_sosRequests.TryGetValue(id, out var sosRequest))
+            {
+                sosRequest.SetStatus(status);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateStatusByClusterIdAsync(int clusterId, SosRequestStatus status, CancellationToken cancellationToken = default)
+        {
+            foreach (var sosRequest in _sosRequests.Values.Where(sosRequest => sosRequest.ClusterId == clusterId))
+            {
+                sosRequest.SetStatus(status);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Enumerable.Empty<SosRequestModel>());
+    }
+
+    private sealed class NoOpSosClusterRepository : ISosClusterRepository
+    {
+        public Task<SosClusterModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<int> CreateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateAsync(SosClusterModel cluster, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    }
+
+    private sealed class RecordingSosClusterRepository(SosClusterModel cluster) : ISosClusterRepository
+    {
+        public SosClusterModel? UpdatedCluster { get; private set; }
+
+        public Task<SosClusterModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<SosClusterModel?>(cluster.Id == id ? cluster : null);
+
+        public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IEnumerable<SosClusterModel>>([cluster]);
+
+        public Task<int> CreateAsync(SosClusterModel model, CancellationToken cancellationToken = default) =>
+            Task.FromResult(model.Id);
+
+        public Task UpdateAsync(SosClusterModel model, CancellationToken cancellationToken = default)
+        {
+            UpdatedCluster = model;
+            cluster.Status = model.Status;
+            cluster.LastUpdatedAt = model.LastUpdatedAt;
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     private sealed class NoOpSosRequestUpdateRepository : ISosRequestUpdateRepository
     {
         public Task AddVictimUpdateAsync(SosRequestVictimUpdateModel update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task AddIncidentRangeAsync(IEnumerable<SosRequestIncidentUpdateModel> updates, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetSosRequestIdsByTeamIncidentIdsAsync(IEnumerable<int> teamIncidentIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetTeamIncidentIdsBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetSosRequestIdsByTeamIncidentIdsAsync(IEnumerable<int> teamIncidentIds, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(new Dictionary<int, IReadOnlyCollection<int>>());
+        public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetTeamIncidentIdsBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(new Dictionary<int, IReadOnlyCollection<int>>());
         public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
