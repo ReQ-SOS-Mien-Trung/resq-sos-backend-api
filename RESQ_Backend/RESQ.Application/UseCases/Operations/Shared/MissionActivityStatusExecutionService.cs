@@ -188,9 +188,20 @@ public class MissionActivityStatusExecutionService(
 
                 if (itemsToConsume.Count > 0)
                 {
-                    pickupExecution = await _depotInventoryRepository.ConsumeReservedSuppliesAsync(
+                    var reusableItemIdsByItem = items
+                        .Where(item => item.ItemId.HasValue && item.PlannedPickupReusableUnits is { Count: > 0 })
+                        .ToDictionary(
+                            item => item.ItemId!.Value,
+                            item => (IReadOnlyCollection<int>)item.PlannedPickupReusableUnits!
+                                .Where(unit => unit.ReusableItemId > 0)
+                                .Select(unit => unit.ReusableItemId)
+                                .Distinct()
+                                .ToList());
+
+                    pickupExecution = await _depotInventoryRepository.ConsumeReservedSuppliesFromSnapshotAsync(
                         activity.DepotId.Value,
                         itemsToConsume,
+                        reusableItemIdsByItem,
                         decisionBy,
                         activityId,
                         activity.MissionId ?? 0,
