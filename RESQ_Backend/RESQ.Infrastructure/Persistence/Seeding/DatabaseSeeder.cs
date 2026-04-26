@@ -597,116 +597,188 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             {
                 new AbilityCategory
                 {
-                    Code = "MEDICAL",
-                    Description = "Năng lực y tế cứu hộ",
-                    Subgroups =
-                    {
-                        new AbilitySubgroup
-                        {
-                            Code = "FIRST_AID",
-                            Description = "Sơ cấp cứu và xử lý chấn thương",
-                            Abilities =
-                            {
-                                new Ability { Code = "CPR", Description = "Hồi sức tim phổi" },
-                                new Ability { Code = "BLEEDING_CONTROL", Description = "Cầm máu và băng bó" },
-                                new Ability { Code = "TRIAGE", Description = "Phân loại ưu tiên y tế hiện trường" }
-                            }
-                        },
-                        new AbilitySubgroup
-                        {
-                            Code = "CLINICAL_SUPPORT",
-                            Description = "Chăm sóc y tế cơ bản",
-                            Abilities =
-                            {
-                                new Ability { Code = "BLOOD_PRESSURE_MONITORING", Description = "Theo dõi huyết áp" },
-                                new Ability { Code = "OBSTETRIC_SUPPORT", Description = "Hỗ trợ phụ nữ mang thai" }
-                            }
-                        }
-                    }
-                },
-                new AbilityCategory
-                {
                     Code = "RESCUE",
-                    Description = "Năng lực cứu hộ hiện trường",
+                    Description = "Kỹ năng cứu hộ",
                     Subgroups =
                     {
                         new AbilitySubgroup
                         {
-                            Code = "WATER_RESCUE",
-                            Description = "Cứu hộ vùng ngập lụt",
+                            Code = "WATER_SKILLS",
+                            Description = "Kỹ năng bơi lội",
                             Abilities =
                             {
-                                new Ability { Code = "BOAT_OPERATION", Description = "Điều khiển xuồng máy cứu hộ" },
-                                new Ability { Code = "SWIFT_WATER_RESCUE", Description = "Cứu hộ dòng nước xiết" },
-                                new Ability { Code = "LIFEJACKET_DEPLOYMENT", Description = "Triển khai áo phao và dây cứu sinh" }
+                                new Ability { Code = "BASIC_SWIMMING", Description = "Bơi cơ bản" },
+                                new Ability { Code = "ADVANCED_SWIMMING", Description = "Bơi thành thạo" },
+                                new Ability { Code = "WATER_RESCUE", Description = "Cứu hộ dưới nước" },
+                                new Ability { Code = "DEEP_WATER_MOVEMENT", Description = "Di chuyển trong nước ngập sâu" },
+                                new Ability { Code = "RAPID_WATER_MOVEMENT", Description = "Di chuyển trong dòng nước chảy xiết" },
+                                new Ability { Code = "BASIC_DIVING", Description = "Lặn cơ bản" },
+                                new Ability { Code = "FLOOD_ESCAPE", Description = "Thoát hiểm trong môi trường ngập nước" }
                             }
                         },
                         new AbilitySubgroup
                         {
-                            Code = "TECHNICAL_RESCUE",
-                            Description = "Cứu hộ kỹ thuật",
+                            Code = "LIFESAVING_SKILLS",
+                            Description = "Kỹ năng cứu người",
                             Abilities =
                             {
-                                new Ability { Code = "ROPE_RESCUE", Description = "Cứu hộ dây" },
-                                new Ability { Code = "CHAINSAW_USE", Description = "Sử dụng cưa máy mở đường" },
-                                new Ability { Code = "COLLAPSE_SEARCH", Description = "Tìm kiếm trong khu vực sạt lở/sập đổ" }
+                                new Ability { Code = "FLOODED_HOUSE_RESCUE", Description = "Cứu người bị mắc kẹt trong nhà ngập" },
+                                new Ability { Code = "ROOFTOP_RESCUE", Description = "Cứu người bị mắc kẹt trên mái nhà" },
+                                new Ability { Code = "VEHICLE_RESCUE", Description = "Cứu người bị kẹt trong phương tiện (xe, ghe)" },
+                                new Ability { Code = "ROPE_RESCUE", Description = "Sử dụng dây thừng cứu hộ" },
+                                new Ability { Code = "LIFE_JACKET_USE", Description = "Sử dụng áo phao, phao cứu sinh" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "HARSH_ENVIRONMENT_RESCUE",
+                            Description = "Cứu hộ trong điều kiện khắc nghiệt",
+                            Abilities =
+                            {
+                                new Ability { Code = "NIGHT_RESCUE", Description = "Cứu hộ ban đêm / tầm nhìn kém" },
+                                new Ability { Code = "STORM_RESCUE", Description = "Cứu hộ trong mưa lớn / bão" },
+                                new Ability { Code = "DEBRIS_RESCUE", Description = "Cứu hộ tại khu vực đổ nát" },
+                                new Ability { Code = "HAZARDOUS_RESCUE", Description = "Cứu hộ trong môi trường nguy hiểm" }
                             }
                         }
                     }
                 },
                 new AbilityCategory
                 {
-                    Code = "TRANSPORT",
-                    Description = "Năng lực vận chuyển",
+                    Code = "MEDICAL",
+                    Description = "Kỹ năng y tế",
                     Subgroups =
                     {
                         new AbilitySubgroup
                         {
-                            Code = "DRIVING",
-                            Description = "Điều khiển phương tiện",
+                            Code = "PROFESSIONAL_MEDICAL",
+                            Description = "Y tế chuyên môn",
                             Abilities =
                             {
-                                new Ability { Code = "TRUCK_DRIVING", Description = "Lái xe tải cứu trợ" },
-                                new Ability { Code = "AMBULANCE_DRIVING", Description = "Lái xe cấp cứu" },
-                                new Ability { Code = "MOTORBIKE_FIELD", Description = "Di chuyển xe máy trong khu vực ngập nhẹ" }
+                                new Ability { Code = "MEDICAL_STAFF", Description = "Nhân viên y tế" },
+                                new Ability { Code = "NURSE", Description = "Y tá" },
+                                new Ability { Code = "DOCTOR", Description = "Bác sĩ" },
+                                new Ability { Code = "PREHOSPITAL_EMERGENCY", Description = "Cấp cứu tiền viện" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "BASIC_FIRST_AID",
+                            Description = "Sơ cứu cơ bản",
+                            Abilities =
+                            {
+                                new Ability { Code = "BASIC_FIRST_AID", Description = "Sơ cứu cơ bản" },
+                                new Ability { Code = "OPEN_WOUND_CARE", Description = "Sơ cứu vết thương hở" },
+                                new Ability { Code = "BLEEDING_CONTROL", Description = "Cầm máu" },
+                                new Ability { Code = "WOUND_BANDAGING", Description = "Băng bó vết thương" },
+                                new Ability { Code = "MINOR_INJURY_CARE", Description = "Xử lý trầy xước, chấn thương nhẹ" },
+                                new Ability { Code = "MINOR_BURN_CARE", Description = "Xử lý bỏng nhẹ" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "EMERGENCY_CARE",
+                            Description = "Cấp cứu",
+                            Abilities =
+                            {
+                                new Ability { Code = "CPR", Description = "Hồi sức tim phổi (CPR)" },
+                                new Ability { Code = "DROWNING_RESPONSE", Description = "Xử lý đuối nước" },
+                                new Ability { Code = "SHOCK_TREATMENT", Description = "Xử lý sốc" },
+                                new Ability { Code = "HYPOTHERMIA_TREATMENT", Description = "Xử lý hạ thân nhiệt" },
+                                new Ability { Code = "VITAL_SIGNS_MONITORING", Description = "Theo dõi dấu hiệu sinh tồn" },
+                                new Ability { Code = "VICTIM_ASSESSMENT", Description = "Đánh giá mức độ nguy kịch nạn nhân" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "TRAUMA_CARE",
+                            Description = "Chấn thương",
+                            Abilities =
+                            {
+                                new Ability { Code = "FRACTURE_IMMOBILIZATION", Description = "Cố định gãy xương tạm thời" },
+                                new Ability { Code = "SPINAL_INJURY_CARE", Description = "Xử lý chấn thương cột sống (cơ bản)" },
+                                new Ability { Code = "SAFE_PATIENT_TRANSPORT", Description = "Vận chuyển người bị thương an toàn" }
                             }
                         }
                     }
                 },
                 new AbilityCategory
                 {
-                    Code = "COMMUNICATION",
-                    Description = "Liên lạc và điều phối",
+                    Code = "TRANSPORTATION",
+                    Description = "Kỹ năng vận chuyển",
                     Subgroups =
                     {
                         new AbilitySubgroup
                         {
-                            Code = "RADIO",
-                            Description = "Liên lạc bộ đàm",
+                            Code = "LAND_VEHICLES",
+                            Description = "Lái xe cơ giới",
                             Abilities =
                             {
-                                new Ability { Code = "RADIO_OPERATION", Description = "Vận hành bộ đàm" },
-                                new Ability { Code = "FIELD_REPORTING", Description = "Báo cáo hiện trường" },
-                                new Ability { Code = "MESH_RELAY", Description = "Chuyển tiếp dữ liệu khi mất mạng" }
+                                new Ability { Code = "MOTORCYCLE_DRIVING", Description = "Lái xe máy" },
+                                new Ability { Code = "MOTORCYCLE_FLOOD_DRIVING", Description = "Lái xe máy trong điều kiện ngập nước" },
+                                new Ability { Code = "CAR_DRIVING", Description = "Lái ô tô" },
+                                new Ability { Code = "OFFROAD_DRIVING", Description = "Lái ô tô địa hình" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "WATER_VEHICLES",
+                            Description = "Lái phương tiện thủy",
+                            Abilities =
+                            {
+                                new Ability { Code = "ROWBOAT_DRIVING", Description = "Lái ghe" },
+                                new Ability { Code = "DINGHY_DRIVING", Description = "Lái xuồng" },
+                                new Ability { Code = "SPEEDBOAT_DRIVING", Description = "Lái ca nô" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "SPECIALIZED_DRIVING",
+                            Description = "Kỹ năng điều khiển đặc biệt",
+                            Abilities =
+                            {
+                                new Ability { Code = "NIGHT_VEHICLE_OPERATION", Description = "Điều khiển phương tiện ban đêm" },
+                                new Ability { Code = "RAIN_VEHICLE_OPERATION", Description = "Điều khiển phương tiện trong mưa lớn" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "TRANSPORT_OPERATIONS",
+                            Description = "Vận chuyển",
+                            Abilities =
+                            {
+                                new Ability { Code = "VICTIM_TRANSPORT", Description = "Vận chuyển nạn nhân" },
+                                new Ability { Code = "RELIEF_GOODS_TRANSPORT", Description = "Vận chuyển hàng cứu trợ" },
+                                new Ability { Code = "HEAVY_CARGO_TRANSPORT", Description = "Vận chuyển hàng nặng" }
                             }
                         }
                     }
                 },
                 new AbilityCategory
                 {
-                    Code = "LOGISTICS",
-                    Description = "Tiếp vận và kho",
+                    Code = "EXPERIENCE",
+                    Description = "Kinh nghiệm thực tiễn",
                     Subgroups =
                     {
                         new AbilitySubgroup
                         {
-                            Code = "WAREHOUSE",
-                            Description = "Kho vận cứu trợ",
+                            Code = "FIELD_EXPERIENCE",
+                            Description = "Kinh nghiệm thực tế",
                             Abilities =
                             {
-                                new Ability { Code = "FEFO_PICKING", Description = "Xuất kho theo hạn dùng" },
-                                new Ability { Code = "LOAD_PLANNING", Description = "Sắp xếp tải trọng xe/xuồng" },
-                                new Ability { Code = "DONATION_SORTING", Description = "Phân loại hàng quyên góp" }
+                                new Ability { Code = "DISASTER_RELIEF_EXPERIENCE", Description = "Đã tham gia cứu trợ thiên tai" },
+                                new Ability { Code = "FLOOD_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ lũ lụt" },
+                                new Ability { Code = "COMMUNITY_RESCUE_EXPERIENCE", Description = "Kinh nghiệm cứu hộ cộng đồng" }
+                            }
+                        },
+                        new AbilitySubgroup
+                        {
+                            Code = "ORGANIZATIONAL_MEMBERSHIP",
+                            Description = "Tổ chức",
+                            Abilities =
+                            {
+                                new Ability { Code = "LOCAL_RESCUE_TEAM_MEMBER", Description = "Thành viên đội cứu hộ địa phương" },
+                                new Ability { Code = "VOLUNTEER_ORG_MEMBER", Description = "Thành viên tổ chức thiện nguyện" }
                             }
                         }
                     }
