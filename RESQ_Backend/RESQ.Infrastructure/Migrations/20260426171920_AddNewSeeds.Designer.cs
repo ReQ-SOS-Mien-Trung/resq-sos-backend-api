@@ -13,7 +13,7 @@ using RESQ.Infrastructure.Persistence.Context;
 namespace RESQ.Infrastructure.Migrations
 {
     [DbContext(typeof(ResQDbContext))]
-    [Migration("20260426163145_AddNewSeeds")]
+    [Migration("20260426171920_AddNewSeeds")]
     partial class AddNewSeeds
     {
         /// <inheritdoc />
