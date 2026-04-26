@@ -5,6 +5,8 @@ namespace RESQ.Application.UseCases.Personnel.Commands.ScheduleGathering;
 
 public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGatheringCommand>
 {
+    private static readonly TimeSpan SchedulingGracePeriod = TimeSpan.FromMinutes(1);
+
     public ScheduleGatheringCommandValidator()
     {
         RuleFor(x => x.AssemblyPointId)
@@ -24,6 +26,6 @@ public class ScheduleGatheringCommandValidator : AbstractValidator<ScheduleGathe
 
     private static bool BeInTheFutureOrNow(DateTime assemblyDate)
     {
-        return assemblyDate.ToUtcForStorage() >= DateTime.UtcNow;
+        return assemblyDate.ToUtcForStorage() >= DateTime.UtcNow.Subtract(SchedulingGracePeriod);
     }
 }
