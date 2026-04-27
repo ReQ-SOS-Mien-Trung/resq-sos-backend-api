@@ -48,6 +48,7 @@ public class GetSosRequestsByBoundsQueryHandler(
             normalizedPriorities,
             normalizedSosTypes,
             sortOptions,
+            request.SosRequestId,
             cancellationToken);
 
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(

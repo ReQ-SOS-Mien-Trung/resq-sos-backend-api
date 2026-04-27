@@ -87,11 +87,13 @@ public class GetSosRequestsByBoundsQueryHandlerTests
                 new SosSortOption(SosSortField.Severity, SosSortDirection.Desc),
                 new SosSortOption(SosSortField.Time, SosSortDirection.Desc)
             ],
+            SosRequestId = 3,
             Priorities = [SosPriorityLevel.High, SosPriorityLevel.High],
             SosTypes = [SosRequestType.Relief, SosRequestType.Relief]
         }, CancellationToken.None);
 
         Assert.Equal([3], result.Select(x => x.Id).ToArray());
+        Assert.Equal(3, repository.LastSosRequestId);
         Assert.Equal([SosPriorityLevel.High], repository.LastPriorities?.ToArray());
         Assert.Equal([SosRequestType.Relief], repository.LastSosTypes?.ToArray());
         Assert.Equal(
@@ -191,6 +193,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
         public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
         public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
         public IReadOnlyList<SosSortOption>? LastSortOptions { get; private set; }
+        public int? LastSosRequestId { get; private set; }
 
         public Task<List<SosRequestModel>> GetByBoundsAsync(
             double minLat,
@@ -201,6 +204,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             IReadOnlyCollection<SosPriorityLevel>? priorities = null,
             IReadOnlyCollection<SosRequestType>? sosTypes = null,
             IReadOnlyList<SosSortOption>? sortOptions = null,
+            int? sosRequestId = null,
             CancellationToken cancellationToken = default)
         {
             LastMinLat = minLat;
@@ -211,6 +215,7 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             LastPriorities = priorities;
             LastSosTypes = sosTypes;
             LastSortOptions = sortOptions;
+            LastSosRequestId = sosRequestId;
 
             var query = requests
                 .Where(x => x.Location != null
@@ -218,6 +223,11 @@ public class GetSosRequestsByBoundsQueryHandlerTests
                     && x.Location.Latitude <= maxLat
                     && x.Location.Longitude >= minLng
                     && x.Location.Longitude <= maxLng);
+
+            if (sosRequestId.HasValue)
+            {
+                query = query.Where(x => sosRequestId.Value > 0 && x.Id == sosRequestId.Value);
+            }
 
             if (statuses is { Count: > 0 })
             {

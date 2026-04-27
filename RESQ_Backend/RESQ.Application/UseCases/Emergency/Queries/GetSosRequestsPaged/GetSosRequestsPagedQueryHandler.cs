@@ -40,6 +40,7 @@ public class GetSosRequestsPagedQueryHandler(
             normalizedPriorities,
             normalizedSosTypes,
             sortOptions,
+            request.SosRequestId,
             cancellationToken);
         var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
             pagedResult.Items.Select(x => x.Id),
