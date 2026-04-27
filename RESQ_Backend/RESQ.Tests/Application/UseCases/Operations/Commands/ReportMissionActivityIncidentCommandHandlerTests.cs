@@ -285,6 +285,8 @@ public class ReportMissionActivityIncidentCommandHandlerTests
     private sealed class StubTeamIncidentRepo : ITeamIncidentRepository
     {
         public Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<TeamIncidentModel>());
+        public Task<RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>> GetPagedByMissionIdAsync(int missionId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult<TeamIncidentModel?>(null);
         public Task<IEnumerable<TeamIncidentModel>> GetByMissionIdAsync(int mid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<TeamIncidentModel>());
         public Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int mtid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<TeamIncidentModel>());

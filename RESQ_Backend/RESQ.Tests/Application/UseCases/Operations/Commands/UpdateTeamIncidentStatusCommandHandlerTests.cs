@@ -172,6 +172,8 @@ public class UpdateTeamIncidentStatusCommandHandlerTests
         }
 
         public Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<TeamIncidentModel>());
+        public Task<RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>> GetPagedByMissionIdAsync(int missionId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IEnumerable<TeamIncidentModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<TeamIncidentModel>());
         public Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<TeamIncidentModel>());
         public Task<int> CreateAsync(TeamIncidentModel model, CancellationToken cancellationToken = default) => Task.FromResult(0);
