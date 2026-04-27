@@ -238,6 +238,7 @@ public class ReportMissionActivityIncidentCommandHandlerTests
             new StubDepotRepo(),
             mediator ?? new RecordingMediator(),
             new StubUnitOfWork(),
+            new StubSosRequestRealtimeHubService(),
             NullLogger<ReportMissionActivityIncidentCommandHandler>.Instance);
     }
 

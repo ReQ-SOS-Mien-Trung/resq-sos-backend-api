@@ -36,6 +36,7 @@ public class CreateMissionCommandHandler(
     IUnitOfWork unitOfWork,
     IMediator mediator,
     IAdminRealtimeHubService adminRealtimeHubService,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     IFirebaseService firebaseService,
     ILogger<CreateMissionCommandHandler> logger
 ) : IRequestHandler<CreateMissionCommand, CreateMissionResponse>
@@ -55,6 +56,7 @@ public class CreateMissionCommandHandler(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IMediator _mediator = mediator;
     private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly ILogger<CreateMissionCommandHandler> _logger = logger;
 
@@ -316,6 +318,13 @@ public class CreateMissionCommandHandler(
                 ChangedAt = DateTime.UtcNow
             },
             cancellationToken);
+        var assignedSosRequests = await _sosRequestRepository.GetByClusterIdAsync(
+            request.ClusterId,
+            cancellationToken);
+        await _sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
+            assignedSosRequests.Select(sos => sos.Id),
+            "Assigned",
+            cancellationToken: cancellationToken);
 
         return new CreateMissionResponse
         {

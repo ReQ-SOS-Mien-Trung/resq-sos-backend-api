@@ -6,6 +6,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosEvaluation;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosRequests;
+using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Identity;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
@@ -303,13 +304,20 @@ public class GetSosRequestQueryHandlerTests
         StubSosAiAnalysisRepository? aiRepo = null,
         StubUserRepository? userRepo = null)
     {
-        return new GetSosRequestQueryHandler(
-            sosRepo ?? new StubSosRequestRepository(null),
-            companionRepo ?? new StubSosRequestCompanionRepository(isCompanion: false),
+        var resolvedSosRepo = sosRepo ?? new StubSosRequestRepository(null);
+        var resolvedCompanionRepo = companionRepo ?? new StubSosRequestCompanionRepository(isCompanion: false);
+        var snapshotBuilder = new SosRequestSnapshotBuilder(
+            resolvedSosRepo,
+            resolvedCompanionRepo,
             updateRepo ?? new StubSosRequestUpdateRepository(),
             ruleRepo ?? new StubSosRuleEvaluationRepository(null),
             aiRepo ?? new StubSosAiAnalysisRepository([]),
-            userRepo ?? new StubUserRepository([]),
+            userRepo ?? new StubUserRepository([]));
+
+        return new GetSosRequestQueryHandler(
+            resolvedSosRepo,
+            resolvedCompanionRepo,
+            snapshotBuilder,
             NullLogger<GetSosRequestQueryHandler>.Instance);
     }
 

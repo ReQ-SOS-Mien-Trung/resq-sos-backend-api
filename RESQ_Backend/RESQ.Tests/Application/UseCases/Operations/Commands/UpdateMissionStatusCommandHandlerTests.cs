@@ -246,6 +246,7 @@ public class UpdateMissionStatusCommandHandlerTests
             NullLogger<UpdateMissionStatusCommandHandler>.Instance,
             assemblyEventRepository ?? new StubAssemblyEventRepository(),
             new StubAdminRealtimeHubService(),
+            new StubSosRequestRealtimeHubService(),
             lifecycleSyncService);
     }
 
