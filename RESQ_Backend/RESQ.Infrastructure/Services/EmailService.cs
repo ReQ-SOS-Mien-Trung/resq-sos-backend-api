@@ -621,7 +621,7 @@ namespace RESQ.Infrastructure.Services
 
         private static bool LooksLikeSendGridApiKey(string apiKey)
         {
-            return apiKey.StartsWith("SG.", StringComparison.OrdinalIgnoreCase);
+            return !string.IsNullOrWhiteSpace(apiKey) && (apiKey.StartsWith("SG.", StringComparison.OrdinalIgnoreCase) || apiKey.Length >= 16);
         }
     }
 }
