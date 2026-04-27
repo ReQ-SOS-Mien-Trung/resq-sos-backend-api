@@ -6,6 +6,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Exceptions;
 using RESQ.Application.UseCases.Operations.Commands.UpdateTeamIncidentStatus;
 using RESQ.Application.UseCases.Operations.Queries.GetAllTeamIncidents;
+using RESQ.Application.UseCases.Operations.Queries.GetTeamIncidentById;
 using RESQ.Application.UseCases.Operations.Queries.GetTeamIncidents;
 using RESQ.Domain.Enum.Operations;
 
@@ -53,6 +54,17 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetIncidentsByMission([FromRoute] int missionId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var result = await _mediator.Send(new GetTeamIncidentsQuery(missionId) { PageNumber = pageNumber, PageSize = pageSize });
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy chi tiết sự cố theo ID.
+    /// </summary>
+    [HttpGet("{incidentId:int}")]
+    [Authorize(Policy = PermissionConstants.MissionIncidentView)]
+    public async Task<IActionResult> GetIncidentById([FromRoute] int incidentId)
+    {
+        var result = await _mediator.Send(new GetTeamIncidentByIdQuery(incidentId));
         return Ok(result);
     }
 }
