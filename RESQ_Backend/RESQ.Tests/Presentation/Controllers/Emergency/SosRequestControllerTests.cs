@@ -34,6 +34,7 @@ public class SosRequestControllerTests
             MaxLat = 10.80,
             MinLng = 106.60,
             MaxLng = 106.70,
+            SosRequestId = 123,
             Statuses = [SosRequestStatus.Pending, SosRequestStatus.Assigned],
             Priorities = [SosPriorityLevel.High, SosPriorityLevel.Critical],
             SosTypes = [SosRequestType.Rescue, SosRequestType.Relief],
@@ -49,6 +50,7 @@ public class SosRequestControllerTests
         Assert.Equal(10.80, sentQuery.MaxLat);
         Assert.Equal(106.60, sentQuery.MinLng);
         Assert.Equal(106.70, sentQuery.MaxLng);
+        Assert.Equal(123, sentQuery.SosRequestId);
         Assert.Equal([SosRequestStatus.Pending, SosRequestStatus.Assigned], sentQuery.Statuses);
         Assert.Equal([SosPriorityLevel.High, SosPriorityLevel.Critical], sentQuery.Priorities);
         Assert.Equal([SosRequestType.Rescue, SosRequestType.Relief], sentQuery.SosTypes);
@@ -74,6 +76,7 @@ public class SosRequestControllerTests
         {
             PageNumber = 2,
             PageSize = 25,
+            SosRequestId = 456,
             Statuses = [SosRequestStatus.Pending],
             Priorities = [SosPriorityLevel.Medium],
             SosTypes = [SosRequestType.Both],
@@ -87,6 +90,7 @@ public class SosRequestControllerTests
 
         Assert.Equal(2, sentQuery.PageNumber);
         Assert.Equal(25, sentQuery.PageSize);
+        Assert.Equal(456, sentQuery.SosRequestId);
         Assert.Equal([SosRequestStatus.Pending], sentQuery.Statuses);
         Assert.Equal([SosPriorityLevel.Medium], sentQuery.Priorities);
         Assert.Equal([SosRequestType.Both], sentQuery.SosTypes);

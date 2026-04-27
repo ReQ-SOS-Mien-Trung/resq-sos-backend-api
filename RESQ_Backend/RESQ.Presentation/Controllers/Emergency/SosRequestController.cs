@@ -127,6 +127,7 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
                 MaxLat = query.MaxLat,
                 MinLng = query.MinLng,
                 MaxLng = query.MaxLng,
+                SosRequestId = query.SosRequestId,
                 Statuses = query.Statuses,
                 Priorities = query.Priorities,
                 SosTypes = query.SosTypes,
@@ -140,6 +141,7 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
         {
             PageNumber = query.PageNumber,
             PageSize = query.PageSize,
+            SosRequestId = query.SosRequestId,
             Statuses = query.Statuses,
             Priorities = query.Priorities,
             SosTypes = query.SosTypes,
