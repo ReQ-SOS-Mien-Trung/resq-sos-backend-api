@@ -28,6 +28,7 @@ public class MissionActivityStatusExecutionService(
     IUnitOfWork unitOfWork,
     ILogger<MissionActivityStatusExecutionService> logger,
     IAssemblyEventRepository assemblyEventRepository,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService
 ) : IMissionActivityStatusExecutionService
 {
@@ -43,6 +44,7 @@ public class MissionActivityStatusExecutionService(
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly IRescueTeamMissionLifecycleSyncService _rescueTeamMissionLifecycleSyncService = rescueTeamMissionLifecycleSyncService;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
@@ -330,6 +332,13 @@ public class MissionActivityStatusExecutionService(
         }
 
         await _unitOfWork.SaveAsync();
+        if (activity.SosRequestId.HasValue)
+        {
+            await _sosRequestRealtimeHubService.PushSosRequestUpdateAsync(
+                activity.SosRequestId.Value,
+                "StatusChanged",
+                cancellationToken: cancellationToken);
+        }
 
         var isDeliverActivity = string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
         if (effectiveStatus == MissionActivityStatus.Failed

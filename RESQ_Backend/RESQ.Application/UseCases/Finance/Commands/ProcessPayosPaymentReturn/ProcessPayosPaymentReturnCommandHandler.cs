@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
+using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using System.Globalization;
 
@@ -29,46 +30,59 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
     public async Task<bool> Handle(ProcessPayosPaymentReturnCommand request, CancellationToken cancellationToken)
     {
         var webhook = request.WebhookData;
-        if (webhook == null || webhook.Data == null)
+        if (webhook?.Data == null)
         {
-            _logger.LogWarning("Received empty webhook data.");
+            _logger.LogWarning("PayOS webhook: empty webhook data.");
             return false;
         }
 
-        var orderCodeStr = webhook.Data.OrderCode.ToString();
+        var orderCode = webhook.Data.OrderCode.ToString();
         var paymentLinkId = webhook.Data.PaymentLinkId;
 
-        _logger.LogInformation("Processing webhook for OrderCode: {OrderCode}, PaymentLinkId: {PaymentLinkId}, Success: {Success}, Desc: {Desc}", 
-            orderCodeStr, paymentLinkId, webhook.Success, webhook.Desc);
+        _logger.LogInformation(
+            "PayOS webhook received | OrderCode={OrderCode} PaymentLinkId={PaymentLinkId} Success={Success} Code={Code} Desc={Desc}.",
+            orderCode,
+            paymentLinkId,
+            webhook.Success,
+            webhook.Code,
+            webhook.Desc);
 
-        // We only process successful payments via webhook reliably.
         if (!webhook.Success || webhook.Code != "00")
         {
-            _logger.LogWarning("Webhook indicates non-success payment for OrderCode: {OrderCode}. Code: {Code}, Desc: {Desc}", 
-                orderCodeStr, webhook.Code, webhook.Desc);
-            return true; 
+            _logger.LogWarning(
+                "PayOS webhook indicates non-success payment | OrderCode={OrderCode} Code={Code} Desc={Desc}.",
+                orderCode,
+                webhook.Code,
+                webhook.Desc);
+            return true;
         }
 
-        var donation = await _donationRepository.GetByOrderIdAsync(orderCodeStr, cancellationToken);
-        
+        var donation = await _donationRepository.GetByOrderIdAsync(orderCode, cancellationToken);
         if (donation == null)
         {
-            _logger.LogError("Donation not found for OrderCode: {OrderCode}", orderCodeStr);
+            _logger.LogError("PayOS webhook: donation not found | OrderCode={OrderCode}.", orderCode);
             return false;
         }
 
-        // Idempotency guard - webhook may fire more than once
         if (donation.Status == Status.Succeed)
         {
-            _logger.LogInformation("Donation {Id} already succeeded, ignoring duplicate webhook for OrderCode {OrderCode}.", donation.Id, orderCodeStr);
+            _logger.LogInformation(
+                "PayOS webhook idempotent skip: donation already succeeded | DonationId={DonationId} OrderCode={OrderCode}.",
+                donation.Id,
+                orderCode);
             return true;
         }
 
         var wasSucceededBefore = donation.Status == Status.Succeed;
 
-        try 
+        try
         {
-            if (DateTime.TryParseExact(webhook.Data.TransactionDateTime, new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var paidAt))
+            if (DateTime.TryParseExact(
+                    webhook.Data.TransactionDateTime,
+                    new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" },
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var paidAt))
             {
                 donation.PaidAt = paidAt.ToUniversalTime();
             }
@@ -83,27 +97,58 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
 
             if (!processed)
             {
+                _logger.LogWarning(
+                    "PayOS webhook success processing returned false | DonationId={DonationId} OrderCode={OrderCode}.",
+                    donation.Id,
+                    orderCode);
                 return false;
             }
 
             if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
-                await _emailService.SendDonationSuccessEmailAsync(
-                    donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
-                    donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
-                    donation.Id, CancellationToken.None
-                );
+                await SendSuccessEmailAsync(donation, orderCode);
             }
 
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing donation logic for OrderCode {OrderCode}", orderCodeStr);
-            // Return false or true depending on whether you want the gateway to retry. 
-            // Usually internal logic errors shouldn't retry if they are permanent, but for transient issues return false.
-            return false; 
+            _logger.LogError(ex, "PayOS webhook: error processing donation logic | OrderCode={OrderCode}.", orderCode);
+            return false;
+        }
+    }
+
+    private async Task SendSuccessEmailAsync(DonationModel donation, string orderCode)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "PayOS webhook: sending success email | DonationId={DonationId} OrderCode={OrderCode} Email={Email}.",
+                donation.Id,
+                orderCode,
+                donation.Donor!.Email);
+
+            await _emailService.SendDonationSuccessEmailAsync(
+                donation.Donor.Email,
+                donation.Donor.Name,
+                donation.Amount?.Amount ?? 0,
+                donation.FundCampaignName ?? "Campaign",
+                donation.FundCampaignCode ?? "RESQ",
+                donation.Id,
+                CancellationToken.None);
+
+            _logger.LogInformation(
+                "PayOS webhook: success email sent | DonationId={DonationId} OrderCode={OrderCode}.",
+                donation.Id,
+                orderCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "PayOS webhook: success email failed after payment commit | DonationId={DonationId} OrderCode={OrderCode}.",
+                donation.Id,
+                orderCode);
         }
     }
 }
-

@@ -8,6 +8,7 @@ public class GetSosRequestsPagedQuery : IRequest<GetSosRequestsPagedResponse>
 {
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public int? SosRequestId { get; set; }
     public List<SosRequestStatus>? Statuses { get; set; }
     public List<SosPriorityLevel>? Priorities { get; set; }
     public List<SosRequestType>? SosTypes { get; set; }
