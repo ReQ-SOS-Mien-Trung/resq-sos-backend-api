@@ -19,6 +19,24 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
         return entities.OrderByDescending(ti => ti.ReportedAt).Select(ToModel);
     }
 
+    public async Task<RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var pagedEntities = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetPagedAsync(
+                pageNumber, 
+                pageSize, 
+                orderBy: q => q.OrderByDescending(ti => ti.ReportedAt),
+                includeProperties: "TeamIncidentActivities.MissionActivity"
+            );
+
+        return new RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>(
+            pagedEntities.Items.Select(ToModel).ToList(),
+            pagedEntities.TotalCount,
+            pagedEntities.PageNumber,
+            pagedEntities.PageSize
+        );
+    }
+
     public async Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _unitOfWork.GetRepository<TeamIncident>()
@@ -35,6 +53,25 @@ public class TeamIncidentRepository(IUnitOfWork unitOfWork) : ITeamIncidentRepos
                 includeProperties: "TeamIncidentActivities.MissionActivity");
 
         return entities.OrderByDescending(ti => ti.ReportedAt).Select(ToModel);
+    }
+
+    public async Task<RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>> GetPagedByMissionIdAsync(int missionId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var pagedEntities = await _unitOfWork.GetRepository<TeamIncident>()
+            .GetPagedAsync(
+                pageNumber, 
+                pageSize, 
+                filter: ti => ti.MissionTeam != null && ti.MissionTeam.MissionId == missionId,
+                orderBy: q => q.OrderByDescending(ti => ti.ReportedAt),
+                includeProperties: "TeamIncidentActivities.MissionActivity"
+            );
+
+        return new RESQ.Application.Common.Models.PagedResult<TeamIncidentModel>(
+            pagedEntities.Items.Select(ToModel).ToList(),
+            pagedEntities.TotalCount,
+            pagedEntities.PageNumber,
+            pagedEntities.PageSize
+        );
     }
 
     public async Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default)

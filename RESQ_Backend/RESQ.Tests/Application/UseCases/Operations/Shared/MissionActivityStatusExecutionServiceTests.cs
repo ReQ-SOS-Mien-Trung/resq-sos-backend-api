@@ -721,8 +721,10 @@ public class MissionActivityStatusExecutionServiceTests
     private sealed class NoOpTeamIncidentRepository : ITeamIncidentRepository
     {
         public Task<IEnumerable<TeamIncidentModel>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<TeamIncidentModel>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<TeamIncidentModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IEnumerable<TeamIncidentModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<TeamIncidentModel>> GetPagedByMissionIdAsync(int missionId, int pageNumber, int pageSize, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IEnumerable<TeamIncidentModel>> GetByMissionTeamIdAsync(int missionTeamId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> CreateAsync(TeamIncidentModel model, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task UpdateStatusAsync(int id, TeamIncidentStatus status, CancellationToken cancellationToken = default) => Task.CompletedTask;

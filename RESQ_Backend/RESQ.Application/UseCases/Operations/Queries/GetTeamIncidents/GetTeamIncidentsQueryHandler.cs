@@ -13,8 +13,8 @@ public class GetTeamIncidentsQueryHandler(
 {
     public async Task<GetTeamIncidentsResponse> Handle(GetTeamIncidentsQuery request, CancellationToken cancellationToken)
     {
-        var incidents = await teamIncidentRepository.GetByMissionIdAsync(request.MissionId, cancellationToken);
-        var incidentList = incidents.ToList();
+        var pagedIncidents = await teamIncidentRepository.GetPagedByMissionIdAsync(request.MissionId, request.PageNumber, request.PageSize, cancellationToken);
+        var incidentList = pagedIncidents.Items;
 
         var reporterIds = incidentList
             .Where(i => i.ReportedBy.HasValue)
@@ -56,7 +56,7 @@ public class GetTeamIncidentsQueryHandler(
         return new GetTeamIncidentsResponse
         {
             MissionId = request.MissionId,
-            Incidents = incidentList.Select(i =>
+            Items = incidentList.Select(i =>
             {
                 ReportedByDto? reportedBy = null;
                 if (i.ReportedBy.HasValue && userLookup.TryGetValue(i.ReportedBy.Value, out var user))
@@ -73,7 +73,13 @@ public class GetTeamIncidentsQueryHandler(
                 }
 
                 return TeamIncidentQueryDtoMapper.ToDto(i, reportedBy);
-            }).ToList()
+            }).ToList(),
+            PageNumber = pagedIncidents.PageNumber,
+            PageSize = pagedIncidents.PageSize,
+            TotalCount = pagedIncidents.TotalCount,
+            TotalPages = pagedIncidents.TotalPages,
+            HasNextPage = pagedIncidents.HasNextPage,
+            HasPreviousPage = pagedIncidents.HasPreviousPage
         };
     }
 }
