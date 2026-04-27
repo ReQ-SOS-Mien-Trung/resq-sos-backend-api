@@ -48,6 +48,13 @@ public class ProcessZaloPayPaymentCommandHandler : IRequestHandler<ProcessZaloPa
             return false;
         }
 
+        _logger.LogInformation(
+            "ZaloPay callback received | AppTransId={AppTransId} ZpTransId={ZpTransId} Amount={Amount} ServerTime={ServerTime}.",
+            dataJson.AppTransId,
+            dataJson.ZpTransId,
+            dataJson.Amount,
+            dataJson.ServerTime);
+
         var donation = await _donationRepository.GetByOrderIdAsync(dataJson.AppTransId, cancellationToken);
         if (donation == null)
         {
@@ -59,6 +66,10 @@ public class ProcessZaloPayPaymentCommandHandler : IRequestHandler<ProcessZaloPa
         {
             if (donation.Status == Status.Succeed)
             {
+                _logger.LogInformation(
+                    "ZaloPay callback idempotent skip: donation already succeeded | DonationId={DonationId} AppTransId={AppTransId}.",
+                    donation.Id,
+                    dataJson.AppTransId);
                 return true;
             }
 
@@ -72,17 +83,23 @@ public class ProcessZaloPayPaymentCommandHandler : IRequestHandler<ProcessZaloPa
 
             if (!processed)
             {
+                _logger.LogWarning(
+                    "ZaloPay callback success processing returned false | DonationId={DonationId} AppTransId={AppTransId}.",
+                    donation.Id,
+                    dataJson.AppTransId);
                 return false;
             }
 
             if (donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
-                await _emailService.SendDonationSuccessEmailAsync(
-                    donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
-                    donation.FundCampaignName ?? "Campaign", donation.FundCampaignCode ?? "RESQ",
-                    donation.Id, CancellationToken.None
-                );
+                await SendSuccessEmailAsync(donation, dataJson.AppTransId);
             }
+
+            _logger.LogInformation(
+                "ZaloPay callback processed successfully | DonationId={DonationId} AppTransId={AppTransId} ZpTransId={ZpTransId}.",
+                donation.Id,
+                dataJson.AppTransId,
+                dataJson.ZpTransId);
 
             return true;
         }
@@ -90,6 +107,40 @@ public class ProcessZaloPayPaymentCommandHandler : IRequestHandler<ProcessZaloPa
         {
             _logger.LogError(ex, "Error processing ZaloPay callback logic.");
             return false;
+        }
+    }
+
+    private async Task SendSuccessEmailAsync(RESQ.Domain.Entities.Finance.DonationModel donation, string appTransId)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "ZaloPay callback: sending success email | DonationId={DonationId} AppTransId={AppTransId} Email={Email}.",
+                donation.Id,
+                appTransId,
+                donation.Donor!.Email);
+
+            await _emailService.SendDonationSuccessEmailAsync(
+                donation.Donor.Email,
+                donation.Donor.Name,
+                donation.Amount?.Amount ?? 0,
+                donation.FundCampaignName ?? "Campaign",
+                donation.FundCampaignCode ?? "RESQ",
+                donation.Id,
+                CancellationToken.None);
+
+            _logger.LogInformation(
+                "ZaloPay callback: success email sent | DonationId={DonationId} AppTransId={AppTransId}.",
+                donation.Id,
+                appTransId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "ZaloPay callback: success email failed after payment commit | DonationId={DonationId} AppTransId={AppTransId}.",
+                donation.Id,
+                appTransId);
         }
     }
 }
