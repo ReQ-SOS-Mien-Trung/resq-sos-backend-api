@@ -206,6 +206,19 @@ public class DonationController : ControllerBase
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<IActionResult> ZaloPayReturn()
     {
+        return await HandleZaloPayBrowserReturnAsync("zalopay-return");
+    }
+
+    [HttpGet("zalopay-callback")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> ZaloPayCallbackBrowserReturn()
+    {
+        return await HandleZaloPayBrowserReturnAsync("zalopay-callback-get");
+    }
+
+    private async Task<IActionResult> HandleZaloPayBrowserReturnAsync(string source)
+    {
         var zaloPayConfig = _configuration.GetSection("ZaloPay");
         var successUrl = zaloPayConfig["RedirectUrl"] ?? "https://resq-sos-mientrung.vercel.app/success";
         var failUrl = zaloPayConfig["CancelUrl"] ?? "https://resq-sos-mientrung.vercel.app/fail";
@@ -220,7 +233,8 @@ public class DonationController : ControllerBase
         var checksum = GetQueryValue(returnParams, "checksum");
 
         _logger.LogInformation(
-            "ZaloPay return received | AppTransId={AppTransId} Status={Status} HasChecksum={HasChecksum} Params={Params}.",
+            "ZaloPay browser return received | Source={Source} AppTransId={AppTransId} Status={Status} HasChecksum={HasChecksum} Params={Params}.",
+            source,
             appTransId,
             statusText,
             !string.IsNullOrWhiteSpace(checksum),
@@ -238,8 +252,9 @@ public class DonationController : ControllerBase
             var verified = await _mediator.Send(command);
 
             _logger.LogInformation(
-                "ZaloPay return: query verify result={Result} | AppTransId={AppTransId} Status={Status}.",
+                "ZaloPay browser return: query verify result={Result} | Source={Source} AppTransId={AppTransId} Status={Status}.",
                 verified,
+                source,
                 appTransId,
                 statusText);
 
