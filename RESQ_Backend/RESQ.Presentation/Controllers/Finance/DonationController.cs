@@ -204,29 +204,20 @@ public class DonationController : ControllerBase
     [HttpGet("zalopay-return")]
     [AllowAnonymous]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> ZaloPayReturn()
+    public async Task<IActionResult> ZaloPayReturn([FromQuery] string? apptransid, [FromQuery] int? status)
     {
         var zaloPayConfig = _configuration.GetSection("ZaloPay");
         var successUrl = zaloPayConfig["RedirectUrl"] ?? "https://resq-sos-mientrung.vercel.app/success";
         var failUrl = zaloPayConfig["CancelUrl"] ?? "https://resq-sos-mientrung.vercel.app/fail";
-        var returnParams = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in Request.Query)
+
+        // ZaloPay sends status=1 for success in the redirect query string
+        if (status.HasValue && status.Value != 1)
         {
-            returnParams[item.Key] = item.Value.ToString();
+            _logger.LogInformation("ZaloPay return: user cancelled or failed (status={Status}, apptransid={AppTransId}).", status, apptransid);
+            return Redirect(failUrl);
         }
 
-        var appTransId = GetQueryValue(returnParams, "apptransid") ?? GetQueryValue(returnParams, "app_trans_id");
-        var statusText = GetQueryValue(returnParams, "status");
-        var checksum = GetQueryValue(returnParams, "checksum");
-
-        _logger.LogInformation(
-            "ZaloPay return received | AppTransId={AppTransId} Status={Status} HasChecksum={HasChecksum} Params={Params}.",
-            appTransId,
-            statusText,
-            !string.IsNullOrWhiteSpace(checksum),
-            JsonSerializer.Serialize(returnParams));
-
-        if (string.IsNullOrWhiteSpace(appTransId))
+        if (string.IsNullOrWhiteSpace(apptransid))
         {
             _logger.LogWarning("ZaloPay return: missing apptransid.");
             return Redirect(failUrl);
@@ -234,28 +225,15 @@ public class DonationController : ControllerBase
 
         try
         {
-            var command = new VerifyZaloPayPaymentCommand { AppTransId = appTransId };
+            var command = new VerifyZaloPayPaymentCommand { AppTransId = apptransid };
             var verified = await _mediator.Send(command);
 
-            _logger.LogInformation(
-                "ZaloPay return: query verify result={Result} | AppTransId={AppTransId} Status={Status}.",
-                verified,
-                appTransId,
-                statusText);
-
-            if (!verified && TryParseZaloPayStatus(statusText, out var parsedStatus) && parsedStatus != 1)
-            {
-                _logger.LogInformation(
-                    "ZaloPay return: redirecting fail after verified non-success status | AppTransId={AppTransId} Status={Status}.",
-                    appTransId,
-                    parsedStatus);
-            }
-
+            _logger.LogInformation("ZaloPay return: verify result={Result} for apptransid={AppTransId}.", verified, apptransid);
             return Redirect(verified ? successUrl : failUrl);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", appTransId);
+            _logger.LogError(ex, "ZaloPay return: error verifying apptransid={AppTransId}.", apptransid);
             return Redirect(failUrl);
         }
     }
@@ -277,7 +255,6 @@ public class DonationController : ControllerBase
 
             if (string.IsNullOrWhiteSpace(jsonBody))
             {
-                _logger.LogWarning("ZaloPay callback: empty payload.");
                 return Ok(new { return_code = 2, return_message = "invalid payload" });
             }
 
@@ -298,13 +275,8 @@ public class DonationController : ControllerBase
 
             if (callbackData == null || string.IsNullOrEmpty(callbackData.Data) || string.IsNullOrEmpty(callbackData.Mac))
             {
-                _logger.LogWarning("ZaloPay callback: invalid payload format.");
                 return Ok(new { return_code = 2, return_message = "invalid payload format" });
             }
-
-            _logger.LogInformation(
-                "ZaloPay callback verified signature | PayloadBytes={PayloadBytes}.",
-                jsonBody.Length);
 
             var command = new ProcessZaloPayPaymentCommand
             {
@@ -312,8 +284,6 @@ public class DonationController : ControllerBase
             };
 
             var success = await _mediator.Send(command);
-
-            _logger.LogInformation("ZaloPay callback processed | Success={Success}.", success);
 
             return Ok(new
             {
@@ -348,16 +318,6 @@ public class DonationController : ControllerBase
             _logger.LogError(ex, "Error verifying ZaloPay payment for apptransid={AppTransId}", apptransid);
             return Ok(new { success = false, message = "Đã xảy ra lỗi trong quá trình xác minh." });
         }
-    }
-
-    private static string? GetQueryValue(IReadOnlyDictionary<string, string?> values, string key)
-    {
-        return values.TryGetValue(key, out var value) ? value : null;
-    }
-
-    private static bool TryParseZaloPayStatus(string? statusText, out int status)
-    {
-        return int.TryParse(statusText, out status);
     }
 
     [HttpGet("payos-verify")]

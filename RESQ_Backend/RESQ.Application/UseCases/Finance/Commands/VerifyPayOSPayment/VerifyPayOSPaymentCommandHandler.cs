@@ -2,11 +2,16 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Services;
-using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 
 namespace RESQ.Application.UseCases.Finance.Commands.VerifyPayOSPayment;
 
+/// <summary>
+/// Fallback handler: when the PayOS webhook does not reliably update the DB
+/// (e.g. webhook URL configured in PayOS dashboard points to a different server),
+/// the frontend calls <c>GET /finance/donations/payos-verify?orderId={orderCode}</c>
+/// immediately after PayOS redirects back to the success page.
+/// </summary>
 public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPaymentCommand, bool>
 {
     private readonly IDonationRepository _donationRepository;
@@ -32,52 +37,51 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
     public async Task<bool> Handle(VerifyPayOSPaymentCommand request, CancellationToken cancellationToken)
     {
         var orderId = request.OrderId;
+
+        // 1. Look up the donation - if already succeeded, nothing to do
         var donation = await _donationRepository.GetByOrderIdAsync(orderId, cancellationToken);
         if (donation == null)
         {
-            _logger.LogWarning("VerifyPayOS: donation not found | OrderId={OrderId}.", orderId);
+            _logger.LogWarning("VerifyPayOS: donation not found for OrderId {OrderId}.", orderId);
             return false;
         }
 
         if (donation.Status == Status.Succeed)
         {
-            _logger.LogInformation("VerifyPayOS: donation already succeeded | DonationId={DonationId} OrderId={OrderId}.", donation.Id, orderId);
+            _logger.LogInformation("VerifyPayOS: donation {Id} already succeeded, skipping.", donation.Id);
             return true;
         }
 
+        // 2. Require a stored TransactionId (= PayOS paymentLinkId set during CreateDonation)
         if (string.IsNullOrEmpty(donation.TransactionId))
         {
-            _logger.LogWarning("VerifyPayOS: donation has no TransactionId/paymentLinkId | DonationId={DonationId} OrderId={OrderId}.", donation.Id, orderId);
+            _logger.LogWarning("VerifyPayOS: donation {Id} has no TransactionId (paymentLinkId) stored — cannot query PayOS.", donation.Id);
             return false;
         }
 
+        // 3. Query PayOS order status via the payment link API
         var gatewayService = _paymentGatewayFactory.GetService(PaymentMethodCode.PAYOS);
         var queryResult = await gatewayService.QueryPaymentLinkAsync(donation.TransactionId, cancellationToken);
 
         if (queryResult == null)
         {
-            _logger.LogError(
-                "VerifyPayOS: null response from PayOS query | DonationId={DonationId} PaymentLinkId={PaymentLinkId}.",
-                donation.Id,
-                donation.TransactionId);
+            _logger.LogError("VerifyPayOS: null response from PayOS query for donation {Id} / paymentLinkId {LinkId}.",
+                donation.Id, donation.TransactionId);
             return false;
         }
 
-        _logger.LogInformation(
-            "VerifyPayOS: PayOS query result | DonationId={DonationId} Status={Status} ReturnCode={ReturnCode}.",
-            donation.Id,
-            queryResult.ReturnMessage,
-            queryResult.ReturnCode);
+        _logger.LogInformation("VerifyPayOS: PayOS status={Status} (ReturnCode={Code}) for donation {Id}.",
+            queryResult.ReturnMessage, queryResult.ReturnCode, donation.Id);
 
+        // ReturnCode: 1 = PAID, 2 = failed/cancelled, 3 = processing/pending
         if (queryResult.ReturnCode != 1)
         {
-            _logger.LogWarning(
-                "VerifyPayOS: payment not confirmed | DonationId={DonationId} ReturnCode={ReturnCode}.",
-                donation.Id,
-                queryResult.ReturnCode);
+            _logger.LogWarning("VerifyPayOS: payment not confirmed (ReturnCode={Code}) for donation {Id}.",
+                queryResult.ReturnCode, donation.Id);
             return false;
         }
 
+        // 4. Update donation - deliberately keep existing TransactionId (paymentLinkId)
         var wasSucceededBefore = donation.Status == Status.Succeed;
 
         try
@@ -92,56 +96,26 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
 
             if (!processed)
             {
-                _logger.LogWarning("VerifyPayOS: success processing returned false | DonationId={DonationId}.", donation.Id);
                 return false;
             }
 
+            // 6. Send confirmation email
             if (!wasSucceededBefore && donation.Donor != null && !string.IsNullOrEmpty(donation.Donor.Email))
             {
-                await SendSuccessEmailAsync(donation, orderId);
+                await _emailService.SendDonationSuccessEmailAsync(
+                    donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
+                    donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
+                    donation.Id, CancellationToken.None
+                );
             }
 
-            _logger.LogInformation("VerifyPayOS: donation successfully updated via PayOS Query API | DonationId={DonationId}.", donation.Id);
+            _logger.LogInformation("VerifyPayOS: donation {Id} successfully updated via PayOS Query API.", donation.Id);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "VerifyPayOS: error updating entities | DonationId={DonationId}.", donation.Id);
+            _logger.LogError(ex, "VerifyPayOS: error updating entities for donation {Id}.", donation.Id);
             return false;
-        }
-    }
-
-    private async Task SendSuccessEmailAsync(DonationModel donation, string orderId)
-    {
-        try
-        {
-            _logger.LogInformation(
-                "VerifyPayOS: sending success email | DonationId={DonationId} OrderId={OrderId} Email={Email}.",
-                donation.Id,
-                orderId,
-                donation.Donor!.Email);
-
-            await _emailService.SendDonationSuccessEmailAsync(
-                donation.Donor.Email,
-                donation.Donor.Name,
-                donation.Amount?.Amount ?? 0,
-                donation.FundCampaignName ?? "Campaign",
-                donation.FundCampaignCode ?? "RESQ",
-                donation.Id,
-                CancellationToken.None);
-
-            _logger.LogInformation(
-                "VerifyPayOS: success email sent | DonationId={DonationId} OrderId={OrderId}.",
-                donation.Id,
-                orderId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "VerifyPayOS: success email failed after payment commit | DonationId={DonationId} OrderId={OrderId}.",
-                donation.Id,
-                orderId);
         }
     }
 }

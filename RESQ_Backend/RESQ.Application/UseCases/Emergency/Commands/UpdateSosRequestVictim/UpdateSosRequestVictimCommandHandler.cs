@@ -15,7 +15,6 @@ public class UpdateSosRequestVictimCommandHandler(
     ISosRuleEvaluationRepository sosRuleEvaluationRepository,
     ISosPriorityEvaluationService priorityEvaluationService,
     ISosAiAnalysisQueue sosAiAnalysisQueue,
-    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     IUnitOfWork unitOfWork
 ) : IRequestHandler<UpdateSosRequestVictimCommand, UpdateSosRequestVictimResponse>
 {
@@ -94,11 +93,6 @@ public class UpdateSosRequestVictimCommandHandler(
                 effectiveSosType,
                 evaluation));
         }
-
-        await sosRequestRealtimeHubService.PushSosRequestUpdateAsync(
-            sos.Id,
-            "VictimUpdated",
-            cancellationToken: cancellationToken);
 
         return new UpdateSosRequestVictimResponse
         {

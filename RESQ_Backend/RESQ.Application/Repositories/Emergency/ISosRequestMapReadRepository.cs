@@ -15,6 +15,5 @@ public interface ISosRequestMapReadRepository
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
         IReadOnlyList<SosSortOption>? sortOptions = null,
-        int? sosRequestId = null,
         CancellationToken cancellationToken = default);
 }

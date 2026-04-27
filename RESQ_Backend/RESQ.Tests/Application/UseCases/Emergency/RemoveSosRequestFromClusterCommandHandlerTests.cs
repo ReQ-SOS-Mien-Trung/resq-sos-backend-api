@@ -205,7 +205,6 @@ public class RemoveSosRequestFromClusterCommandHandlerTests
             sosRequestRepository,
             clusterAiHistoryRepository ?? new StubClusterAiHistoryRepository(),
             unitOfWork ?? new StubUnitOfWork(),
-            new StubSosRequestRealtimeHubService(),
             NullLogger<RemoveSosRequestFromClusterCommandHandler>.Instance);
     }
 

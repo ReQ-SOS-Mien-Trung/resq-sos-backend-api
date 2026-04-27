@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
-using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
@@ -16,7 +15,6 @@ public class RemoveSosRequestFromClusterCommandHandler(
     ISosRequestRepository sosRequestRepository,
     IClusterAiHistoryRepository clusterAiHistoryRepository,
     IUnitOfWork unitOfWork,
-    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     ILogger<RemoveSosRequestFromClusterCommandHandler> logger)
     : IRequestHandler<RemoveSosRequestFromClusterCommand, RemoveSosRequestFromClusterResponse>
 {
@@ -24,7 +22,6 @@ public class RemoveSosRequestFromClusterCommandHandler(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly IClusterAiHistoryRepository _clusterAiHistoryRepository = clusterAiHistoryRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly ILogger<RemoveSosRequestFromClusterCommandHandler> _logger = logger;
 
     public async Task<RemoveSosRequestFromClusterResponse> Handle(
@@ -92,12 +89,6 @@ public class RemoveSosRequestFromClusterCommandHandler(
 
             await _unitOfWork.SaveAsync();
         });
-
-        await _sosRequestRealtimeHubService.PushSosRequestUpdateAsync(
-            request.SosRequestId,
-            "ClusterRemoved",
-            previousClusterId: request.ClusterId,
-            cancellationToken: cancellationToken);
 
         return new RemoveSosRequestFromClusterResponse
         {

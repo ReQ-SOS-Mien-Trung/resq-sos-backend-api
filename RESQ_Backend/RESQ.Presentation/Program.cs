@@ -52,7 +52,6 @@ builder.Services.AddScoped<INotificationHubService, NotificationHubService>();
 builder.Services.AddScoped<IDashboardHubService, DashboardHubService>();
 builder.Services.AddScoped<IAdminRealtimeHubService, AdminRealtimeHubService>();
 builder.Services.AddScoped<IOperationalHubService, OperationalHubService>();
-builder.Services.AddScoped<ISosRequestRealtimeHubService, SosRequestRealtimeHubService>();
 builder.Services.AddScoped<IDonationPaymentProcessingService, RESQ.Infrastructure.Services.Finance.DonationPaymentProcessingService>();
 
 // Swagger + JWT support
@@ -246,7 +245,6 @@ app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
-app.MapHub<SosRequestHub>("/hubs/sos-requests");
 app.MapHub<AdminFinanceHub>("/hubs/admin-finance");
 app.MapHub<AdminIdentityHub>("/hubs/admin-identity");
 app.MapHub<AdminOperationsHub>("/hubs/admin-operations");

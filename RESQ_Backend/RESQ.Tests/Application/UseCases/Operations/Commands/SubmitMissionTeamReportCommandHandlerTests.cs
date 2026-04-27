@@ -85,7 +85,6 @@ public class SubmitMissionTeamReportCommandHandlerTests
             sosClusterRepository,
             new StubTeamIncidentRepository(),
             lifecycleSyncService,
-            new StubSosRequestRealtimeHubService(),
             unitOfWork,
             NullLogger<SubmitMissionTeamReportCommandHandler>.Instance);
 

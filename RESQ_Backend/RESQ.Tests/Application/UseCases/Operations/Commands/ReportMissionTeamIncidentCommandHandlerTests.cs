@@ -227,7 +227,6 @@ public class ReportMissionTeamIncidentCommandHandlerTests
             new StubSosRequestUpdateRepo(),
             mediator ?? new RecordingMediator(),
             new StubUnitOfWork(),
-            new StubSosRequestRealtimeHubService(),
             NullLogger<ReportMissionTeamIncidentCommandHandler>.Instance);
     }
 

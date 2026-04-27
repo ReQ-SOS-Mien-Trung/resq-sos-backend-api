@@ -663,7 +663,6 @@ public class CreateMissionCommandHandlerTests
             unitOfWork,
             new RecordingMediator(),
             new StubAdminRealtimeHubService(),
-            new StubSosRequestRealtimeHubService(),
             new StubFirebaseService(),
             NullLogger<CreateMissionCommandHandler>.Instance);
     }
