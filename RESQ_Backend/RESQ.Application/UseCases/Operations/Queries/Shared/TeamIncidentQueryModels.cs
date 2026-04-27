@@ -27,9 +27,46 @@ public class TeamIncidentQueryDto
     public JsonElement? Detail { get; set; }
 }
 
+public class TeamIncidentDetailQueryDto : TeamIncidentQueryDto
+{
+}
+
 internal static class TeamIncidentQueryDtoMapper
 {
     public static TeamIncidentQueryDto ToDto(TeamIncidentModel incident, ReportedByDto? reportedBy) => new()
+    {
+        IncidentId = incident.Id,
+        MissionTeamId = incident.MissionTeamId,
+        MissionActivityId = incident.MissionActivityId,
+        IncidentScope = incident.IncidentScope.ToString(),
+        IncidentType = ResolveIncidentType(incident),
+        DecisionCode = incident.DecisionCode,
+        Latitude = incident.Latitude,
+        Longitude = incident.Longitude,
+        Description = incident.Description,
+        Status = incident.Status.ToString(),
+        ReportedBy = reportedBy,
+        ReportedAt = incident.ReportedAt,
+        HasInjuredMember = HasInjuredMember(incident.DetailJson),
+        HasSupportRequest = incident.NeedSupportSos || incident.SupportSosRequestId.HasValue
+            || HasSupportRequestInDetail(incident.DetailJson),
+        SupportSosRequestId = incident.SupportSosRequestId,
+        AffectedActivities = incident.AffectedActivities
+            .OrderBy(activity => activity.OrderIndex)
+            .Select(activity => new IncidentAffectedActivityDto
+            {
+                MissionActivityId = activity.MissionActivityId,
+                OrderIndex = activity.OrderIndex,
+                IsPrimary = activity.IsPrimary,
+                Step = activity.Step,
+                ActivityType = activity.ActivityType,
+                Status = activity.Status?.ToString()
+            })
+            .ToList(),
+        Detail = ParseDetail(incident.DetailJson)
+    };
+
+    public static TeamIncidentDetailQueryDto ToDetailDto(TeamIncidentModel incident, ReportedByDto? reportedBy) => new()
     {
         IncidentId = incident.Id,
         MissionTeamId = incident.MissionTeamId,
