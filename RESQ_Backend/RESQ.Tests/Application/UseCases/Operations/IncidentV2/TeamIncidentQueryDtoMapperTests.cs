@@ -41,13 +41,62 @@ public class TeamIncidentQueryDtoMapperTests
         };
 
         var dto = TeamIncidentQueryDtoMapper.ToDto(incident, null);
+        var detailDto = TeamIncidentQueryDtoMapper.ToDetailDto(incident, null);
 
         Assert.Equal(IncidentV2Constants.ActivityIncidentType, dto.IncidentType);
         Assert.True(dto.HasInjuredMember);
         Assert.True(dto.HasSupportRequest);
         Assert.Equal(88, dto.SupportSosRequestId);
+
+        // Check details on the detailed DTO
+        Assert.Single(detailDto.AffectedActivities);
+        Assert.NotNull(detailDto.Detail);
+    }
+
+    [Fact]
+    public void ToDetailDto_MapsAllFields()
+    {
+        var incident = new TeamIncidentModel
+        {
+            Id = 101,
+            MissionTeamId = 15,
+            MissionActivityId = 27,
+            IncidentScope = TeamIncidentScope.Activity,
+            Description = "Need support",
+            Status = TeamIncidentStatus.Reported,
+            NeedSupportSos = true,
+            SupportSosRequestId = 88,
+            DetailJson = "{\"incidentType\":\"vehicle_damage\",\"note\":\"engine failure\"}",
+            AffectedActivities =
+            [
+                new TeamIncidentAffectedActivityModel
+                {
+                    MissionActivityId = 27,
+                    OrderIndex = 0,
+                    IsPrimary = true,
+                    Step = 2,
+                    ActivityType = "EVACUATE",
+                    Status = MissionActivityStatus.OnGoing
+                }
+            ]
+        };
+
+        var dto = TeamIncidentQueryDtoMapper.ToDetailDto(incident, null);
+
+        Assert.Equal(101, dto.IncidentId);
+        Assert.Equal(15, dto.MissionTeamId);
+        Assert.Equal(27, dto.MissionActivityId);
+        Assert.Equal("Activity", dto.IncidentScope);
+        Assert.Equal("vehicle_damage", dto.IncidentType);
+        Assert.Equal("Need support", dto.Description);
+        Assert.Equal("Reported", dto.Status);
+        Assert.True(dto.HasInjuredMember == false); // no medical info in json
+        Assert.True(dto.HasSupportRequest);
+        Assert.Equal(88, dto.SupportSosRequestId);
         Assert.Single(dto.AffectedActivities);
+        Assert.Equal(27, dto.AffectedActivities[0].MissionActivityId);
         Assert.NotNull(dto.Detail);
+        Assert.Equal("engine failure", dto.Detail?.GetProperty("note").GetString());
     }
 
     // -- incidentType fallback tests --------------------------------------------

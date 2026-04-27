@@ -23,9 +23,9 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PermissionConstants.MissionIncidentView)]
-    public async Task<IActionResult> GetAllIncidents()
+    public async Task<IActionResult> GetAllIncidents([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        var result = await _mediator.Send(new GetAllTeamIncidentsQuery());
+        var result = await _mediator.Send(new GetAllTeamIncidentsQuery { PageNumber = pageNumber, PageSize = pageSize });
         return Ok(result);
     }
 
@@ -51,9 +51,9 @@ public class TeamIncidentController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpGet("by-mission/{missionId:int}")]
     [Authorize(Policy = PermissionConstants.MissionIncidentView)]
-    public async Task<IActionResult> GetIncidentsByMission([FromRoute] int missionId)
+    public async Task<IActionResult> GetIncidentsByMission([FromRoute] int missionId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        var result = await _mediator.Send(new GetTeamIncidentsQuery(missionId));
+        var result = await _mediator.Send(new GetTeamIncidentsQuery(missionId) { PageNumber = pageNumber, PageSize = pageSize });
         return Ok(result);
     }
 
