@@ -2,6 +2,8 @@
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using RESQ.Application.Behaviours;
+using RESQ.Application.Services;
+using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Application.UseCases.Operations.Shared;
 
 namespace RESQ.Application.Extensions;
@@ -33,6 +35,7 @@ public static class ServiceCollectionExtensions
         );
 
         services.AddScoped<IMissionPendingActivityUpdateService, MissionPendingActivityUpdateService>();
+        services.AddScoped<ISosRequestSnapshotBuilder, SosRequestSnapshotBuilder>();
         services.AddScoped<IMissionActivityStatusExecutionService, MissionActivityStatusExecutionService>();
         services.AddScoped<IRescueTeamMissionLifecycleSyncService, RescueTeamMissionLifecycleSyncService>();
 

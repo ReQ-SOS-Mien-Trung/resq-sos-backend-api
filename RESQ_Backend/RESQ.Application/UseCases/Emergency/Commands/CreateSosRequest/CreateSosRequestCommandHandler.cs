@@ -25,6 +25,7 @@ public class CreateSosRequestCommandHandler(
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     IDashboardHubService dashboardHubService,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     ILogger<CreateSosRequestCommandHandler> logger
 ) : IRequestHandler<CreateSosRequestCommand, CreateSosRequestResponse>
 {
@@ -37,6 +38,7 @@ public class CreateSosRequestCommandHandler(
     private readonly IFirebaseService _firebaseService = firebaseService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IDashboardHubService _dashboardHubService = dashboardHubService;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly ILogger<CreateSosRequestCommandHandler> _logger = logger;
 
     public async Task<CreateSosRequestResponse> Handle(CreateSosRequestCommand request, CancellationToken cancellationToken)
@@ -199,6 +201,10 @@ public class CreateSosRequestCommandHandler(
             _logger.LogWarning(ex, "Failed to link companions for SOS Request Id={sosRequestId}", created.Id);
         }
 
+        await _sosRequestRealtimeHubService.PushSosRequestUpdateAsync(
+            created.Id,
+            "Created",
+            cancellationToken: cancellationToken);
         // Push updated dashboard chart data to all connected admin clients (fire-and-forget)
         // Must be after companion linking to avoid DbContext concurrency
         _ = _dashboardHubService.PushVictimsByPeriodAsync(CancellationToken.None);

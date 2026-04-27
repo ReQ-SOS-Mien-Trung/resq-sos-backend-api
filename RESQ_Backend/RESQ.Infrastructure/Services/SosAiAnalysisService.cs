@@ -33,6 +33,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
     private readonly ISosAiAnalysisRepository _sosAiAnalysisRepository;
     private readonly ISosRequestRepository _sosRequestRepository;
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<SosAiAnalysisService> _logger;
 
@@ -45,6 +46,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         ISosAiAnalysisRepository sosAiAnalysisRepository,
         ISosRequestRepository sosRequestRepository,
         ISosRequestUpdateRepository sosRequestUpdateRepository,
+        ISosRequestRealtimeHubService sosRequestRealtimeHubService,
         IUnitOfWork unitOfWork,
         ILogger<SosAiAnalysisService> logger)
     {
@@ -56,6 +58,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
         _sosAiAnalysisRepository = sosAiAnalysisRepository;
         _sosRequestRepository = sosRequestRepository;
         _sosRequestUpdateRepository = sosRequestUpdateRepository;
+        _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -152,6 +155,10 @@ public class SosAiAnalysisService : ISosAiAnalysisService
 
             await _sosAiAnalysisRepository.CreateAsync(analysis, cancellationToken);
             await _unitOfWork.SaveAsync();
+            await _sosRequestRealtimeHubService.PushSosRequestUpdateAsync(
+                task.SosRequestId,
+                "AiAnalysisUpdated",
+                cancellationToken: cancellationToken);
 
             _logger.LogInformation(
                 "AI analysis completed for SOS Request Id={sosRequestId}: Provider={provider}, Model={model}, Priority={priority}, Score={score}, Severity={severity}, AgreesWithRuleBase={agreesWithRuleBase}",
