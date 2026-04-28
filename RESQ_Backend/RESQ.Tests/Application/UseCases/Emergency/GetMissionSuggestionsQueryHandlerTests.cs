@@ -200,6 +200,56 @@ public class GetMissionSuggestionsQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_SuppressesLegacyMixedWarning_WhenActivitiesShareSingleSos()
+    {
+        var handler = BuildHandler(
+            cluster: new SosClusterModel { Id = 5 },
+            suggestions:
+            [
+                new MissionAiSuggestionModel
+                {
+                    Id = 2,
+                    ClusterId = 5,
+                    Metadata = """
+                        {
+                          "mixed_rescue_relief_warning": "Ke hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat.",
+                          "needs_manual_review": false
+                        }
+                        """,
+                    Activities =
+                    [
+                        new ActivityAiSuggestionModel
+                        {
+                            Id = 4,
+                            ActivityType = "MIXED",
+                            SuggestionPhase = "Validated",
+                            SuggestedActivities = """
+                                [
+                                  {
+                                    "step": 1,
+                                    "activity_type": "MEDICAL_AID",
+                                    "sos_request_id": 21
+                                  },
+                                  {
+                                    "step": 2,
+                                    "activity_type": "DELIVER_SUPPLIES",
+                                    "sos_request_id": 21
+                                  }
+                                ]
+                                """
+                        }
+                    ]
+                }
+            ]);
+
+        var response = await handler.Handle(new GetMissionSuggestionsQuery(5), CancellationToken.None);
+
+        var mission = Assert.Single(response.MissionSuggestions);
+        Assert.True(string.IsNullOrWhiteSpace(mission.MixedRescueReliefWarning));
+        Assert.False(mission.NeedsManualReview);
+    }
+
+    [Fact]
     public async Task Handle_ThrowsNotFound_WhenClusterDoesNotExist()
     {
         var handler = BuildHandler(cluster: null, suggestions: []);

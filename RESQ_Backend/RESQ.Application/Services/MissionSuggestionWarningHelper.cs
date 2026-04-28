@@ -61,6 +61,9 @@ public static class MissionSuggestionWarningHelper
         if (rescueSosIds.Count == 0 || reliefSosIds.Count == 0)
             return MixedRescueReliefWarningMessage;
 
+        if (ActivitiesReferenceSingleSharedSos(rescueActivities, reliefActivities))
+            return string.Empty;
+
         return
             "Kế hoạch đang gộp chung cứu hộ/cấp cứu với cứu trợ cấp phát. " +
             "Nguyên tắc an toàn: sau khi cứu nạn nhân phải đưa họ về điểm an toàn hoặc điểm tập kết ngay để cấp cứu, " +
@@ -208,6 +211,19 @@ public static class MissionSuggestionWarningHelper
 
     private static bool IsReliefActivity(SuggestedActivityDto activity) =>
         string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ActivitiesReferenceSingleSharedSos(
+        IReadOnlyCollection<SuggestedActivityDto> rescueActivities,
+        IReadOnlyCollection<SuggestedActivityDto> reliefActivities)
+    {
+        var sosIds = rescueActivities
+            .Concat(reliefActivities)
+            .Select(activity => activity.SosRequestId)
+            .ToList();
+
+        return sosIds.All(id => id.HasValue)
+            && sosIds.Select(id => id!.Value).Distinct().Count() == 1;
+    }
 
     private static string FormatSosGroup(IReadOnlyCollection<int> sosIds)
     {
