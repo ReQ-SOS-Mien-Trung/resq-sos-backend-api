@@ -30,6 +30,7 @@ public sealed class AdminRealtimeHubService(
     private const string MissionEvent = "ReceiveMissionUpdate";
     private const string MissionActivityEvent = "ReceiveMissionActivityUpdate";
     private const string RescueTeamEvent = "ReceiveRescueTeamUpdate";
+    private const string RescuerScoresEvent = "ReceiveRescuerScoresUpdate";
     private const string SystemConfigEvent = "ReceiveSystemConfigUpdate";
     private const string AiConfigEvent = "ReceiveAiConfigUpdate";
 
@@ -333,6 +334,28 @@ public sealed class AdminRealtimeHubService(
                 "[AdminOperationsHub] Failed to push {Event} for TeamId={TeamId}",
                 RescueTeamEvent,
                 update.TeamId);
+        }
+    }
+
+    public async Task PushRescuerScoresUpdateAsync(
+        AdminRescuerScoresRealtimeUpdate update,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
+            await SendToOperationsGroupsAsync(
+                [AdminOperationsHub.RescuerScoresGroup(update.RescuerId)],
+                RescuerScoresEvent,
+                update,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "[AdminOperationsHub] Failed to push {Event} for RescuerId={RescuerId}",
+                RescuerScoresEvent,
+                update.RescuerId);
         }
     }
 

@@ -11,6 +11,7 @@ using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Enum.Personnel;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
 
@@ -86,6 +87,7 @@ public class SubmitMissionTeamReportCommandHandlerTests
             new StubTeamIncidentRepository(),
             lifecycleSyncService,
             new StubSosRequestRealtimeHubService(),
+            new StubAdminRealtimeHubService(),
             unitOfWork,
             NullLogger<SubmitMissionTeamReportCommandHandler>.Instance);
 
@@ -180,6 +182,7 @@ public class SubmitMissionTeamReportCommandHandlerTests
             new StubTeamIncidentRepository(),
             lifecycleSyncService,
             new StubSosRequestRealtimeHubService(),
+            new StubAdminRealtimeHubService(),
             unitOfWork,
             NullLogger<SubmitMissionTeamReportCommandHandler>.Instance);
 

@@ -17,6 +17,7 @@ internal sealed class StubAdminRealtimeHubService : IAdminRealtimeHubService
     public Task PushMissionUpdateAsync(AdminMissionRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushMissionActivityUpdateAsync(AdminMissionActivityRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushRescueTeamUpdateAsync(AdminRescueTeamRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task PushRescuerScoresUpdateAsync(AdminRescuerScoresRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushSystemConfigUpdateAsync(AdminSystemConfigRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushAiConfigUpdateAsync(AdminAiConfigRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

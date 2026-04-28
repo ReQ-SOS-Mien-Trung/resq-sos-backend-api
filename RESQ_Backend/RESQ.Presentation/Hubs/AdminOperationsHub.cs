@@ -9,6 +9,7 @@ public class AdminOperationsHub : Hub
     internal const string DepotsGroup = "admin-operations:depots";
     internal const string SOSClustersGroup = "admin-operations:sos-clusters";
     internal const string RescueTeamsGroup = "admin-operations:rescue-teams";
+    internal const string RescuerScoresGroupPrefix = "admin-operations:rescuer-scores";
 
     public Task SubscribeDepots() =>
         Groups.AddToGroupAsync(Context.ConnectionId, DepotsGroup);
@@ -70,6 +71,12 @@ public class AdminOperationsHub : Hub
     public Task UnsubscribeRescueTeam(int teamId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, RescueTeamGroup(teamId));
 
+    public Task SubscribeRescuerScores(Guid rescuerId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, RescuerScoresGroup(rescuerId));
+
+    public Task UnsubscribeRescuerScores(Guid rescuerId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, RescuerScoresGroup(rescuerId));
+
     internal static string DepotGroup(int depotId) => $"admin-operations:depot:{depotId}";
     internal static string DepotClosureGroup(int closureId) => $"admin-operations:closure:{closureId}";
     internal static string TransferGroup(int transferId) => $"admin-operations:transfer:{transferId}";
@@ -77,4 +84,5 @@ public class AdminOperationsHub : Hub
     internal static string MissionGroup(int missionId) => $"admin-operations:mission:{missionId}";
     internal static string MissionActivitiesGroup(int missionId) => $"admin-operations:mission-activities:{missionId}";
     internal static string RescueTeamGroup(int teamId) => $"admin-operations:rescue-team:{teamId}";
+    internal static string RescuerScoresGroup(Guid rescuerId) => $"{RescuerScoresGroupPrefix}:{rescuerId}";
 }
