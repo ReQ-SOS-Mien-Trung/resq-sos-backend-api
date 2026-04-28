@@ -47,6 +47,7 @@ public class UpdateSosRequestVictimCommandHandlerTests
             evalRepo ?? new StubSosRuleEvaluationRepository(),
             evalService ?? new StubPriorityEvaluationService(),
             aiQueue ?? new StubSosAiAnalysisQueue(),
+            new StubSosRequestRealtimeHubService(),
             new StubUnitOfWork());
     }
 

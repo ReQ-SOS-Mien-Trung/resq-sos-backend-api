@@ -170,6 +170,7 @@ public class CreateSosRequestCommandHandlerTests
             new StubFirebase(),
             unitOfWork ?? new StubUnitOfWork(),
             new StubDashboard(),
+            new StubSosRequestRealtimeHubService(),
             NullLogger<CreateSosRequestCommandHandler>.Instance);
 
     // ── Stubs ──
