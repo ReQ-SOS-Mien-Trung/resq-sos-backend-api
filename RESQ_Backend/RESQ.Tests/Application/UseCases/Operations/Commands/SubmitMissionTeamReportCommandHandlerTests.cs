@@ -121,6 +121,100 @@ public class SubmitMissionTeamReportCommandHandlerTests
         Assert.Equal(1, lifecycleSyncService.PushCalls);
     }
 
+    [Fact]
+    public async Task Handle_SubmitsReport_WhenMissionAlreadyCompleted()
+    {
+        var mission = new MissionModel
+        {
+            Id = 13,
+            ClusterId = 8,
+            Status = MissionStatus.Completed,
+            IsCompleted = true,
+            Activities =
+            [
+                new MissionActivityModel
+                {
+                    Id = 201,
+                    MissionId = 13,
+                    MissionTeamId = 66,
+                    Step = 1,
+                    ActivityType = "RESCUE",
+                    Status = MissionActivityStatus.Succeed
+                }
+            ]
+        };
+
+        var missionTeam = new MissionTeamModel
+        {
+            Id = 66,
+            MissionId = 13,
+            RescuerTeamId = 22,
+            Status = MissionTeamExecutionStatus.CompletedWaitingReport.ToString(),
+            ReportStatus = MissionTeamReportStatus.Draft.ToString(),
+            RescueTeamMembers =
+            [
+                new MissionTeamMemberInfo
+                {
+                    UserId = LeaderId,
+                    IsLeader = true,
+                    Status = TeamMemberStatus.Accepted.ToString()
+                }
+            ]
+        };
+
+        var missionRepository = new StubMissionRepository(mission);
+        var activityRepository = new StubMissionActivityRepository(mission);
+        var missionTeamRepository = new StubMissionTeamRepository(missionTeam);
+        var lifecycleSyncService = new StubRescueTeamMissionLifecycleSyncService();
+        var unitOfWork = new StubUnitOfWork();
+
+        var handler = new SubmitMissionTeamReportCommandHandler(
+            missionRepository,
+            activityRepository,
+            missionTeamRepository,
+            new StubMissionTeamReportRepository(),
+            new StubRescuerScoreRepository(),
+            new StubSosRequestRepository(),
+            new StubSosRequestUpdateRepository(),
+            new StubSosClusterRepository(new SosClusterModel { Id = 8, Status = SosClusterStatus.Completed }),
+            new StubTeamIncidentRepository(),
+            lifecycleSyncService,
+            new StubSosRequestRealtimeHubService(),
+            unitOfWork,
+            NullLogger<SubmitMissionTeamReportCommandHandler>.Instance);
+
+        await handler.Handle(
+            new SubmitMissionTeamReportCommand(
+                MissionId: 13,
+                MissionTeamId: 66,
+                SubmittedBy: LeaderId,
+                TeamSummary: "done later",
+                TeamNote: null,
+                IssuesJson: null,
+                ResultJson: null,
+                EvidenceJson: null,
+                Activities:
+                [
+                    new SubmitMissionTeamReportActivityItemDto
+                    {
+                        MissionActivityId = 201,
+                        ExecutionStatus = "succeed",
+                        Summary = "already done"
+                    }
+                ],
+                MemberEvaluations: []),
+            CancellationToken.None);
+
+        Assert.Null(missionRepository.LastStatus);
+        Assert.Null(missionRepository.LastIsCompleted);
+        Assert.Equal(MissionStatus.Completed, mission.Status);
+        Assert.True(mission.IsCompleted);
+        Assert.Equal(MissionTeamExecutionStatus.Reported.ToString(), missionTeam.Status);
+        Assert.Equal(1, unitOfWork.ExecuteInTransactionCalls);
+        Assert.Equal((22, 66), lifecycleSyncService.LastExecutionSync!.Value);
+        Assert.Equal(0, lifecycleSyncService.PushCalls);
+    }
+
     private sealed class StubMissionRepository(MissionModel mission) : IMissionRepository
     {
         public MissionStatus? LastStatus { get; private set; }
