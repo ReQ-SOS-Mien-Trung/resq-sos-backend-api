@@ -170,6 +170,32 @@ public class MissionAiSuggestionSectionTests
         Assert.Equal(MissionSuggestionWarningHelper.MixedRescueReliefWarningMessage, section.MixedRescueReliefWarning);
     }
 
+    [Fact]
+    public void From_SuppressesLegacyMixedWarning_WhenActivitiesShareSingleSos()
+    {
+        var model = new MissionAiSuggestionModel
+        {
+            Id = 106,
+            Metadata = """
+                {
+                  "special_notes": "Coordinator note\nKe hoach dang gop chung cuu ho/cap cuu voi cuu tro cap phat. Nguyen tac an toan: sau khi cuu nan nhan phai dua ho ve Safe Zone/Assembly Point ngay de cap cuu, khong tiep tuc cho nan nhan di phat do. Khuyen nghi tach thanh mission rieng; coordinator chi nen bo qua canh bao nay khi chu dong chap nhan trach nhiem.",
+                  "needs_manual_review": false
+                }
+                """,
+            Activities =
+            [
+                CreateSameSosMixedSnakeCaseActivitySuggestion("Validated")
+            ]
+        };
+
+        var section = InvokeFrom(model);
+
+        Assert.NotNull(section);
+        Assert.Equal("Coordinator note", section!.SpecialNotes);
+        Assert.True(string.IsNullOrWhiteSpace(section.MixedRescueReliefWarning));
+        Assert.False(section.NeedsManualReview);
+    }
+
     private static MissionAiSuggestionSection? InvokeFrom(MissionAiSuggestionModel model)
     {
         var method = typeof(MissionAiSuggestionSection).GetMethod(
@@ -239,6 +265,30 @@ public class MissionAiSuggestionSectionTests
                     "description": "dua nan nhan ra khoi khu vuc nguy hiem",
                     "estimated_time": "15 phut",
                     "sos_request_id": 91
+                  }
+                ]
+                """
+        };
+    }
+
+    private static ActivityAiSuggestionModel CreateSameSosMixedSnakeCaseActivitySuggestion(string phase)
+    {
+        return new ActivityAiSuggestionModel
+        {
+            SuggestionPhase = phase,
+            SuggestedActivities = """
+                [
+                  {
+                    "step": 1,
+                    "activity_type": "MEDICAL_AID",
+                    "description": "cap cuu tai cho",
+                    "sos_request_id": 21
+                  },
+                  {
+                    "step": 2,
+                    "activity_type": "DELIVER_SUPPLIES",
+                    "description": "cap phat vat pham",
+                    "sos_request_id": 21
                   }
                 ]
                 """

@@ -1303,7 +1303,25 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
-    public void BuildMixedRescueReliefWarning_KeepsSameSosIdInBothBranches()
+    public void ApplyMixedRescueReliefSafetyNote_IgnoresSingleSharedSos()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto { Step = 1, ActivityType = "MEDICAL_AID", SosRequestId = 15 },
+                new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 15 }
+            ]
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "ApplyMixedRescueReliefSafetyNote", result);
+
+        Assert.False(result.NeedsManualReview);
+        Assert.True(string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
+    }
+
+    [Fact]
+    public void BuildMixedRescueReliefWarning_IgnoresSameSosIdInBothBranches()
     {
         var warning = MissionSuggestionWarningHelper.BuildMixedRescueReliefWarning(
         [
@@ -1311,8 +1329,7 @@ public class RescueMissionSuggestionServiceInternalTests
             new SuggestedActivityDto { Step = 2, ActivityType = "DELIVER_SUPPLIES", SosRequestId = 15 }
         ]);
 
-        Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u h\u1ED9/c\u1EA5p c\u1EE9u cho SOS #15", warning);
-        Assert.Contains("nhi\u1EC7m v\u1EE5 c\u1EE9u tr\u1EE3/c\u1EA5p ph\u00E1t cho SOS #15", warning);
+        Assert.True(string.IsNullOrWhiteSpace(warning));
     }
 
     [Fact]

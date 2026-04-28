@@ -424,20 +424,22 @@ public class CreateMissionCommandHandler(
         bool ignoreMixedMissionWarning,
         CancellationToken cancellationToken)
     {
-        var hasRescueBranch = activities.Any(IsRescueReliefActivity);
-        var hasSupplyBranch = activities.Any(IsSupplyDistributionActivity);
+        var rescueActivities = activities
+            .Where(IsRescueReliefActivity)
+            .ToList();
+        var supplyActivities = activities
+            .Where(IsSupplyDistributionActivity)
+            .ToList();
 
-        if (!hasRescueBranch || !hasSupplyBranch)
+        if (rescueActivities.Count == 0 || supplyActivities.Count == 0)
             return false;
 
         var clusterSosRequests = (await _sosRequestRepository.GetByClusterIdAsync(clusterId, cancellationToken)).ToList();
-        var rescueActivitySosIds = activities
-            .Where(IsRescueReliefActivity)
+        var rescueActivitySosIds = rescueActivities
             .Where(activity => activity.SosRequestId.HasValue)
             .Select(activity => activity.SosRequestId!.Value)
             .ToHashSet();
-        var reliefActivitySosIds = activities
-            .Where(IsSupplyDistributionActivity)
+        var reliefActivitySosIds = supplyActivities
             .Where(activity => activity.SosRequestId.HasValue)
             .Select(activity => activity.SosRequestId!.Value)
             .ToHashSet();
@@ -454,6 +456,11 @@ public class CreateMissionCommandHandler(
                     ? reliefActivitySosIds.Contains(sos.Id)
                     : SosRequestAiAnalysisHelper.IsReliefRequestType(sos.SosType))
             .ToList();
+
+        if (SosGroupsResolveToSingleSharedSos(
+                relevantRescueSos.Select(sos => sos.Id),
+                relevantReliefSos.Select(sos => sos.Id)))
+            return false;
 
         if (relevantRescueSos.Count == 0 || relevantReliefSos.Count == 0)
         {
@@ -963,6 +970,22 @@ public class CreateMissionCommandHandler(
                 throw;
             }
         }
+    }
+
+    private static bool SosGroupsResolveToSingleSharedSos(
+        IEnumerable<int> rescueSosIds,
+        IEnumerable<int> reliefSosIds)
+    {
+        var rescueIds = rescueSosIds
+            .Distinct()
+            .ToList();
+        var reliefIds = reliefSosIds
+            .Distinct()
+            .ToList();
+
+        return rescueIds.Count == 1
+            && reliefIds.Count == 1
+            && rescueIds[0] == reliefIds[0];
     }
 
     private static bool IsCollectSuppliesActivity(CreateActivityItemDto activity) =>

@@ -295,6 +295,38 @@ public class CreateMissionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AllowsMixedActivitiesForSingleBothSos_WithoutOverride()
+    {
+        var missionRepository = new StubMissionRepository();
+        var missionActivityRepository = new StubMissionActivityRepository(missionRepository);
+        var clusterRepository = new StubSosClusterRepository(new SosClusterModel { Id = 1 });
+        var sosRequestRepository = new StubSosRequestRepository(
+            CreateSosRequest(21, "Both", SosPriorityLevel.Critical));
+        var depotInventoryRepository = new StubDepotInventoryRepository();
+        var unitOfWork = new TrackingUnitOfWork();
+
+        var handler = BuildHandler(
+            missionRepository,
+            missionActivityRepository,
+            clusterRepository,
+            sosRequestRepository,
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(),
+            unitOfWork);
+
+        var collect = CreateCollectActivity(quantity: 10);
+        var rescue = CreateRescueActivity(step: 2);
+
+        var response = await handler.Handle(
+            BuildCommandWithOptions([collect, rescue]),
+            CancellationToken.None);
+
+        Assert.Equal(101, response.MissionId);
+        Assert.NotNull(missionRepository.CreatedMission);
+        Assert.Null(missionRepository.CreatedMission!.ManualOverrideMetadata);
+    }
+
+    [Fact]
     public async Task Handle_AllowsMixedMission_WhenRescueCanWaitForCombinedMission()
     {
         var missionRepository = new StubMissionRepository();
