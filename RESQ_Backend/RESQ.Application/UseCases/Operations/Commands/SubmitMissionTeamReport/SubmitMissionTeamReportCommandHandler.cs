@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
@@ -26,6 +27,7 @@ public class SubmitMissionTeamReportCommandHandler(
     ITeamIncidentRepository teamIncidentRepository,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService,
     ISosRequestRealtimeHubService sosRequestRealtimeHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<SubmitMissionTeamReportCommandHandler> logger)
     : IRequestHandler<SubmitMissionTeamReportCommand, MissionTeamReportResponse>
@@ -82,6 +84,10 @@ public class SubmitMissionTeamReportCommandHandler(
             .ToList();
 
         MissionTeamMemberEvaluationHelper.ValidateSubmit(memberEvaluations, missionTeam);
+        var updatedRescuerScoreIds = memberEvaluations
+            .Select(e => e.RescuerId)
+            .Distinct()
+            .ToList();
 
         var rescueTeamLifecycleSyncResult = RescueTeamMissionLifecycleSyncResult.None;
         var lifecycleSosRequestIds = new HashSet<int>();
@@ -296,6 +302,23 @@ public class SubmitMissionTeamReportCommandHandler(
                 resolvedSosRequestIds.Add(sosRequestId);
             }
         });
+
+        foreach (var rescuerId in updatedRescuerScoreIds)
+        {
+            await adminRealtimeHubService.PushRescuerScoresUpdateAsync(
+                new AdminRescuerScoresRealtimeUpdate
+                {
+                    EntityId = null,
+                    EntityType = "RescuerScores",
+                    RescuerId = rescuerId,
+                    MissionId = request.MissionId,
+                    MissionTeamId = request.MissionTeamId,
+                    Action = "ScoresUpdated",
+                    Status = "Updated",
+                    ChangedAt = DateTime.UtcNow
+                },
+                cancellationToken);
+        }
 
         await rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
             rescueTeamLifecycleSyncResult,

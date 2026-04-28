@@ -11,7 +11,10 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerOverview;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuersDailyStatistics;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosRequestsSummary;
+using RESQ.Application.UseCases.Personnel.Queries.AssemblyPointMetadata;
+using RESQ.Application.UseCases.Personnel.Queries.RescueTeamMetadata;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Presentation.Controllers.Personnel;
 
@@ -114,9 +117,43 @@ public class PersonnelDashboardController(IMediator mediator) : ControllerBase
     [HttpGet("rescue-teams")]
     public async Task<IActionResult> GetRescueTeams(
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] RescueTeamType? teamType = null,
+        [FromQuery] RescueTeamStatus? status = null,
+        [FromQuery] string? assemblyPointName = null,
+        [FromQuery] string? search = null)
     {
-        var result = await _mediator.Send(new GetAdminTeamListQuery(pageNumber, pageSize));
+        var result = await _mediator.Send(new GetAdminTeamListQuery(
+            pageNumber,
+            pageSize,
+            teamType,
+            status,
+            assemblyPointName,
+            search));
+        return Ok(result);
+    }
+
+    /// <summary>[Dashboard - Metadata] Danh sách loại đội cứu hộ dùng cho filter teamType.</summary>
+    [HttpGet("rescue-teams/metadata/team-types")]
+    public async Task<IActionResult> GetRescueTeamTypeMetadata()
+    {
+        var result = await _mediator.Send(new GetRescueTeamTypeMetadataQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Dashboard - Metadata] Danh sách trạng thái đội cứu hộ dùng cho filter status.</summary>
+    [HttpGet("rescue-teams/metadata/statuses")]
+    public async Task<IActionResult> GetRescueTeamStatusMetadata()
+    {
+        var result = await _mediator.Send(new GetRescueTeamStatusMetadataQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Dashboard - Metadata] Danh sách tên điểm tập kết dùng cho filter assemblyPointName.</summary>
+    [HttpGet("rescue-teams/metadata/assembly-point-names")]
+    public async Task<IActionResult> GetRescueTeamAssemblyPointNameMetadata()
+    {
+        var result = await _mediator.Send(new GetAssemblyPointNameMetadataQuery());
         return Ok(result);
     }
 

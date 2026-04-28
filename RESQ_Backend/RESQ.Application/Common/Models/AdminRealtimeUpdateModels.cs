@@ -78,6 +78,13 @@ public sealed class AdminRescueTeamRealtimeUpdate : AdminRealtimeUpdateBase
     public int? TeamId { get; set; }
 }
 
+public sealed class AdminRescuerScoresRealtimeUpdate : AdminRealtimeUpdateBase
+{
+    public Guid RescuerId { get; set; }
+    public int? MissionId { get; set; }
+    public int? MissionTeamId { get; set; }
+}
+
 public sealed class AdminSystemConfigRealtimeUpdate : AdminRealtimeUpdateBase
 {
     public string? ConfigKey { get; set; }
