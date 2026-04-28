@@ -48,6 +48,10 @@ public interface IAdminRealtimeHubService
         AdminRescueTeamRealtimeUpdate update,
         CancellationToken cancellationToken = default);
 
+    Task PushRescuerScoresUpdateAsync(
+        AdminRescuerScoresRealtimeUpdate update,
+        CancellationToken cancellationToken = default);
+
     Task PushSystemConfigUpdateAsync(
         AdminSystemConfigRealtimeUpdate update,
         CancellationToken cancellationToken = default);

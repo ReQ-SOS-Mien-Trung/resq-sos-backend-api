@@ -14,9 +14,22 @@ public class GetAdminTeamListHandler(
         GetAdminTeamListQuery request,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation("GetAdminTeamList page={page} size={size}", request.PageNumber, request.PageSize);
+        logger.LogInformation(
+            "GetAdminTeamList page={page} size={size} teamType={teamType} status={status} assemblyPointName={assemblyPointName} search={search}",
+            request.PageNumber,
+            request.PageSize,
+            request.TeamType,
+            request.Status,
+            request.AssemblyPointName,
+            request.Search);
 
         return await dashboardRepository.GetAdminTeamListAsync(
-            request.PageNumber, request.PageSize, cancellationToken);
+            request.PageNumber,
+            request.PageSize,
+            request.TeamType,
+            request.Status,
+            request.AssemblyPointName,
+            request.Search,
+            cancellationToken);
     }
 }

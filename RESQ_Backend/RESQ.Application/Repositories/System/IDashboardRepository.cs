@@ -6,6 +6,7 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashbo
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 
 namespace RESQ.Application.Repositories.System;
 
@@ -35,6 +36,10 @@ public interface IDashboardRepository
     Task<PagedResult<AdminTeamListItemDto>> GetAdminTeamListAsync(
         int pageNumber,
         int pageSize,
+        RescueTeamType? teamType = null,
+        RescueTeamStatus? status = null,
+        string? assemblyPointName = null,
+        string? search = null,
         CancellationToken cancellationToken = default);
 
     Task<AdminTeamDetailDto?> GetAdminTeamDetailAsync(

@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashbo
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetVictimsByPeriod;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -163,16 +164,49 @@ public class DashboardRepository(ResQDbContext context) : IDashboardRepository
     public async Task<PagedResult<AdminTeamListItemDto>> GetAdminTeamListAsync(
         int pageNumber,
         int pageSize,
+        RescueTeamType? teamType = null,
+        RescueTeamStatus? status = null,
+        string? assemblyPointName = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.Set<RescueTeam>()
             .Include(t => t.AssemblyPoint)
             .Include(t => t.RescueTeamMembers)
-            .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt);
+            .AsQueryable();
+
+        if (teamType.HasValue)
+        {
+            var teamTypeValue = teamType.Value.ToString();
+            query = query.Where(t => t.TeamType == teamTypeValue);
+        }
+
+        if (status.HasValue)
+        {
+            var statusValue = status.Value.ToString();
+            query = query.Where(t => t.Status == statusValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(assemblyPointName))
+        {
+            var normalizedAssemblyPointName = assemblyPointName.Trim().ToLower();
+            query = query.Where(t =>
+                t.AssemblyPoint != null
+                && (t.AssemblyPoint.Name ?? string.Empty).ToLower().Contains(normalizedAssemblyPointName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim().ToLower();
+            query = query.Where(t =>
+                (t.Name ?? string.Empty).ToLower().Contains(normalizedSearch)
+                || (t.Code ?? string.Empty).ToLower().Contains(normalizedSearch));
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var teams = await query
+            .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
