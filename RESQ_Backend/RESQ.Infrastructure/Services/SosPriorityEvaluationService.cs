@@ -621,6 +621,7 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
 
     private static List<string> DetermineItemsNeeded(StructuredData? data, string? sosType, bool blanketsSelected, bool clothingSelected)
     {
+        // SupplyNeed mobile enum: WATER | FOOD | CLOTHES | BLANKET | MEDICINE | OTHER
         var items = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var peopleSummary = ResolvePeopleSummary(data);
         var situation = NormalizeSituation(data?.Incident?.Situation ?? data?.Situation);
@@ -628,49 +629,39 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
 
         if (injuredPeople.Count > 0 || data?.Incident?.HasInjured == true || data?.HasInjured == true)
         {
-            items.Add("FIRST_AID_KIT");
-            items.Add("MEDICAL_SUPPLIES");
+            items.Add("MEDICINE");
         }
 
-        if (injuredPeople.SelectMany(person => person.MedicalIssues).Any(issue => issue is "BLEEDING" or "SEVERELY_BLEEDING"))
+        if (situation is "FLOODING" or "TRAPPED" or "COLLAPSED" or "DANGER_ZONE")
         {
-            items.Add("BANDAGES");
-            items.Add("BLOOD_CLOTTING_AGENTS");
-        }
-
-        if (situation == "FLOODING")
-        {
-            items.Add("LIFE_JACKET");
-            items.Add("RESCUE_BOAT");
-            items.Add("ROPE");
-        }
-
-        if (situation is "TRAPPED" or "COLLAPSED")
-        {
-            items.Add("ROPE");
-            items.Add("RESCUE_EQUIPMENT");
+            items.Add("OTHER");
         }
 
         if (peopleSummary.TotalPeople > 0)
         {
             items.Add("WATER");
-            items.Add("FOOD_RATIONS");
+            items.Add("FOOD");
         }
 
         if (blanketsSelected)
         {
-            items.Add("BLANKETS");
+            items.Add("BLANKET");
         }
 
         if (clothingSelected)
         {
-            items.Add("CLOTHING");
+            items.Add("CLOTHES");
         }
 
-        if (string.Equals(SosPriorityRuleConfigSupport.NormalizeKey(sosType), "EVACUATION", StringComparison.OrdinalIgnoreCase))
+        // Merge supplies already declared in group_needs.supplies
+        var declaredSupplies = data?.GroupNeeds?.Supplies ?? data?.Supplies;
+        if (declaredSupplies is { Count: > 0 })
         {
-            items.Add("TRANSPORT_VEHICLE");
-            items.Add("STRETCHER");
+            foreach (var s in declaredSupplies)
+            {
+                if (!string.IsNullOrWhiteSpace(s))
+                    items.Add(s.ToUpperInvariant());
+            }
         }
 
         return items.OrderBy(item => item).ToList();
