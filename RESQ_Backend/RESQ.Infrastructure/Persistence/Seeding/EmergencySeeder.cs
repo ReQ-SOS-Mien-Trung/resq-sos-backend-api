@@ -92,6 +92,34 @@ public static class EmergencySeeder
 
     private static void SeedSosRequests(ModelBuilder modelBuilder)
     {
+        // ====================================================================
+        // SOS request seed - shape & enum values KHỚP với mobile form
+        // (xem `SOSPacket.swift` / `SOSFormData.toSOSPacket` của SosMienTrung iOS).
+        //
+        // Mobile chỉ encode 3 key trong structured_data: incident, group_needs, victims.
+        //   - KHÔNG encode `prepared_profiles`.
+        //   - victim_info luôn = null (BE link nạn nhân qua structured_data.victims[].person_phone).
+        //   - severity (per-victim) chỉ gồm: "CRITICAL" | "HIGH" | null.
+        //   - Whitelist enum:
+        //       situation       (RescueSituation):     TRAPPED, COLLAPSED, DANGER_ZONE, CANNOT_MOVE, FLOODING, OTHER
+        //       supplies        (SupplyNeed):          WATER, FOOD, CLOTHES, BLANKET, MEDICINE, OTHER
+        //       medical_issues  (MedicalIssue):        BLEEDING, SEVERELY_BLEEDING, FRACTURE, HEAD_INJURY, BURNS,
+        //                                              UNCONSCIOUS, BREATHING_DIFFICULTY, CHEST_PAIN_STROKE, CANNOT_MOVE,
+        //                                              DROWNING, HIGH_FEVER, DEHYDRATION, INFANT_NEEDS_MILK, LOST_PARENT,
+        //                                              CHRONIC_DISEASE, CONFUSION, NEEDS_MEDICAL_DEVICE, OTHER
+        //       conditions      (MedicineCondition):   HIGH_FEVER, CHRONIC_DISEASE, INJURED, OTHER
+        //       medical_needs   (MedicalSupportNeed):  COMMON_MEDICINE, FIRST_AID, CHRONIC_MAINTENANCE, MINOR_INJURY
+        //       availability    (BlanketAvailability): NONE, NOT_ENOUGH, ENOUGH
+        //       clothing.status (ClothingStatus):      COMPLETELY_LACKING, PARTIALLY_LACKING, SUFFICIENT
+        //       water.duration  (WaterDuration):       UNDER_6H, 6_TO_12H, 12_TO_24H, 1_TO_2_DAYS, OVER_2_DAYS
+        //       food.duration   (FoodDuration):        UNDER_12H, 12_TO_24H, 1_TO_2_DAYS, 2_TO_3_DAYS, OVER_3_DAYS
+        //       person_type     (Person.PersonType):   ADULT, CHILD, ELDERLY  (KHÔNG có PREGNANT)
+        //       gender          (ClothingGender):      MALE, FEMALE  (hoặc null)
+        //
+        // Hai record #1, #2 CỐ Ý giữ shape FLAT (legacy) để verify
+        // SosStructuredDataParser dual-read fallback. Values bên trong vẫn
+        // tuân thủ enum mobile.
+        // ====================================================================
         modelBuilder.Entity<SosRequest>().HasData(
 
             // ============================================================
@@ -110,45 +138,37 @@ public static class EmergencySeeder
                 LocationAccuracy = 8,
                 SosType = "RESCUE",
                 OriginId = "D1A00001-0000-4A8A-B0BF-000000000001",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Người già: 1 | Bị thương: Người lớn 1: Bệnh nền (Nghiêm trọng) | Ghi chú: Cụ bà 82 tuổi bị liệt nửa người không di chuyển được, nước lũ đang lên nhanh",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Nước dâng cao | Số người: 3 | Người già: 1 | Bị thương: Người già 1 - Cụ bà 82 tuổi (CRITICAL) | Ghi chú: Cụ bà 82 tuổi liệt nửa người không tự di chuyển được, nước lũ đang lên nhanh",
+                // [LEGACY FLAT shape] — cố ý giữ để verify SosStructuredDataParser dual-read fallback.
+                // Values bên trong (medical_issues, supplies, severity, person_type) đã chuẩn hoá về mobile enum.
                 StructuredData = """
                     {
                       "situation": "FLOODING",
                       "can_move": false,
                       "has_injured": true,
                       "need_medical": true,
-                      "others_are_stable": false,
                       "people_count": { "adult": 2, "child": 0, "elderly": 1 },
-                      "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT", "BREATHING_DIFFICULTY"],
-                      "supplies": ["MEDICINE", "TRANSPORTATION"],
+                      "medical_issues": ["CHRONIC_DISEASE", "CANNOT_MOVE", "BREATHING_DIFFICULTY"],
+                      "supplies": ["MEDICINE", "OTHER"],
+                      "other_supply_description": "Xuồng/thuyền cứu hộ tiếp cận tầng 2",
                       "additional_description": "Cụ bà 82 tuổi bị liệt nửa người, khó thở, nước lũ đang lên nhanh không tự di chuyển được",
                       "injured_persons": [
                         {
                           "index": 1,
-                          "name": "Người lớn 1",
+                          "name": "Người già 1",
                           "custom_name": "Cụ bà 82 tuổi",
-                          "person_type": "elderly",
-                          "medical_issues": ["CHRONIC_DISEASE", "MOBILITY_IMPAIRMENT", "BREATHING_DIFFICULTY"],
-                          "severity": "Critical"
+                          "person_type": "ELDERLY",
+                          "medical_issues": ["CHRONIC_DISEASE", "CANNOT_MOVE", "BREATHING_DIFFICULTY"],
+                          "severity": "CRITICAL"
                         }
                       ]
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 0,
-                      "path": ["D1A00001-0000-4A8A-B0BF-000000000001"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1A00001-0000-4A8A-B0BF-000000000001",
-                      "is_online": true,
-                      "user_id": "55555555-5555-5555-5555-555555555555",
-                      "user_name": "0945678901",
-                      "user_phone": "0945678901"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":0,"path":["D1A00001-0000-4A8A-B0BF-000000000001"]}""",
+                SenderInfo = """{"device_id":"D1A00001-0000-4A8A-B0BF-000000000001","is_online":true,"user_id":"55555555-5555-5555-5555-555555555555","user_name":"Hoàng Văn","user_phone":"0945678901","battery_level":62}""",
+                ReporterInfo = """{"device_id":"D1A00001-0000-4A8A-B0BF-000000000001","is_online":true,"user_id":"55555555-5555-5555-5555-555555555555","user_name":"Hoàng Văn","user_phone":"0945678901","battery_level":62}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1760517000L, // 2025-10-15 08:30 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
@@ -173,16 +193,18 @@ public static class EmergencySeeder
                 LocationAccuracy = 12,
                 SosType = "RESCUE",
                 OriginId = "D1A00002-0000-4A8A-B0BF-000000000002",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 6 | Trẻ em: 3 | Bị thương: Người lớn 1: Thai kỳ tháng 8 (Nghiêm trọng) | Ghi chú: Dang tru tren mai nha 3 tre nho kho tho vi met moi, nuoc van dang dang",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Nước dâng cao | Số người: 6 | Trẻ em: 3 | Bị thương: Người lớn 1 - Vợ mang thai tháng 8, khó thở (CRITICAL) | Ghi chú: Đang trú trên mái nhà, 3 trẻ nhỏ khó thở vì mệt mỏi, vợ mang thai tháng 8, nước vẫn đang dâng",
+                // [LEGACY FLAT shape] — cố ý giữ để verify SosStructuredDataParser dual-read fallback.
+                // PREGNANCY không phải MedicalIssue mobile — chuyển thành has_pregnant_any=true.
                 StructuredData = """
                     {
                       "situation": "FLOODING",
                       "can_move": false,
                       "has_injured": true,
                       "need_medical": true,
-                      "others_are_stable": false,
+                      "has_pregnant_any": true,
                       "people_count": { "adult": 3, "child": 3, "elderly": 0 },
-                      "medical_issues": ["PREGNANCY", "BREATHING_DIFFICULTY"],
+                      "medical_issues": ["BREATHING_DIFFICULTY"],
                       "supplies": ["MEDICINE", "WATER"],
                       "additional_description": "Đang trú trên mái nhà, 3 trẻ nhỏ khó thở vì mệt mỏi, vợ mang thai tháng 8, nước vẫn đang dâng",
                       "injured_persons": [
@@ -190,28 +212,18 @@ public static class EmergencySeeder
                           "index": 1,
                           "name": "Người lớn 1",
                           "custom_name": "Vợ mang thai tháng 8",
-                          "person_type": "adult",
-                          "medical_issues": ["PREGNANCY", "BREATHING_DIFFICULTY"],
-                          "severity": "Critical"
+                          "person_type": "ADULT",
+                          "medical_issues": ["BREATHING_DIFFICULTY"],
+                          "severity": "CRITICAL"
                         }
                       ]
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 1,
-                      "path": ["D1A00001-0000-4A8A-B0BF-000000000001", "D1A00002-0000-4A8A-B0BF-000000000002"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1A00002-0000-4A8A-B0BF-000000000002",
-                      "is_online": true,
-                      "user_id": "66666666-6666-6666-6666-666666666661",
-                      "user_name": "0961111111",
-                      "user_phone": "0961111111"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":1,"path":["D1A00001-0000-4A8A-B0BF-000000000001","D1A00002-0000-4A8A-B0BF-000000000002"]}""",
+                SenderInfo = """{"device_id":"D1A00002-0000-4A8A-B0BF-000000000002","is_online":true,"user_id":"66666666-6666-6666-6666-666666666661","user_name":"Nguyễn Thanh Tùng","user_phone":"0961111111","battery_level":48}""",
+                ReporterInfo = """{"device_id":"D1A00002-0000-4A8A-B0BF-000000000002","is_online":true,"user_id":"66666666-6666-6666-6666-666666666661","user_name":"Nguyễn Thanh Tùng","user_phone":"0961111111","battery_level":48}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1763627700L, // 2025-11-20 08:35 UTC
                 PriorityLevel = SosPriorityLevel.Critical.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
@@ -239,65 +251,72 @@ public static class EmergencySeeder
                 UserId = SeedConstants.Applicant2UserId,
                 Location = new Point(105.902, 18.351) { SRID = 4326 }, // Gần Depot 3 (Hà Tĩnh)
                 LocationAccuracy = 6,
-                SosType = "RESCUE",
+                SosType = "BOTH",
                 OriginId = "D1B00003-0000-4A8A-B0BF-000000000003",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 5 | Bị thương: Người lớn 1: Gãy tay (Trung bình); Người lớn 2: Chảy máu đầu (Nghiêm trọng) | Ghi chú: Sạt lở đất chặn đường tỉnh lộ, xe tải bị chặn lại, cần trực thăng hoặc đi bộ rừng",
+                RawMessage = "[CỨU HỘ + CỨU TRỢ] | Tình trạng: Kẹt trong khu vực nguy hiểm | Số người: 5 | Bị thương: Người lớn 1 - Gãy tay (HIGH); Người lớn 2 - Chảy máu nặng & chấn thương đầu (CRITICAL) | Cần: Y tế, Khác | Ghi chú: Sạt lở đất chặn đường tỉnh lộ, xe tải bị chặn lại, cần trực thăng hoặc đi bộ rừng",
+                // Victim #2 person_phone trỏ về applicant4 (0964444444) để demo companion-linking.
                 StructuredData = """
                     {
                       "incident": {
-                        "situation": "LANDSLIDE",
-                        "can_move": false,
-                        "has_injured": true,
-                        "need_medical": true,
-                        "others_are_stable": false,
+                        "situation": "DANGER_ZONE",
+                        "address": "Tỉnh lộ qua xã Sơn Lâm, huyện Hương Sơn, Hà Tĩnh",
+                        "additional_description": "Sạt lở đất chặn đường tỉnh lộ, 2 người bị thương nặng, cần trực thăng hoặc đi bộ rừng",
                         "people_count": { "adult": 5, "child": 0, "elderly": 0 },
-                        "additional_description": "Sạt lở đất chặn đường tỉnh lộ, 2 người bị thương nặng, cần trực thăng hoặc đi bộ rừng"
+                        "has_injured": true,
+                        "others_are_stable": true,
+                        "can_move": false,
+                        "need_medical": true
                       },
                       "group_needs": {
-                        "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
+                        "supplies": ["MEDICINE", "OTHER"],
                         "medicine": {
                           "needs_urgent_medicine": true,
-                          "conditions": ["FRACTURE", "BLEEDING"]
-                        }
+                          "conditions": ["INJURED"],
+                          "medical_needs": ["FIRST_AID"],
+                          "medical_description": "Gãy tay cần nẹp, chảy máu đầu cần băng cầm máu"
+                        },
+                        "other_supply_description": "Trực thăng hoặc đội cứu hộ địa hình rừng"
                       },
                       "victims": [
                         {
+                          "person_id": "adult_1",
+                          "person_type": "ADULT",
                           "index": 1,
-                          "person_type": "adult",
+                          "custom_name": "Người lớn 1",
                           "incident_status": {
                             "is_injured": true,
-                            "severity": "Moderate",
+                            "severity": "HIGH",
                             "medical_issues": ["FRACTURE"]
+                          },
+                          "personal_needs": {
+                            "clothing": { "needed": false, "gender": null },
+                            "diet": { "has_special_diet": false, "description": null }
                           }
                         },
                         {
+                          "person_id": "adult_2",
+                          "person_type": "ADULT",
                           "index": 2,
-                          "person_type": "adult",
+                          "custom_name": "Người lớn 2",
+                          "person_phone": "0964444444",
                           "incident_status": {
                             "is_injured": true,
-                            "severity": "Critical",
-                            "medical_issues": ["BLEEDING"]
+                            "severity": "CRITICAL",
+                            "medical_issues": ["SEVERELY_BLEEDING", "HEAD_INJURY"]
+                          },
+                          "personal_needs": {
+                            "clothing": { "needed": false, "gender": null },
+                            "diet": { "has_special_diet": false, "description": null }
                           }
                         }
-                      ],
-                      "prepared_profiles": []
+                      ]
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 0,
-                      "path": ["D1B00003-0000-4A8A-B0BF-000000000003"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1B00003-0000-4A8A-B0BF-000000000003",
-                      "is_online": true,
-                      "user_id": "66666666-6666-6666-6666-666666666662",
-                      "user_name": "0962222222",
-                      "user_phone": "0962222222"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":0,"path":["D1B00003-0000-4A8A-B0BF-000000000003"]}""",
+                SenderInfo = """{"device_id":"D1B00003-0000-4A8A-B0BF-000000000003","is_online":true,"user_id":"66666666-6666-6666-6666-666666666662","user_name":"Trần Minh Đức","user_phone":"0962222222","battery_level":71}""",
+                ReporterInfo = """{"device_id":"D1B00003-0000-4A8A-B0BF-000000000003","is_online":true,"user_id":"66666666-6666-6666-6666-666666666662","user_name":"Trần Minh Đức","user_phone":"0962222222","battery_level":71}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1766047500L, // 2025-12-18 08:45 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
@@ -320,57 +339,64 @@ public static class EmergencySeeder
                 UserId = SeedConstants.Applicant3UserId,
                 Location = new Point(105.899, 18.349) { SRID = 4326 }, // Gần Depot 3 (Hà Tĩnh)
                 LocationAccuracy = 15,
-                SosType = "RESCUE",
+                SosType = "BOTH",
                 OriginId = "D1B00004-0000-4A8A-B0BF-000000000004",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị cô lập | Số người: 120 | Trẻ em: 4 | Người già: 25 | Bị thương: Người lớn 1: Bệnh nền (Trung bình) | Ghi chú: Cả thôn cô lập 3 ngày, hết lương thực và nước sạch, 4 bé cần sữa gấp, người già hết thuốc huyết áp",
+                RawMessage = "[CỨU HỘ + CỨU TRỢ] | Tình trạng: Nước dâng cao | Số người: 120 | Trẻ em: 4 | Người già: 25 | Bị thương: Người già 1 - Người già bệnh huyết áp (HIGH) | Cần: Thực phẩm, Nước uống, Y tế | Ghi chú: Cả thôn cô lập 3 ngày, hết lương thực và nước sạch, 4 bé cần sữa gấp, người già hết thuốc huyết áp",
+                // IsSentOnBehalf=true: Lê Thị Hương đại diện cộng đồng gửi giùm.
+                // Victim person_phone trỏ về victim user (0945678901) để demo companion-linking.
                 StructuredData = """
                     {
                       "incident": {
                         "situation": "FLOODING",
-                        "can_move": false,
-                        "has_injured": true,
-                        "need_medical": true,
-                        "others_are_stable": false,
+                        "address": "Thôn Phú Long, xã Phù Lưu, huyện Lộc Hà, Hà Tĩnh",
+                        "additional_description": "Cả thôn cô lập 3 ngày, hết lương thực và nước sạch, 4 bé dưới 1 tuổi cần sữa gấp, người già hết thuốc huyết áp",
                         "people_count": { "adult": 91, "child": 4, "elderly": 25 },
-                        "additional_description": "Cả thôn cô lập 3 ngày, hết lương thực và nước sạch, 4 bé dưới 1 tuổi cần sữa gấp, người già hết thuốc huyết áp"
+                        "has_injured": true,
+                        "others_are_stable": true,
+                        "can_move": false,
+                        "need_medical": true
                       },
                       "group_needs": {
                         "supplies": ["FOOD", "WATER", "MEDICINE"],
+                        "water": {
+                          "duration": "UNDER_6H",
+                          "remaining": null
+                        },
+                        "food": {
+                          "duration": "UNDER_12H"
+                        },
                         "medicine": {
                           "needs_urgent_medicine": true,
-                          "conditions": ["CHRONIC_DISEASE"]
+                          "conditions": ["CHRONIC_DISEASE"],
+                          "medical_needs": ["CHRONIC_MAINTENANCE"],
+                          "medical_description": "Người già hết thuốc huyết áp, 4 bé dưới 1 tuổi cần sữa"
                         }
                       },
                       "victims": [
                         {
+                          "person_id": "elderly_1",
+                          "person_type": "ELDERLY",
                           "index": 1,
-                          "person_type": "elderly",
                           "custom_name": "Người già bệnh huyết áp",
+                          "person_phone": "0945678901",
                           "incident_status": {
                             "is_injured": true,
-                            "severity": "Moderate",
+                            "severity": "HIGH",
                             "medical_issues": ["CHRONIC_DISEASE"]
+                          },
+                          "personal_needs": {
+                            "clothing": { "needed": false, "gender": null },
+                            "diet": { "has_special_diet": true, "description": "Cần kiểm soát huyết áp, ăn nhạt" }
                           }
                         }
-                      ],
-                      "prepared_profiles": []
+                      ]
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 2,
-                      "path": ["D1B00003-0000-4A8A-B0BF-000000000003", "D1B00004-0000-4A8A-B0BF-000000000004", "D1B00005-RELAY-4A8A-B0BF-000000000005"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1B00004-0000-4A8A-B0BF-000000000004",
-                      "is_online": false,
-                      "user_id": "66666666-6666-6666-6666-666666666663",
-                      "user_name": "0963333333",
-                      "user_phone": "0963333333"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":2,"path":["D1B00003-0000-4A8A-B0BF-000000000003","D1B00004-0000-4A8A-B0BF-000000000004","D1B00005-RELAY-4A8A-B0BF-000000000005"]}""",
+                SenderInfo = """{"device_id":"D1B00004-0000-4A8A-B0BF-000000000004","is_online":false,"user_id":"66666666-6666-6666-6666-666666666663","user_name":"Lê Thị Hương","user_phone":"0963333333","battery_level":33}""",
+                ReporterInfo = """{"device_id":"D1B00004-0000-4A8A-B0BF-000000000004","is_online":false,"user_id":"66666666-6666-6666-6666-666666666663","user_name":"Lê Thị Hương","user_phone":"0963333333","battery_level":33}""",
+                VictimInfo = null,
+                IsSentOnBehalf = true,
                 Timestamp = 1769071920L, // 2026-01-22 08:50 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
@@ -396,57 +422,55 @@ public static class EmergencySeeder
                 UserId = SeedConstants.Applicant4UserId,
                 Location = new Point(108.221, 16.081) { SRID = 4326 }, // Gần Depot 2 (Đà Nẵng)
                 LocationAccuracy = 5,
-                SosType = "RESCUE",
+                SosType = "BOTH",
                 OriginId = "D1C00005-0000-4A8A-B0BF-000000000005",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị thương | Số người: 1 | Bị thương: Người lớn 1: Gãy chân (Nghiêm trọng) | Ghi chú: Lạc trong rừng Hòa Phú, gãy chân trái không di được, điện thoại sắp hết pin 8%",
+                RawMessage = "[CỨU HỘ + CỨU TRỢ] | Tình trạng: Kẹt trong khu vực nguy hiểm | Số người: 1 | Bị thương: Người lớn 1 - Bản thân, gãy chân (HIGH) | Cần: Y tế, Khác | Ghi chú: Lạc trong rừng Hòa Phú, gãy chân trái không tự di được, điện thoại còn 8% pin",
                 StructuredData = """
                     {
                       "incident": {
-                        "situation": "ACCIDENT",
-                        "can_move": false,
-                        "has_injured": true,
-                        "need_medical": true,
-                        "others_are_stable": true,
+                        "situation": "DANGER_ZONE",
+                        "address": "Rừng Hòa Phú, huyện Hòa Vang, Đà Nẵng",
+                        "additional_description": "Lạc trong rừng Hòa Phú từ sáng, gãy chân trái không tự di được, điện thoại còn 8% pin, tọa độ GPS 16.0240N 108.0100E",
                         "people_count": { "adult": 1, "child": 0, "elderly": 0 },
-                        "additional_description": "Lạc trong rừng Hòa Phú từ sáng, gãy chân trái không tự di được, điện thoại còn 8% pin, tọa độ GPS 16.0240N 108.0100E"
+                        "has_injured": true,
+                        "can_move": false,
+                        "need_medical": true
                       },
                       "group_needs": {
-                        "supplies": ["MEDICINE", "RESCUE_EQUIPMENT"],
+                        "supplies": ["MEDICINE", "OTHER"],
                         "medicine": {
                           "needs_urgent_medicine": true,
-                          "conditions": ["FRACTURE"]
-                        }
+                          "conditions": ["INJURED"],
+                          "medical_needs": ["FIRST_AID"],
+                          "medical_description": "Cần băng bó nẹp gãy chân"
+                        },
+                        "other_supply_description": "Đội cứu hộ địa hình rừng, đèn pin và pin sạc dự phòng"
                       },
                       "victims": [
                         {
+                          "person_id": "adult_1",
+                          "person_type": "ADULT",
                           "index": 1,
-                          "person_type": "adult",
                           "custom_name": "Bản thân",
+                          "person_phone": "0964444444",
                           "incident_status": {
                             "is_injured": true,
-                            "severity": "Critical",
+                            "severity": "HIGH",
                             "medical_issues": ["FRACTURE"]
+                          },
+                          "personal_needs": {
+                            "clothing": { "needed": false, "gender": "MALE" },
+                            "diet": { "has_special_diet": false, "description": null }
                           }
                         }
-                      ],
-                      "prepared_profiles": []
+                      ]
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 0,
-                      "path": ["D1C00005-0000-4A8A-B0BF-000000000005"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1C00005-0000-4A8A-B0BF-000000000005",
-                      "is_online": true,
-                      "user_id": "66666666-6666-6666-6666-666666666664",
-                      "user_name": "0964444444",
-                      "user_phone": "0964444444"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":0,"path":["D1C00005-0000-4A8A-B0BF-000000000005"]}""",
+                SenderInfo = """{"device_id":"D1C00005-0000-4A8A-B0BF-000000000005","is_online":true,"user_id":"66666666-6666-6666-6666-666666666664","user_name":"Phạm Văn Hải","user_phone":"0964444444","battery_level":8}""",
+                ReporterInfo = """{"device_id":"D1C00005-0000-4A8A-B0BF-000000000005","is_online":true,"user_id":"66666666-6666-6666-6666-666666666664","user_name":"Phạm Văn Hải","user_phone":"0964444444","battery_level":8}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1772010600L, // 2026-02-25 09:10 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Assigned.ToString(),
@@ -471,42 +495,36 @@ public static class EmergencySeeder
                 UserId = SeedConstants.VictimUserId,
                 Location = new Point(107.583, 16.466) { SRID = 4326 }, // Phong Điền, Huế
                 LocationAccuracy = 10,
-                SosType = "RESCUE",
+                SosType = "BOTH",
                 OriginId = "D1D00006-0000-4A8A-B0BF-000000000006",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 4 | Người già: 2 | Ghi chú: Nước lũ đang lên cao, cần xuồng cạn to để chuyển người già ra, 2 cụ già không di chuyển được",
+                RawMessage = "[CỨU HỘ + CỨU TRỢ] | Tình trạng: Nước dâng cao | Số người: 4 | Người già: 2 | Cần: Nước uống, Khác | Ghi chú: Nước lũ đang lên cao, cần xuồng cạn để chuyển người già ra, 2 cụ già không di chuyển được",
                 StructuredData = """
                     {
                       "incident": {
                         "situation": "FLOODING",
-                        "can_move": false,
-                        "has_injured": false,
-                        "need_medical": false,
-                        "others_are_stable": false,
+                        "address": "Tổ dân phố Phong Điền, huyện Phong Điền, Thừa Thiên Huế",
+                        "additional_description": "Nước lũ đang lên cao, cần xuồng cạn để chuyển người già ra, 2 cụ già không di chuyển được",
                         "people_count": { "adult": 2, "child": 0, "elderly": 2 },
-                        "additional_description": "Nước lũ đang lên cao, cần xuồng cạn to để chuyển người già ra, 2 cụ già không di chuyển được"
+                        "has_injured": false,
+                        "can_move": false,
+                        "need_medical": false
                       },
                       "group_needs": {
-                        "supplies": ["WATER", "TRANSPORTATION"]
+                        "supplies": ["WATER", "OTHER"],
+                        "water": {
+                          "duration": "6_TO_12H",
+                          "remaining": null
+                        },
+                        "other_supply_description": "Xuồng cạn lớn để chuyển 2 cụ già ra điểm tập kết"
                       },
-                      "victims": [],
-                      "prepared_profiles": []
+                      "victims": []
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 0,
-                      "path": ["D1D00006-0000-4A8A-B0BF-000000000006"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1D00006-0000-4A8A-B0BF-000000000006",
-                      "is_online": true,
-                      "user_id": "55555555-5555-5555-5555-555555555555",
-                      "user_name": "0945678901",
-                      "user_phone": "0945678901"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":0,"path":["D1D00006-0000-4A8A-B0BF-000000000006"]}""",
+                SenderInfo = """{"device_id":"D1D00006-0000-4A8A-B0BF-000000000006","is_online":true,"user_id":"55555555-5555-5555-5555-555555555555","user_name":"Hoàng Văn","user_phone":"0945678901","battery_level":54}""",
+                ReporterInfo = """{"device_id":"D1D00006-0000-4A8A-B0BF-000000000006","is_online":true,"user_id":"55555555-5555-5555-5555-555555555555","user_name":"Hoàng Văn","user_phone":"0945678901","battery_level":54}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1775030400L, // 2026-04-01 06:40 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Pending.ToString(),
@@ -531,42 +549,39 @@ public static class EmergencySeeder
                 UserId = SeedConstants.Applicant3UserId,
                 Location = new Point(107.580, 16.463) { SRID = 4326 }, // Phong Điền, Huế
                 LocationAccuracy = 8,
-                SosType = "RESCUE",
+                SosType = "BOTH",
                 OriginId = "D1G00007-0000-4A8A-B0BF-000000000007",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 7 | Trẻ em: 3 | Người già: 1 | Ghi chú: Nước lũ ngang mặt nền, cần xuồng cứu người và hàng cứu trợ cần thiết",
+                RawMessage = "[CỨU HỘ + CỨU TRỢ] | Tình trạng: Nước dâng cao | Số người: 7 | Trẻ em: 3 | Người già: 1 | Cần: Thực phẩm, Nước uống, Khác | Ghi chú: Nước lũ ngang mặt nền, cần xuồng cứu người và hàng cứu trợ cần thiết",
                 StructuredData = """
                     {
                       "incident": {
                         "situation": "FLOODING",
-                        "can_move": false,
-                        "has_injured": false,
-                        "need_medical": false,
-                        "others_are_stable": false,
+                        "address": "Xã Phong Mỹ, huyện Phong Điền, Thừa Thiên Huế",
+                        "additional_description": "Nước lũ ngang mặt nền, cần xuồng cứu người và hàng cứu trợ cần thiết",
                         "people_count": { "adult": 3, "child": 3, "elderly": 1 },
-                        "additional_description": "Nước lũ ngang mặt nền, cần xuồng cứu người và hàng cứu trợ cần thiết"
+                        "has_injured": false,
+                        "can_move": false,
+                        "need_medical": false
                       },
                       "group_needs": {
-                        "supplies": ["FOOD", "WATER", "TRANSPORTATION"]
+                        "supplies": ["FOOD", "WATER", "OTHER"],
+                        "water": {
+                          "duration": "12_TO_24H",
+                          "remaining": null
+                        },
+                        "food": {
+                          "duration": "12_TO_24H"
+                        },
+                        "other_supply_description": "Xuồng cứu hộ chuyển gia đình ra điểm tập kết"
                       },
-                      "victims": [],
-                      "prepared_profiles": []
+                      "victims": []
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 0,
-                      "path": ["D1G00007-0000-4A8A-B0BF-000000000007"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1G00007-0000-4A8A-B0BF-000000000007",
-                      "is_online": false,
-                      "user_id": "66666666-6666-6666-6666-666666666663",
-                      "user_name": "0963333333",
-                      "user_phone": "0963333333"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":0,"path":["D1G00007-0000-4A8A-B0BF-000000000007"]}""",
+                SenderInfo = """{"device_id":"D1G00007-0000-4A8A-B0BF-000000000007","is_online":false,"user_id":"66666666-6666-6666-6666-666666666663","user_name":"Lê Thị Hương","user_phone":"0963333333","battery_level":29}""",
+                ReporterInfo = """{"device_id":"D1G00007-0000-4A8A-B0BF-000000000007","is_online":false,"user_id":"66666666-6666-6666-6666-666666666663","user_name":"Lê Thị Hương","user_phone":"0963333333","battery_level":29}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1772038200L, // 2026-03-01 07:10 UTC
                 PriorityLevel = SosPriorityLevel.High.ToString(),
                 Status = SosRequestStatus.Resolved.ToString(),
@@ -593,50 +608,45 @@ public static class EmergencySeeder
                 LocationAccuracy = 12,
                 SosType = "RESCUE",
                 OriginId = "D1G00008-0000-4A8A-B0BF-000000000008",
-                RawMessage = "[CỨU HỘ] | Tình trạng: Bị mắc kẹt | Số người: 3 | Bị thương: Người lớn 1: Trầy xước (Nhẹ) | Ghi chú: Nước vào nhà cấp 1, người bị thương nhẹ do leo lên mái, cần hỗ trợ di tản",
+                RawMessage = "[CỨU HỘ] | Tình trạng: Nước dâng cao | Số người: 3 | Bị thương: Người lớn 1 - Trầy xước nhẹ | Ghi chú: Nước vào nhà cấp 1, người bị thương nhẹ do leo lên mái, cần hỗ trợ di tản",
+                // MINOR_INJURY không phải MedicalIssue mobile — mobile sẽ emit medical_issues=[] và severity=null
+                // (rule: isInjured nhưng không có meaningfulIssue → severity = nil).
                 StructuredData = """
                     {
                       "incident": {
                         "situation": "FLOODING",
-                        "can_move": false,
-                        "has_injured": true,
-                        "need_medical": false,
-                        "others_are_stable": true,
+                        "address": "Xã Phong Hiền, huyện Phong Điền, Thừa Thiên Huế",
+                        "additional_description": "Nước vào nhà cấp 1, người bị thương nhẹ do leo lên mái, cần hỗ trợ di tản",
                         "people_count": { "adult": 2, "child": 0, "elderly": 1 },
-                        "additional_description": "Nước vào nhà cấp 1, người bị thương nhẹ do leo lên mái, cần hỗ trợ di tản"
-                      },
-                      "group_needs": {
-                        "supplies": ["TRANSPORTATION"]
+                        "has_injured": true,
+                        "others_are_stable": true,
+                        "can_move": false,
+                        "need_medical": false
                       },
                       "victims": [
                         {
+                          "person_id": "adult_1",
+                          "person_type": "ADULT",
                           "index": 1,
-                          "person_type": "adult",
+                          "custom_name": "Người lớn 1",
                           "incident_status": {
                             "is_injured": true,
-                            "severity": "Minor",
-                            "medical_issues": ["MINOR_INJURY"]
+                            "severity": null,
+                            "medical_issues": []
+                          },
+                          "personal_needs": {
+                            "clothing": { "needed": false, "gender": null },
+                            "diet": { "has_special_diet": false, "description": null }
                           }
                         }
-                      ],
-                      "prepared_profiles": []
+                      ]
                     }
                     """,
-                NetworkMetadata = """
-                    {
-                      "hop_count": 1,
-                      "path": ["D1G00007-0000-4A8A-B0BF-000000000007", "D1G00008-0000-4A8A-B0BF-000000000008"]
-                    }
-                    """,
-                SenderInfo = """
-                    {
-                      "device_id": "D1G00008-0000-4A8A-B0BF-000000000008",
-                      "is_online": false,
-                      "user_id": "66666666-6666-6666-6666-666666666664",
-                      "user_name": "0964444444",
-                      "user_phone": "0964444444"
-                    }
-                    """,
+                NetworkMetadata = """{"hop_count":1,"path":["D1G00007-0000-4A8A-B0BF-000000000007","D1G00008-0000-4A8A-B0BF-000000000008"]}""",
+                SenderInfo = """{"device_id":"D1G00008-0000-4A8A-B0BF-000000000008","is_online":false,"user_id":"66666666-6666-6666-6666-666666666664","user_name":"Phạm Văn Hải","user_phone":"0964444444","battery_level":52}""",
+                ReporterInfo = """{"device_id":"D1G00008-0000-4A8A-B0BF-000000000008","is_online":false,"user_id":"66666666-6666-6666-6666-666666666664","user_name":"Phạm Văn Hải","user_phone":"0964444444","battery_level":52}""",
+                VictimInfo = null,
+                IsSentOnBehalf = false,
                 Timestamp = 1772039100L, // 2026-03-01 07:25 UTC
                 PriorityLevel = SosPriorityLevel.Medium.ToString(),
                 Status = SosRequestStatus.Resolved.ToString(),

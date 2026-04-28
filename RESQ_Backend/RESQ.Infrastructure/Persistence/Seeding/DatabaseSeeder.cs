@@ -1601,7 +1601,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 StructuredData = BuildHueStadiumStructuredData(scenario),
                 NetworkMetadata = BuildHueStadiumNetworkMetadata(scenario, deviceId),
                 SenderInfo = BuildHueStadiumSenderInfo(victim, reporter, coordinator, scenario, deviceId),
-                VictimInfo = BuildHueStadiumVictimInfo(victim, scenario),
+                VictimInfo = null, // Mobile luôn gửi victim_info=null; BE link victim qua structured_data.victims[].person_phone.
                 ReporterInfo = BuildHueStadiumReporterInfo(victim, reporter, coordinator, scenario, deviceId),
                 IsSentOnBehalf = scenario.IsSentOnBehalf,
                 OriginId = deviceId,
@@ -1743,6 +1743,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static string BuildHueStadiumStructuredData(HueStadiumSosScenario scenario)
     {
         var peopleCount = CountHueStadiumPeople(scenario.Victims);
+        var hasPregnant = scenario.Victims.Any(v => string.Equals(v.PersonType, "PREGNANT", StringComparison.Ordinal));
         var payload = new Dictionary<string, object?>
         {
             ["incident"] = new Dictionary<string, object?>
@@ -1759,6 +1760,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 ["has_injured"] = scenario.HasInjured,
                 ["need_medical"] = scenario.NeedMedical,
                 ["others_are_stable"] = scenario.OthersAreStable,
+                ["has_pregnant_any"] = hasPregnant,
                 ["additional_description"] = scenario.AdditionalDescription
             },
             ["victims"] = scenario.Victims
@@ -1861,40 +1863,84 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         var peopleCount = CountHueStadiumPeople(scenario.Victims);
         var totalPeople = peopleCount.Adult + peopleCount.Child + peopleCount.Elderly;
-        var supplies = scenario.GroupNeeds;
-        var needsWater = supplies.Contains("DRINKING_WATER", StringComparer.Ordinal);
-        var needsFood = supplies.Any(need => need is "READY_TO_EAT_FOOD" or "CHILD_SUPPLIES");
-        var needsBlanket = supplies.Contains("BLANKET", StringComparer.Ordinal);
-        var needsMedicine = supplies.Contains("MEDICINE", StringComparer.Ordinal)
+        // Map scenario GroupNeeds (internal keys) → mobile SupplyNeed enum (WATER, FOOD, CLOTHES, BLANKET, MEDICINE, OTHER)
+        var mobileSupplies = scenario.GroupNeeds
+            .Select(s => s switch
+            {
+                "DRINKING_WATER" => "WATER",
+                "READY_TO_EAT_FOOD" or "CHILD_SUPPLIES" => "FOOD",
+                "DRY_CLOTHES" => "CLOTHES",
+                "BLANKET" => "BLANKET",
+                "MEDICINE" => "MEDICINE",
+                _ => "OTHER"
+            })
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(s => s, StringComparer.Ordinal)
+            .ToList();
+        var needsWater = mobileSupplies.Contains("WATER", StringComparer.Ordinal);
+        var needsFood = mobileSupplies.Contains("FOOD", StringComparer.Ordinal);
+        var needsBlanket = mobileSupplies.Contains("BLANKET", StringComparer.Ordinal);
+        var needsMedicine = mobileSupplies.Contains("MEDICINE", StringComparer.Ordinal)
             || scenario.Victims.Any(victim => HueStadiumMedicalIssuesForVictim(victim).Count > 0);
-        var needsClothing = supplies.Contains("DRY_CLOTHES", StringComparer.Ordinal)
+        var needsClothing = mobileSupplies.Contains("CLOTHES", StringComparer.Ordinal)
             || scenario.Victims.Any(victim => HueStadiumNeedsClothing(victim));
+        // MedicineCondition enum: HIGH_FEVER, CHRONIC_DISEASE, INJURED, OTHER
+        var medicineConditions = scenario.Victims
+            .SelectMany(v =>
+            {
+                var issues = HueStadiumMedicalIssuesForVictim(v);
+                var conditions = new List<string>();
+                if (issues.Contains("HIGH_FEVER")) conditions.Add("HIGH_FEVER");
+                if (issues.Contains("CHRONIC_DISEASE") || issues.Contains("CHEST_PAIN_STROKE")) conditions.Add("CHRONIC_DISEASE");
+                if (issues.Any(i => i is "BLEEDING" or "FRACTURE" or "BURNS" or "HEAD_INJURY")) conditions.Add("INJURED");
+                if (issues.Contains("BREATHING_DIFFICULTY")) conditions.Add("OTHER");
+                return conditions;
+            })
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList();
+        // MedicalSupportNeed enum: COMMON_MEDICINE, FIRST_AID, CHRONIC_MAINTENANCE, MINOR_INJURY
+        var medicalNeeds = scenario.Victims
+            .SelectMany(v =>
+            {
+                var issues = HueStadiumMedicalIssuesForVictim(v);
+                var needs = new List<string>();
+                if (issues.Contains("HIGH_FEVER")) needs.Add("COMMON_MEDICINE");
+                if (issues.Contains("CHRONIC_DISEASE") || issues.Contains("CHEST_PAIN_STROKE")) needs.Add("CHRONIC_MAINTENANCE");
+                if (issues.Any(i => i is "BLEEDING" or "FRACTURE" or "BURNS" or "HEAD_INJURY")) needs.Add("FIRST_AID");
+                if (issues.Contains("BREATHING_DIFFICULTY")) needs.Add("MINOR_INJURY");
+                return needs;
+            })
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+        var hasOther = mobileSupplies.Contains("OTHER", StringComparer.Ordinal);
 
         return new
         {
-            supplies,
+            supplies = mobileSupplies,
             water = needsWater
-                ? new { duration = "12_TO_24H", remaining = "LOW" }
+                ? new { duration = "12_TO_24H" }
                 : null,
             food = needsFood
                 ? new { duration = "12_TO_24H" }
                 : null,
             blanket = needsBlanket
-                ? new { is_cold_or_wet = true, are_blankets_enough = false, availability = "LOW", request_count = Math.Max(1, Math.Min(totalPeople, 4)) }
+                ? new { is_cold_or_wet = true, availability = "NOT_ENOUGH", request_count = Math.Max(1, Math.Min(totalPeople, 4)) }
                 : null,
             medicine = needsMedicine
                 ? new
                 {
                     needs_urgent_medicine = scenario.NeedMedical,
-                    conditions = scenario.Victims.SelectMany(HueStadiumMedicalIssuesForVictim).Distinct().ToList(),
-                    medical_needs = scenario.Victims.SelectMany(HueStadiumMedicalIssuesForVictim).Distinct().ToList(),
+                    conditions = medicineConditions.Count > 0 ? medicineConditions : new List<string> { "OTHER" },
+                    medical_needs = medicalNeeds.Count > 0 ? medicalNeeds : new List<string> { "COMMON_MEDICINE" },
                     medical_description = scenario.AdditionalDescription
                 }
                 : null,
             clothing = needsClothing
-                ? new { status = "NEEDED", needed_people_count = Math.Max(1, scenario.Victims.Count(HueStadiumNeedsClothing)) }
+                ? new { status = "PARTIALLY_LACKING", gender = (string?)null }
                 : null,
-            other_supply_description = scenario.SosType is "Relief" or "Both" ? scenario.AdditionalDescription : null
+            other_supply_description = hasOther ? scenario.AdditionalDescription : (string?)null
         };
     }
 
@@ -1902,25 +1948,28 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         var medicalIssues = HueStadiumMedicalIssuesForVictim(victim);
         var isInjured = IsHueStadiumVictimInjured(victim, medicalIssues);
+        var severity = HueStadiumVictimSeverity(victim, isInjured);
 
-        return new
+        return new Dictionary<string, object?>
         {
-            is_injured = isInjured,
-            medical_issues = medicalIssues,
-            severity = HueStadiumVictimSeverity(victim, isInjured)
+            ["is_injured"] = isInjured,
+            ["medical_issues"] = medicalIssues,
+            ["severity"] = severity
         };
     }
 
     private static object BuildHueStadiumVictimPersonalNeeds(HueStadiumVictimScenario victim)
     {
         var hasSpecialDiet = victim.PersonalNeeds.Any(need => need is "LOW_SALT_FOOD" or "DIABETES_MEDICINE" or "MILK" or "PORRIDGE");
+        // ClothingGender mobile enum: MALE | FEMALE | null (no CHILD)
+        var clothingGender = (string?)null;
 
         return new
         {
             clothing = new
             {
                 needed = HueStadiumNeedsClothing(victim),
-                gender = victim.PersonType == "CHILD" ? "CHILD" : null
+                gender = clothingGender
             },
             diet = new
             {
@@ -1945,23 +1994,27 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static bool HueStadiumNeedsClothing(HueStadiumVictimScenario victim)
         => victim.PersonalNeeds.Any(need => need is "DRY_CLOTHES" or "HYPOTHERMIA_BLANKET" or "BLANKET");
 
-    private static string HueStadiumVictimSeverity(HueStadiumVictimScenario victim, bool isInjured)
+    private static string? HueStadiumVictimSeverity(HueStadiumVictimScenario victim, bool isInjured)
     {
         if (!isInjured)
         {
-            return "LOW";
+            return null;
         }
 
         return victim.IncidentStatus switch
         {
             "CRITICAL" => "CRITICAL",
-            "INJURED" or "MODERATE" => "MODERATE",
-            _ => "MILD"
+            "INJURED" or "MODERATE" or "AT_RISK" => "HIGH",
+            _ => null
         };
     }
 
     private static List<string> HueStadiumMedicalIssuesForVictim(HueStadiumVictimScenario victim)
     {
+        // MedicalIssue mobile whitelist: BLEEDING, SEVERELY_BLEEDING, FRACTURE, HEAD_INJURY, BURNS,
+        // UNCONSCIOUS, BREATHING_DIFFICULTY, CHEST_PAIN_STROKE, CANNOT_MOVE, DROWNING,
+        // HIGH_FEVER, DEHYDRATION, INFANT_NEEDS_MILK, LOST_PARENT, CHRONIC_DISEASE,
+        // CONFUSION, NEEDS_MEDICAL_DEVICE, OTHER
         var needs = victim.PersonalNeeds;
         var issues = new SortedSet<string>(StringComparer.Ordinal);
 
@@ -1970,14 +2023,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             issues.Add("FRACTURE");
         }
 
-        if (needs.Any(need => need.Contains("HYPOTHERMIA", StringComparison.Ordinal)))
-        {
-            issues.Add("HYPOTHERMIA");
-        }
-
         if (needs.Any(need => need.Contains("HEART", StringComparison.Ordinal)))
         {
-            issues.Add("CARDIOVASCULAR");
+            issues.Add("CHEST_PAIN_STROKE");
         }
 
         if (needs.Any(need => need.Contains("DIABETES", StringComparison.Ordinal)))
@@ -1987,7 +2035,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         if (needs.Any(need => need.Contains("FEVER", StringComparison.Ordinal)))
         {
-            issues.Add("FEVER");
+            issues.Add("HIGH_FEVER");
         }
 
         if (needs.Any(need => need.Contains("OXYGEN", StringComparison.Ordinal)))
@@ -1995,9 +2043,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             issues.Add("BREATHING_DIFFICULTY");
         }
 
-        if (needs.Any(need => need.Contains("MATERNITY", StringComparison.Ordinal)) || victim.PersonType == "PREGNANT")
+        if (needs.Any(need => need.Contains("BLOOD_PRESSURE", StringComparison.Ordinal)))
         {
-            issues.Add("PREGNANCY");
+            issues.Add("CHRONIC_DISEASE");
         }
 
         if (needs.Any(need => need.Contains("WOUND", StringComparison.Ordinal)
@@ -2005,7 +2053,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 || need.Contains("PAIN", StringComparison.Ordinal))
             || victim.IncidentStatus == "INJURED")
         {
-            issues.Add("MINOR_INJURY");
+            issues.Add("BLEEDING");
         }
 
         return issues.ToList();
@@ -2021,11 +2069,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private static string HueStadiumSituationLabel(string situation) => situation switch
     {
         "TRAPPED" => "Mắc kẹt",
-        "STRANDED" => "Bị cô lập",
-        "SUPPLY_SHORTAGE" => "Thiếu nhu yếu phẩm",
-        "MEDICAL" => "Cần y tế",
-        "UNSAFE_ROUTE" => "Đường nguy hiểm",
-        "EVACUATION" => "Cần sơ tán",
+        "COLLAPSED" => "Sụp đổ / Đổ vỡ",
+        "DANGER_ZONE" => "Vùng nguy hiểm",
+        "CANNOT_MOVE" => "Không thể di chuyển",
+        "FLOODING" => "Ngập lụt",
+        "OTHER" => "Tình huống khác",
         _ => situation
     };
 
@@ -2033,20 +2081,26 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     {
         "CHILD" => "Trẻ em",
         "ELDERLY" => "Người già",
-        "PREGNANT" => "Phụ nữ mang thai",
         _ => "Người lớn"
     };
 
     private static string HueStadiumMedicalIssueLabel(string? issue) => issue switch
     {
         "FRACTURE" => "Gãy xương",
-        "HYPOTHERMIA" => "Mất nhiệt",
-        "CARDIOVASCULAR" => "Tim mạch",
+        "BLEEDING" => "Chảy máu",
+        "SEVERELY_BLEEDING" => "Chảy máu nặng",
+        "HEAD_INJURY" => "Chấn thương đầu",
+        "BURNS" => "Bỏng",
+        "UNCONSCIOUS" => "Bất tỉnh",
+        "CHEST_PAIN_STROKE" => "Đau ngực / Đột quỵ",
+        "CANNOT_MOVE" => "Không thể di chuyển",
+        "DROWNING" => "Đuối nước",
+        "HIGH_FEVER" => "Sốt cao",
+        "DEHYDRATION" => "Mất nước",
         "CHRONIC_DISEASE" => "Bệnh nền",
-        "FEVER" => "Sốt",
         "BREATHING_DIFFICULTY" => "Khó thở",
-        "PREGNANCY" => "Thai kỳ",
-        "MINOR_INJURY" => "Chấn thương nhẹ",
+        "NEEDS_MEDICAL_DEVICE" => "Cần thiết bị y tế",
+        "CONFUSION" => "Lú lẫn",
         _ => "Cần hỗ trợ y tế"
     };
 
@@ -2072,10 +2126,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static string BuildHueStadiumRuleItemsNeeded(SosRequest sos)
     {
-        var items = new SortedSet<string>(StringComparer.Ordinal)
-        {
-            "LOCATION_VERIFICATION"
-        };
+        // SupplyNeed mobile enum: WATER | FOOD | CLOTHES | BLANKET | MEDICINE | OTHER
+        var items = new SortedSet<string>(StringComparer.Ordinal);
 
         if (!string.IsNullOrWhiteSpace(sos.StructuredData))
         {
@@ -2089,30 +2141,24 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 {
                     var value = item.GetString();
                     if (!string.IsNullOrWhiteSpace(value))
-                    {
                         items.Add(value);
-                    }
                 }
             }
 
             if (document.RootElement.TryGetProperty("incident", out var incident))
             {
                 if (incident.TryGetProperty("need_medical", out var needMedical) && needMedical.GetBoolean())
-                {
-                    items.Add("FIRST_AID");
-                }
+                    items.Add("MEDICINE");
 
-                if (incident.TryGetProperty("can_move", out var canMove) && !canMove.GetBoolean())
-                {
-                    items.Add("RESCUE_TEAM");
-                }
+                if (incident.TryGetProperty("has_injured", out var hasInjured) && hasInjured.GetBoolean())
+                    items.Add("MEDICINE");
             }
         }
 
         if (sos.SosType is "Relief" or "Both")
         {
-            items.Add("DRINKING_WATER");
-            items.Add("READY_TO_EAT_FOOD");
+            items.Add("WATER");
+            items.Add("FOOD");
         }
 
         return Json(items);
@@ -2163,25 +2209,25 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         var sosRequests = new[]
         {
             new HueStadiumSosScenario(0, 16.462310, 107.602510, "Cổng chính Sân vận động Tự Do, đường Lê Quý Đôn, Huế", "Rescue", "Pending", "High", 74, "TRAPPED", false, true, true, false, "Ba người kẹt ở tầng trệt, nước dâng nhanh và có một người bị rách chân.", "Gia đình tôi ở sát cổng chính sân Tự Do, nước vào nhà gần tới thắt lưng. Có 3 người, một người bị rách chân, cần xuồng tiếp cận gấp.", "4G", 34, false, 2, 2, 0, new DateTime(2026, 4, 24, 7, 12, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Minh", "TRAPPED", ["FIRST_AID", "EVACUATION_SUPPORT"]), new HueStadiumVictimScenario("mother", "ELDERLY", "Bà Lan", "INJURED", ["WHEELCHAIR_SUPPORT", "BLOOD_PRESSURE_MEDICINE"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Nam", "SCARED", ["CHILD_LIFE_JACKET"])], []),
-            new HueStadiumSosScenario(0, 16.461880, 107.603040, "Kiệt 18 Lê Quý Đôn, cạnh khán đài A Sân Tự Do, Huế", "Both", "Pending", "High", 70, "STRANDED", false, false, false, true, "Nhóm bốn người mắc kẹt trên gác, còn nước uống khoảng nửa ngày.", "Nhà trong kiệt cạnh khán đài A bị ngập, bốn người đang ở trên gác. Cần đội cứu hộ kiểm tra và mang nước uống, đồ ăn khô.", "WIFI", 58, false, 3, 4, 1, new DateTime(2026, 4, 24, 7, 28, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Chị Hạnh", "TRAPPED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("father", "ELDERLY", "Ông Phú", "STABLE", ["LOW_SALT_FOOD"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé My", "STABLE", ["MILK"]), new HueStadiumVictimScenario("child-2", "CHILD", "Bé Bo", "STABLE", ["CHILD_MEDICINE"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD", "CHILD_SUPPLIES"]),
-            new HueStadiumSosScenario(8, 16.462530, 107.603260, "Nhà số 7 hẻm sau cổng Sân Tự Do, phường Phú Nhuận, Huế", "Relief", "Pending", "Medium", 57, "SUPPLY_SHORTAGE", true, false, false, true, "Điểm trú tạm thiếu nước sạch, pin sạc và chăn cho trẻ nhỏ.", "Chúng tôi đã lên tầng hai an toàn nhưng có 6 người trú tạm, thiếu nước sạch, chăn và pin sạc điện thoại từ sáng.", "MESH", 22, false, 4, 4, 2, new DateTime(2026, 4, 24, 7, 51, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("group-lead", "ADULT", "Cô Thảo", "SAFE", ["POWER_BANK"]), new HueStadiumVictimScenario("older-neighbor", "ELDERLY", "Bác Năm", "STABLE", ["BLANKET"])], ["DRINKING_WATER", "BLANKET", "POWER_BANK"]),
+            new HueStadiumSosScenario(0, 16.461880, 107.603040, "Kiệt 18 Lê Quý Đôn, cạnh khán đài A Sân Tự Do, Huế", "Both", "Pending", "High", 70, "FLOODING", false, false, false, true, "Nhóm bốn người mắc kẹt trên gác, còn nước uống khoảng nửa ngày.", "Nhà trong kiệt cạnh khán đài A bị ngập, bốn người đang ở trên gác. Cần đội cứu hộ kiểm tra và mang nước uống, đồ ăn khô.", "WIFI", 58, false, 3, 4, 1, new DateTime(2026, 4, 24, 7, 28, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Chị Hạnh", "TRAPPED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("father", "ELDERLY", "Ông Phú", "STABLE", ["LOW_SALT_FOOD"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé My", "STABLE", ["MILK"]), new HueStadiumVictimScenario("child-2", "CHILD", "Bé Bo", "STABLE", ["CHILD_MEDICINE"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD", "CHILD_SUPPLIES"]),
+            new HueStadiumSosScenario(8, 16.462530, 107.603260, "Nhà số 7 hẻm sau cổng Sân Tự Do, phường Phú Nhuận, Huế", "Relief", "Pending", "Medium", 57, "OTHER", true, false, false, true, "Điểm trú tạm thiếu nước sạch, pin sạc và chăn cho trẻ nhỏ.", "Chúng tôi đã lên tầng hai an toàn nhưng có 6 người trú tạm, thiếu nước sạch, chăn và pin sạc điện thoại từ sáng.", "MESH", 22, false, 4, 4, 2, new DateTime(2026, 4, 24, 7, 51, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("group-lead", "ADULT", "Cô Thảo", "SAFE", ["POWER_BANK"]), new HueStadiumVictimScenario("older-neighbor", "ELDERLY", "Bác Năm", "STABLE", ["BLANKET"])], ["DRINKING_WATER", "BLANKET", "OTHER"]),
             new HueStadiumSosScenario(1, 16.461170, 107.606060, "Đường Hà Huy Tập đoạn sát Sân Tự Do, Huế", "Rescue", "Assigned", "Critical", 91, "TRAPPED", false, true, true, false, "Một người lớn bị gãy tay nghi ngờ, nhóm đang bám lan can trước nhà.", "Nhà tôi ở đoạn Hà Huy Tập sát sân, nước chảy mạnh. Có người nghi gãy tay, không thể tự ra ngoài, xin đội cứu hộ đến ngay.", "5G", 46, false, 5, 5, 3, new DateTime(2026, 4, 24, 8, 6, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Dũng", "INJURED", ["FRACTURE_SPLINT", "PAIN_RELIEF"]), new HueStadiumVictimScenario("wife", "ADULT", "Chị Mai", "TRAPPED", ["EVACUATION_SUPPORT"])], []),
-            new HueStadiumSosScenario(9, 16.460740, 107.606690, "Hẻm 24 Hà Huy Tập, phía đông Sân Tự Do, Huế", "Both", "InProgress", "Critical", 88, "MEDICAL", false, true, true, false, "Cụ ông khó thở sau khi ngâm nước lâu, cần sơ cứu và áo phao để đưa ra.", "Cụ ông 78 tuổi khó thở, gia đình 5 người bị kẹt trong hẻm 24 Hà Huy Tập. Cần y tế và áo phao trẻ em.", "4G", 41, true, 6, 7, 4, new DateTime(2026, 4, 24, 8, 34, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("grandfather", "ELDERLY", "Ông Tịnh", "CRITICAL", ["OXYGEN_CHECK", "HEART_MEDICINE"]), new HueStadiumVictimScenario("adult-1", "ADULT", "Chị Ngọc", "TRAPPED", ["EVACUATION_SUPPORT"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé Su", "STABLE", ["CHILD_LIFE_JACKET"])], ["LIFE_JACKET", "DRINKING_WATER", "MEDICINE"]),
-            new HueStadiumSosScenario(3, 16.461420, 107.606870, "Tổ dân phố sau Trường THCS gần Sân Tự Do, Huế", "Rescue", "Incident", "High", 76, "UNSAFE_ROUTE", true, false, false, true, "Đường vào bị dây điện võng thấp, cần đội kiểm tra trước khi sơ tán.", "Lối vào xóm phía sau trường gần sân Tự Do có dây điện võng xuống nước. Gia đình còn trong nhà, chưa dám di chuyển.", "4G", 63, false, 8, 8, 0, new DateTime(2026, 4, 24, 8, 58, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Khánh", "AT_RISK", ["ROUTE_CLEARANCE"]), new HueStadiumVictimScenario("mother", "ELDERLY", "Mẹ Khánh", "STABLE", ["ESCORT_SUPPORT"])], []),
-            new HueStadiumSosScenario(2, 16.458740, 107.601460, "Kiệt 5 Nguyễn Huệ nối về Sân Tự Do, Huế", "Rescue", "Resolved", "High", 69, "EVACUATION", true, true, true, true, "Hai người đã được đưa ra khỏi vùng ngập, còn cần ghi nhận y tế sau sơ cứu.", "Hai người trong kiệt 5 Nguyễn Huệ đã được đội xuồng đưa ra, một người trầy chân đã băng bó tạm.", "4G", 77, false, 9, 9, 1, new DateTime(2026, 4, 24, 9, 18, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Chị Duyên", "RESCUED", ["WOUND_CLEANING"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Linh", "RESCUED", ["DRY_CLOTHES"])], []),
-            new HueStadiumSosScenario(2, 16.458420, 107.601940, "Nhà trọ sau Sân Tự Do, gần Nguyễn Huệ, Huế", "Both", "Resolved", "Medium", 52, "SUPPLY_SHORTAGE", true, false, false, true, "Nhóm sinh viên đã nhận nước và được hướng dẫn ra điểm tập kết.", "Nhóm sinh viên ở nhà trọ sau sân Tự Do thiếu nước và mì, đã được đội hỗ trợ chuyển đến điểm tập kết.", "WIFI", 69, false, 10, 10, 2, new DateTime(2026, 4, 24, 9, 31, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("group-lead", "ADULT", "Bạn Hoàng", "RESCUED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("roommate", "ADULT", "Bạn Phúc", "RESCUED", ["READY_TO_EAT_FOOD"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD"]),
-            new HueStadiumSosScenario(8, 16.464260, 107.600470, "Góc Nguyễn Huệ - Lê Quý Đôn, cách Sân Tự Do 300m, Huế", "Relief", "Pending", "Medium", 49, "SUPPLY_SHORTAGE", true, false, false, true, "Một điểm trú tạm 7 người cần nước, cháo ăn liền và thuốc hạ sốt.", "Điểm trú ở góc Nguyễn Huệ - Lê Quý Đôn có 7 người, trong đó có trẻ nhỏ. Cần nước sạch, cháo ăn liền, thuốc hạ sốt.", "5G", 52, false, 11, 12, 3, new DateTime(2026, 4, 24, 10, 3, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Cô Lệ", "SAFE", ["FEVER_MEDICINE"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé Bảo", "STABLE", ["PORRIDGE", "MILK"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD", "MEDICINE"]),
+            new HueStadiumSosScenario(9, 16.460740, 107.606690, "Hẻm 24 Hà Huy Tập, phía đông Sân Tự Do, Huế", "Both", "InProgress", "Critical", 88, "OTHER", false, true, true, false, "Cụ ông khó thở sau khi ngâm nước lâu, cần sơ cứu và áo phao để đưa ra.", "Cụ ông 78 tuổi khó thở, gia đình 5 người bị kẹt trong hẻm 24 Hà Huy Tập. Cần y tế và áo phao trẻ em.", "4G", 41, true, 6, 7, 4, new DateTime(2026, 4, 24, 8, 34, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("grandfather", "ELDERLY", "Ông Tịnh", "CRITICAL", ["OXYGEN_CHECK", "HEART_MEDICINE"]), new HueStadiumVictimScenario("adult-1", "ADULT", "Chị Ngọc", "TRAPPED", ["EVACUATION_SUPPORT"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé Su", "STABLE", ["CHILD_LIFE_JACKET"])], ["OTHER", "DRINKING_WATER", "MEDICINE"]),
+            new HueStadiumSosScenario(3, 16.461420, 107.606870, "Tổ dân phố sau Trường THCS gần Sân Tự Do, Huế", "Rescue", "Incident", "High", 76, "DANGER_ZONE", true, false, false, true, "Đường vào bị dây điện võng thấp, cần đội kiểm tra trước khi sơ tán.", "Lối vào xóm phía sau trường gần sân Tự Do có dây điện võng xuống nước. Gia đình còn trong nhà, chưa dám di chuyển.", "4G", 63, false, 8, 8, 0, new DateTime(2026, 4, 24, 8, 58, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Khánh", "AT_RISK", ["ROUTE_CLEARANCE"]), new HueStadiumVictimScenario("mother", "ELDERLY", "Mẹ Khánh", "STABLE", ["ESCORT_SUPPORT"])], []),
+            new HueStadiumSosScenario(2, 16.458740, 107.601460, "Kiệt 5 Nguyễn Huệ nối về Sân Tự Do, Huế", "Rescue", "Resolved", "High", 69, "OTHER", true, true, true, true, "Hai người đã được đưa ra khỏi vùng ngập, còn cần ghi nhận y tế sau sơ cứu.", "Hai người trong kiệt 5 Nguyễn Huệ đã được đội xuồng đưa ra, một người trầy chân đã băng bó tạm.", "4G", 77, false, 9, 9, 1, new DateTime(2026, 4, 24, 9, 18, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Chị Duyên", "RESCUED", ["WOUND_CLEANING"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Linh", "RESCUED", ["DRY_CLOTHES"])], []),
+            new HueStadiumSosScenario(2, 16.458420, 107.601940, "Nhà trọ sau Sân Tự Do, gần Nguyễn Huệ, Huế", "Both", "Resolved", "Medium", 52, "OTHER", true, false, false, true, "Nhóm sinh viên đã nhận nước và được hướng dẫn ra điểm tập kết.", "Nhóm sinh viên ở nhà trọ sau sân Tự Do thiếu nước và mì, đã được đội hỗ trợ chuyển đến điểm tập kết.", "WIFI", 69, false, 10, 10, 2, new DateTime(2026, 4, 24, 9, 31, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("group-lead", "ADULT", "Bạn Hoàng", "RESCUED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("roommate", "ADULT", "Bạn Phúc", "RESCUED", ["READY_TO_EAT_FOOD"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD"]),
+            new HueStadiumSosScenario(8, 16.464260, 107.600470, "Góc Nguyễn Huệ - Lê Quý Đôn, cách Sân Tự Do 300m, Huế", "Relief", "Pending", "Medium", 49, "OTHER", true, false, false, true, "Một điểm trú tạm 7 người cần nước, cháo ăn liền và thuốc hạ sốt.", "Điểm trú ở góc Nguyễn Huệ - Lê Quý Đôn có 7 người, trong đó có trẻ nhỏ. Cần nước sạch, cháo ăn liền, thuốc hạ sốt.", "5G", 52, false, 11, 12, 3, new DateTime(2026, 4, 24, 10, 3, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Cô Lệ", "SAFE", ["FEVER_MEDICINE"]), new HueStadiumVictimScenario("child-1", "CHILD", "Bé Bảo", "STABLE", ["PORRIDGE", "MILK"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD", "MEDICINE"]),
             new HueStadiumSosScenario(3, 16.463840, 107.601010, "Sau dãy quán đường Nguyễn Huệ gần Sân Tự Do, Huế", "Rescue", "Pending", "High", 72, "TRAPPED", false, false, false, true, "Hai người bị kẹt trong quán, cửa cuốn hỏng do mất điện.", "Hai người đang kẹt trong quán phía sau Nguyễn Huệ, cửa cuốn không mở vì mất điện, nước ngoài đường lên nhanh.", "MESH", 28, false, 12, 12, 4, new DateTime(2026, 4, 24, 10, 22, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("owner", "ADULT", "Anh Sơn", "TRAPPED", ["DOOR_OPENING_SUPPORT"]), new HueStadiumVictimScenario("staff", "ADULT", "Bạn Vy", "TRAPPED", ["EVACUATION_SUPPORT"])], []),
-            new HueStadiumSosScenario(4, 16.459620, 107.604620, "Hẻm nhỏ sau đường Hà Huy Tập, phường Phú Nhuận, Huế", "Both", "Assigned", "High", 73, "STRANDED", false, true, true, false, "Nhà có sản phụ đau bụng nhẹ, nhóm cần được đưa ra và nhận nước sạch.", "Sản phụ trong nhà đau bụng nhẹ, nước ngập qua đầu gối và có trẻ nhỏ. Cần đội đưa ra điểm an toàn, mang thêm nước sạch.", "4G", 49, true, 13, 14, 0, new DateTime(2026, 4, 24, 10, 49, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("pregnant", "PREGNANT", "Chị Hà", "MODERATE", ["MATERNITY_SUPPORT", "FIRST_AID"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Sóc", "STABLE", ["CHILD_LIFE_JACKET"])], ["DRINKING_WATER", "LIFE_JACKET"]),
-            new HueStadiumSosScenario(8, 16.459980, 107.605120, "Tầng trệt nhà số 12 Hà Huy Tập, Huế", "Relief", "InProgress", "Medium", 58, "SUPPLY_SHORTAGE", true, false, false, true, "Năm người ở tầng hai thiếu thuốc tiểu đường và nước sạch.", "Gia đình 5 người đã lên tầng hai, đang thiếu nước uống và thuốc tiểu đường cho người lớn tuổi.", "WIFI", 71, false, 14, 14, 1, new DateTime(2026, 4, 24, 11, 18, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("father", "ELDERLY", "Ông Bảy", "STABLE", ["DIABETES_MEDICINE"]), new HueStadiumVictimScenario("adult", "ADULT", "Chị Loan", "SAFE", ["DRINKING_WATER"])], ["DRINKING_WATER", "MEDICINE", "READY_TO_EAT_FOOD"]),
-            new HueStadiumSosScenario(4, 16.460180, 107.604310, "Kiệt 31 Hà Huy Tập nhìn sang Sân Tự Do, Huế", "Rescue", "Pending", "High", 68, "UNSAFE_ROUTE", false, false, false, true, "Cầu thang ngoài bị ngập, người già không thể xuống tầng trệt.", "Người già trong nhà không thể xuống cầu thang ngoài vì nước xiết. Cần đội có dây hỗ trợ tiếp cận.", "4G", 37, false, 15, 16, 2, new DateTime(2026, 4, 24, 11, 46, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("grandmother", "ELDERLY", "Bà Cúc", "TRAPPED", ["ROPE_ASSIST", "ESCORT_SUPPORT"]), new HueStadiumVictimScenario("adult", "ADULT", "Anh Tú", "AT_RISK", ["EVACUATION_SUPPORT"])], []),
-            new HueStadiumSosScenario(5, 16.465260, 107.603120, "Đường Trần Cao Vân gần lối vào Sân Tự Do, Huế", "Relief", "Resolved", "Medium", 44, "SUPPLY_SHORTAGE", true, false, false, true, "Điểm trú đã nhận nước và mì, không còn yêu cầu mở.", "Điểm trú trên Trần Cao Vân đã nhận nước và mì từ đội hỗ trợ, mọi người an toàn.", "5G", 80, false, 16, 16, 3, new DateTime(2026, 4, 24, 12, 9, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult", "ADULT", "Chú Lộc", "RESCUED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("elderly", "ELDERLY", "Bà Tâm", "RESCUED", ["BLANKET"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD"]),
-            new HueStadiumSosScenario(5, 16.465720, 107.603640, "Sau khu nhà thi đấu phụ Sân Tự Do, Huế", "Rescue", "Resolved", "Medium", 47, "EVACUATION", true, false, false, true, "Hai người đã tự ra theo hướng dẫn của đội, không cần thêm cứu hộ.", "Hai người ở sau nhà thi đấu phụ đã được hướng dẫn ra đường cao hơn, hiện an toàn.", "4G", 66, false, 17, 17, 4, new DateTime(2026, 4, 24, 12, 27, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Quốc", "RESCUED", ["CHECK_IN"]), new HueStadiumVictimScenario("wife", "ADULT", "Chị Nhi", "RESCUED", ["CHECK_IN"])], []),
-            new HueStadiumSosScenario(6, 16.457760, 107.606050, "Đoạn Lê Quý Đôn gần cổng phụ Sân Tự Do, Huế", "Both", "Incident", "Critical", 92, "MEDICAL", false, true, true, false, "Một người bị hạ thân nhiệt, đội báo cần cáng mềm và áo giữ nhiệt.", "Có người ngâm nước lâu bị lạnh run, lơ mơ. Đội đang tiếp cận nhưng cần thêm cáng mềm, áo giữ nhiệt và nước ấm.", "4G", 44, false, 18, 18, 0, new DateTime(2026, 4, 24, 13, 5, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("patient", "ADULT", "Anh Tài", "CRITICAL", ["HYPOTHERMIA_BLANKET", "STRETCHER"]), new HueStadiumVictimScenario("sister", "ADULT", "Chị Trâm", "TRAPPED", ["EVACUATION_SUPPORT"])], ["BLANKET", "MEDICINE", "DRINKING_WATER"]),
+            new HueStadiumSosScenario(4, 16.459620, 107.604620, "Hẻm nhỏ sau đường Hà Huy Tập, phường Phú Nhuận, Huế", "Both", "Assigned", "High", 73, "FLOODING", false, true, true, false, "Nhà có phụ nữ mang thai đau bụng nhẹ, nhóm cần được đưa ra và nhận nước sạch.", "Phụ nữ mang thai trong nhà đau bụng nhẹ, nước ngập qua đầu gối và có trẻ nhỏ. Cần đội đưa ra điểm an toàn, mang thêm nước sạch.", "4G", 49, true, 13, 14, 0, new DateTime(2026, 4, 24, 10, 49, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("pregnant", "ADULT", "Chị Hà (mang thai)", "MODERATE", ["FIRST_AID"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Sóc", "STABLE", ["CHILD_LIFE_JACKET"])], ["DRINKING_WATER", "OTHER"]),
+            new HueStadiumSosScenario(8, 16.459980, 107.605120, "Tầng trệt nhà số 12 Hà Huy Tập, Huế", "Relief", "InProgress", "Medium", 58, "OTHER", true, false, false, true, "Năm người ở tầng hai thiếu thuốc tiểu đường và nước sạch.", "Gia đình 5 người đã lên tầng hai, đang thiếu nước uống và thuốc tiểu đường cho người lớn tuổi.", "WIFI", 71, false, 14, 14, 1, new DateTime(2026, 4, 24, 11, 18, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("father", "ELDERLY", "Ông Bảy", "STABLE", ["DIABETES_MEDICINE"]), new HueStadiumVictimScenario("adult", "ADULT", "Chị Loan", "SAFE", ["DRINKING_WATER"])], ["DRINKING_WATER", "MEDICINE", "READY_TO_EAT_FOOD"]),
+            new HueStadiumSosScenario(4, 16.460180, 107.604310, "Kiệt 31 Hà Huy Tập nhìn sang Sân Tự Do, Huế", "Rescue", "Pending", "High", 68, "DANGER_ZONE", false, false, false, true, "Cầu thang ngoài bị ngập, người già không thể xuống tầng trệt.", "Người già trong nhà không thể xuống cầu thang ngoài vì nước xiết. Cần đội có dây hỗ trợ tiếp cận.", "4G", 37, false, 15, 16, 2, new DateTime(2026, 4, 24, 11, 46, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("grandmother", "ELDERLY", "Bà Cúc", "TRAPPED", ["ROPE_ASSIST", "ESCORT_SUPPORT"]), new HueStadiumVictimScenario("adult", "ADULT", "Anh Tú", "AT_RISK", ["EVACUATION_SUPPORT"])], []),
+            new HueStadiumSosScenario(5, 16.465260, 107.603120, "Đường Trần Cao Vân gần lối vào Sân Tự Do, Huế", "Relief", "Resolved", "Medium", 44, "OTHER", true, false, false, true, "Điểm trú đã nhận nước và mì, không còn yêu cầu mở.", "Điểm trú trên Trần Cao Vân đã nhận nước và mì từ đội hỗ trợ, mọi người an toàn.", "5G", 80, false, 16, 16, 3, new DateTime(2026, 4, 24, 12, 9, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult", "ADULT", "Chú Lộc", "RESCUED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("elderly", "ELDERLY", "Bà Tâm", "RESCUED", ["BLANKET"])], ["DRINKING_WATER", "READY_TO_EAT_FOOD"]),
+            new HueStadiumSosScenario(5, 16.465720, 107.603640, "Sau khu nhà thi đấu phụ Sân Tự Do, Huế", "Rescue", "Resolved", "Medium", 47, "OTHER", true, false, false, true, "Hai người đã tự ra theo hướng dẫn của đội, không cần thêm cứu hộ.", "Hai người ở sau nhà thi đấu phụ đã được hướng dẫn ra đường cao hơn, hiện an toàn.", "4G", 66, false, 17, 17, 4, new DateTime(2026, 4, 24, 12, 27, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Quốc", "RESCUED", ["CHECK_IN"]), new HueStadiumVictimScenario("wife", "ADULT", "Chị Nhi", "RESCUED", ["CHECK_IN"])], []),
+            new HueStadiumSosScenario(6, 16.457760, 107.606050, "Đoạn Lê Quý Đôn gần cổng phụ Sân Tự Do, Huế", "Both", "Incident", "Critical", 92, "OTHER", false, true, true, false, "Một người bị hạ thân nhiệt, đội báo cần cáng mềm và áo giữ nhiệt.", "Có người ngâm nước lâu bị lạnh run, lơ mơ. Đội đang tiếp cận nhưng cần thêm cáng mềm, áo giữ nhiệt và nước ấm.", "4G", 44, false, 18, 18, 0, new DateTime(2026, 4, 24, 13, 5, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("patient", "ADULT", "Anh Tài", "CRITICAL", ["HYPOTHERMIA_BLANKET", "STRETCHER"]), new HueStadiumVictimScenario("sister", "ADULT", "Chị Trâm", "TRAPPED", ["EVACUATION_SUPPORT"])], ["BLANKET", "MEDICINE", "DRINKING_WATER"]),
             new HueStadiumSosScenario(10, 16.458080, 107.606420, "Hẻm thấp phía nam Sân Tự Do, Huế", "Rescue", "InProgress", "High", 78, "TRAPPED", false, false, false, true, "Ba người bị cô lập, điểm đón phù hợp là cổng phụ phía nam.", "Ba người bị cô lập trong hẻm thấp phía nam sân. Nước xoáy ở đầu hẻm, cần xuồng nhỏ vào cổng phụ.", "MESH", 19, false, 19, 20, 1, new DateTime(2026, 4, 24, 13, 33, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Anh Lâm", "TRAPPED", ["BOAT_RESCUE"]), new HueStadiumVictimScenario("adult-2", "ADULT", "Chị Yến", "TRAPPED", ["BOAT_RESCUE"]), new HueStadiumVictimScenario("elderly", "ELDERLY", "Ông Hòa", "TRAPPED", ["ESCORT_SUPPORT"])], []),
-            new HueStadiumSosScenario(7, 16.466530, 107.598650, "Đường Đống Đa hướng về Sân Tự Do, Huế", "Relief", "Resolved", "Low", 33, "SUPPLY_SHORTAGE", true, false, false, true, "Yêu cầu nước sạch đã được nhóm địa phương xử lý.", "Khu Đống Đa đã nhận nước sạch từ nhóm địa phương, cập nhật để đóng yêu cầu.", "5G", 83, false, 20, 20, 2, new DateTime(2026, 4, 24, 14, 2, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult", "ADULT", "Cô Vân", "RESCUED", ["DRINKING_WATER"])], ["DRINKING_WATER"]),
-            new HueStadiumSosScenario(7, 16.466940, 107.599120, "Kiệt 44 Đống Đa, cách Sân Tự Do 600m, Huế", "Rescue", "Cancelled", "Low", 26, "EVACUATION", true, false, false, true, "Người gửi báo đã tự di chuyển ra khỏi khu ngập, không cần đội đến.", "Tôi đã tự ra khỏi kiệt 44 Đống Đa nhờ hàng xóm hỗ trợ, xin hủy yêu cầu cứu hộ.", "WIFI", 61, false, 21, 21, 3, new DateTime(2026, 4, 24, 14, 26, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Huy", "SAFE", ["CHECK_IN"])], []),
-            new HueStadiumSosScenario(10, 16.466520, 107.599430, "Nhà dân sau khu Đống Đa, gần Sân Tự Do, Huế", "Both", "InProgress", "Medium", 63, "STRANDED", false, false, false, true, "Bốn người chờ đội ở tầng hai, cần nước uống và đèn pin vì mất điện.", "Bốn người đang chờ ở tầng hai khu Đống Đa gần sân Tự Do. Nhà mất điện, cần nước uống và đèn pin khi đội tới.", "4G", 39, true, 22, 23, 4, new DateTime(2026, 4, 24, 14, 51, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Chị Nương", "TRAPPED", ["FLASHLIGHT"]), new HueStadiumVictimScenario("adult-2", "ADULT", "Anh Bình", "TRAPPED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Kem", "STABLE", ["CHILD_LIFE_JACKET"])], ["DRINKING_WATER", "FLASHLIGHT", "LIFE_JACKET"])
+            new HueStadiumSosScenario(7, 16.466530, 107.598650, "Đường Đống Đa hướng về Sân Tự Do, Huế", "Relief", "Resolved", "Low", 33, "OTHER", true, false, false, true, "Yêu cầu nước sạch đã được nhóm địa phương xử lý.", "Khu Đống Đa đã nhận nước sạch từ nhóm địa phương, cập nhật để đóng yêu cầu.", "5G", 83, false, 20, 20, 2, new DateTime(2026, 4, 24, 14, 2, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult", "ADULT", "Cô Vân", "RESCUED", ["DRINKING_WATER"])], ["DRINKING_WATER"]),
+            new HueStadiumSosScenario(7, 16.466940, 107.599120, "Kiệt 44 Đống Đa, cách Sân Tự Do 600m, Huế", "Rescue", "Cancelled", "Low", 26, "OTHER", true, false, false, true, "Người gửi báo đã tự di chuyển ra khỏi khu ngập, không cần đội đến.", "Tôi đã tự ra khỏi kiệt 44 Đống Đa nhờ hàng xóm hỗ trợ, xin hủy yêu cầu cứu hộ.", "WIFI", 61, false, 21, 21, 3, new DateTime(2026, 4, 24, 14, 26, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("self", "ADULT", "Anh Huy", "SAFE", ["CHECK_IN"])], []),
+            new HueStadiumSosScenario(10, 16.466520, 107.599430, "Nhà dân sau khu Đống Đa, gần Sân Tự Do, Huế", "Both", "InProgress", "Medium", 63, "FLOODING", false, false, false, true, "Bốn người chờ đội ở tầng hai, cần nước uống và đèn pin vì mất điện.", "Bốn người đang chờ ở tầng hai khu Đống Đa gần sân Tự Do. Nhà mất điện, cần nước uống và đèn pin khi đội tới.", "4G", 39, true, 22, 23, 4, new DateTime(2026, 4, 24, 14, 51, 0, DateTimeKind.Unspecified), [new HueStadiumVictimScenario("adult-1", "ADULT", "Chị Nương", "TRAPPED", ["FLASHLIGHT"]), new HueStadiumVictimScenario("adult-2", "ADULT", "Anh Bình", "TRAPPED", ["DRINKING_WATER"]), new HueStadiumVictimScenario("child", "CHILD", "Bé Kem", "STABLE", ["CHILD_LIFE_JACKET"])], ["DRINKING_WATER", "OTHER"])
         };
 
         return (clusters, sosRequests);
