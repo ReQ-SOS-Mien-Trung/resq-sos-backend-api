@@ -16,6 +16,7 @@ public class CreateSosClusterCommandHandler(
     ISosRequestRepository sosRequestRepository,
     ISosClusterGroupingConfigRepository sosClusterGroupingConfigRepository,
     IAdminRealtimeHubService adminRealtimeHubService,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<CreateSosClusterCommandHandler> logger
 ) : IRequestHandler<CreateSosClusterCommand, CreateSosClusterResponse>
@@ -27,6 +28,7 @@ public class CreateSosClusterCommandHandler(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosClusterGroupingConfigRepository _sosClusterGroupingConfigRepository = sosClusterGroupingConfigRepository;
     private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<CreateSosClusterCommandHandler> _logger = logger;
 
@@ -136,6 +138,11 @@ public class CreateSosClusterCommandHandler(
                 ChangedAt = DateTime.UtcNow
             },
             cancellationToken);
+        await _sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
+            resolvedRequests.Select(r => r.Id),
+            "ClusterAssigned",
+            notifyUnclustered: true,
+            cancellationToken: cancellationToken);
 
         _logger.LogInformation("SOS cluster created successfully: ClusterId={clusterId}", clusterId);
 

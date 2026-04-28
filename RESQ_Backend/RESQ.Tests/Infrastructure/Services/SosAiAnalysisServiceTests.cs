@@ -221,6 +221,7 @@ public class SosAiAnalysisServiceTests
             analysisRepo,
             new StubSosRequestRepository(BuildSosRequest(structuredData)),
             new StubSosRequestUpdateRepository(),
+            new StubSosRequestRealtimeHubService(),
             new StubUnitOfWork(),
             NullLogger<SosAiAnalysisService>.Instance);
     }

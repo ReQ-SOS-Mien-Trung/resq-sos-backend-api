@@ -40,6 +40,7 @@ public class CreateSosClusterCommandHandlerTests
             sosRepo,
             configRepo ?? new StubSosClusterGroupingConfigRepository(null),
             new StubAdminRealtimeHubService(),
+            new StubSosRequestRealtimeHubService(),
             new StubUnitOfWork(),
             NullLogger<CreateSosClusterCommandHandler>.Instance);
     }

@@ -8,6 +8,7 @@ using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 using RESQ.Application.UseCases.Operations.Commands.ReportTeamIncident;
 using RESQ.Application.UseCases.Operations.Shared;
@@ -29,6 +30,7 @@ public class ReportMissionActivityIncidentCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IMediator mediator,
     IUnitOfWork unitOfWork,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     ILogger<ReportMissionActivityIncidentCommandHandler> logger
 ) : IRequestHandler<ReportMissionActivityIncidentCommand, ReportTeamIncidentResponse>
 {
@@ -218,6 +220,14 @@ public class ReportMissionActivityIncidentCommandHandler(
 
             await unitOfWork.SaveAsync();
         });
+
+        if (impactedSosRequestIds.Count > 0)
+        {
+            await sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
+                impactedSosRequestIds,
+                "Incident",
+                cancellationToken: cancellationToken);
+        }
 
         return new ReportTeamIncidentResponse
         {

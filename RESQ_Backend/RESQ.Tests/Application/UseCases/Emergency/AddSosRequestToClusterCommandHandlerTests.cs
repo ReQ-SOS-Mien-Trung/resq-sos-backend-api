@@ -335,6 +335,7 @@ public class AddSosRequestToClusterCommandHandlerTests
             sosRequestRepository,
             groupingConfigRepository ?? new StubSosClusterGroupingConfigRepository(),
             unitOfWork ?? new StubUnitOfWork(),
+            new StubSosRequestRealtimeHubService(),
             NullLogger<AddSosRequestToClusterCommandHandler>.Instance);
     }
 
