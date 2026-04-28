@@ -36,6 +36,7 @@ using RESQ.Infrastructure.Services.Logistics;
 using RESQ.Infrastructure.Services.Payments;
 using RESQ.Infrastructure.Services.Ai;
 using RESQ.Infrastructure.Services.Personnel;
+using RESQ.Infrastructure.Services.Dashboard;
 
 namespace RESQ.Infrastructure.Extensions;
 
@@ -45,6 +46,7 @@ public static class ServiceCollectionExtensions
     {
         var bootstrapDatabaseOnStartup = configuration.GetValue<bool>("Database:BootstrapOnStartup");
         services.AddHttpClient();
+        services.AddSingleton(TimeProvider.System);
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
         var aiSecretsSection = configuration.GetSection("AiSecrets");
         services.Configure<AiSecretsOptions>(
@@ -189,6 +191,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserPermissionResolver, UserPermissionResolver>();
         services.AddScoped<IManagerDepotAccessService, ManagerDepotAccessService>();
         services.AddScoped<IDepotRealtimeOutboxAdminService, DepotRealtimeOutboxAdminService>();
+        services.AddScoped<IRescuerOverviewDashboardService, RescuerOverviewDashboardService>();
 
         services.AddScoped<IGoongMapService, GoongMapService>();
         services.AddScoped<IExcelExportService, ExcelExportService>();

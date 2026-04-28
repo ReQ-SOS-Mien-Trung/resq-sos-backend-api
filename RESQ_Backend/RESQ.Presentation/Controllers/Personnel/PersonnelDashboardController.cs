@@ -8,6 +8,7 @@ using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionSuccessRateSummar
 using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportDashboardSummary;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetMissionTeamReportsDashboard;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerMissionScores;
+using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuerOverview;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetRescuersDailyStatistics;
 using RESQ.Application.UseCases.SystemConfig.Queries.GetSosRequestsSummary;
 using RESQ.Domain.Enum.Operations;
@@ -23,6 +24,59 @@ namespace RESQ.Presentation.Controllers.Personnel;
 public class PersonnelDashboardController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
+
+    /// <summary>
+    /// [Dashboard – Cứu hộ viên] Thống kê tổng quan rescuer đã được duyệt theo 12 tháng gần nhất.
+    /// </summary>
+    /// <remarks>
+    /// Sample response:
+    ///
+    ///     {
+    ///       "generatedAt": "2026-04-28T07:00:00Z",
+    ///       "timezone": "Asia/Ho_Chi_Minh",
+    ///       "totals": {
+    ///         "total": 20,
+    ///         "core": 5,
+    ///         "volunteer": 15,
+    ///         "active": 18,
+    ///         "banned": 2
+    ///       },
+    ///       "thisMonth": {
+    ///         "month": 4,
+    ///         "year": 2026,
+    ///         "newCount": 15,
+    ///         "previousNewCount": 5,
+    ///         "growthPercent": 200
+    ///       },
+    ///       "peakMonth": {
+    ///         "month": 4,
+    ///         "year": 2026,
+    ///         "monthLabel": "Th4",
+    ///         "newCount": 15
+    ///       },
+    ///       "monthly": [
+    ///         {
+    ///           "month": 5,
+    ///           "year": 2025,
+    ///           "monthLabel": "Th5",
+    ///           "total": 0,
+    ///           "newCount": 0,
+    ///           "core": 0,
+    ///           "volunteer": 0
+    ///         }
+    ///       ]
+    ///     }
+    /// </remarks>
+    [HttpGet("rescuers/overview")]
+    [ProducesResponseType(typeof(RescuerOverviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetRescuerOverview([FromQuery] int months = 12)
+    {
+        var result = await _mediator.Send(new GetRescuerOverviewQuery(months));
+        return Ok(result);
+    }
 
     /// <summary>
     /// [Dashboard – Thẻ tóm tắt] Thống kê rescuer hôm nay so với hôm qua.
