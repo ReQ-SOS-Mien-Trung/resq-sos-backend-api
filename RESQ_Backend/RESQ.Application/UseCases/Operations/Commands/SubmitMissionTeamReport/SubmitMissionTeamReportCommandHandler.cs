@@ -275,53 +275,25 @@ public class SubmitMissionTeamReportCommandHandler(
                 await unitOfWork.SaveAsync();
             }
 
-            var refreshedTeams = (await missionTeamRepository.GetByMissionIdAsync(request.MissionId, cancellationToken))
-                .Where(x => !string.Equals(x.Status, MissionTeamExecutionStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var missionCompletionResolvedSosRequestIds = new List<int>();
+            await MissionCompletionSyncHelper.TryCompleteMissionIfReadyAsync(
+                request.MissionId,
+                missionRepository,
+                missionActivityRepository,
+                sosClusterRepository,
+                sosRequestRepository,
+                sosRequestUpdateRepository,
+                teamIncidentRepository,
+                logger,
+                unitOfWork,
+                cancellationToken,
+                mission,
+                missionCompletionResolvedSosRequestIds);
 
-            var requiredTeamIds = mission.Activities
-                .Where(x => x.MissionTeamId.HasValue && x.Status != MissionActivityStatus.Cancelled)
-                .Select(x => x.MissionTeamId!.Value)
-                .Distinct()
-                .ToList();
-
-            var allRequiredTeamsReported = requiredTeamIds.Count > 0
-                && requiredTeamIds.All(teamId => refreshedTeams.Any(x => x.Id == teamId
-                    && string.Equals(x.Status, MissionTeamExecutionStatus.Reported.ToString(), StringComparison.OrdinalIgnoreCase)));
-
-            var allActivitiesSettled = mission.Activities.Count > 0
-                && mission.Activities.All(IsActivitySettledForMissionCompletion);
-
-            if (allActivitiesSettled && allRequiredTeamsReported)
+            foreach (var sosRequestId in missionCompletionResolvedSosRequestIds)
             {
-                await missionRepository.UpdateStatusAsync(request.MissionId, MissionStatus.Completed, isCompleted: true, cancellationToken);
-                if (mission.ClusterId.HasValue)
-                {
-                    var cluster = await sosClusterRepository.GetByIdAsync(mission.ClusterId.Value, cancellationToken);
-                    if (cluster is not null)
-                    {
-                        cluster.Status = SosClusterStatus.Completed;
-                        await sosClusterRepository.UpdateAsync(cluster, cancellationToken);
-                    }
-
-                    await sosRequestRepository.UpdateStatusByClusterIdAsync(mission.ClusterId.Value, SosRequestStatus.Resolved, cancellationToken);
-
-                    var clusterSosRequests = await sosRequestRepository.GetByClusterIdAsync(mission.ClusterId.Value, cancellationToken);
-                    foreach (var sos in clusterSosRequests)
-                    {
-                        lifecycleSosRequestIds.Add(sos.Id);
-                        resolvedSosRequestIds.Add(sos.Id);
-                    }
-
-                    await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
-                        clusterSosRequests.Select(sos => (int?)sos.Id),
-                        sosRequestUpdateRepository,
-                        sosRequestRepository,
-                        missionActivityRepository,
-                        teamIncidentRepository,
-                        logger,
-                        cancellationToken);
-                }
+                lifecycleSosRequestIds.Add(sosRequestId);
+                resolvedSosRequestIds.Add(sosRequestId);
             }
         });
 
@@ -352,17 +324,6 @@ public class SubmitMissionTeamReportCommandHandler(
         var report = await missionTeamReportRepository.GetByMissionTeamIdAsync(request.MissionTeamId, cancellationToken);
 
         return MissionTeamReportResponseFactory.Create(request.MissionId, refreshedMissionTeam, report, assignedActivities.Values, request.SubmittedBy);
-    }
-
-    private static bool IsActivitySettledForMissionCompletion(MissionActivityModel activity)
-    {
-        if (activity.Status == MissionActivityStatus.Cancelled)
-        {
-            return true;
-        }
-
-        return activity.MissionTeamId.HasValue
-            && activity.Status is MissionActivityStatus.Succeed or MissionActivityStatus.Failed;
     }
 
     private static bool TryGetActivityLocation(MissionActivityModel activity, out double latitude, out double longitude, out string locationSource)

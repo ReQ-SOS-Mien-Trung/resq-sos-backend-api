@@ -17,6 +17,7 @@ namespace RESQ.Application.UseCases.Operations.Shared;
 
 public class MissionActivityStatusExecutionService(
     IMissionActivityRepository activityRepository,
+    IMissionRepository missionRepository,
     IMissionTeamRepository missionTeamRepository,
     IPersonnelQueryRepository personnelQueryRepository,
     IDepotInventoryRepository depotInventoryRepository,
@@ -33,6 +34,7 @@ public class MissionActivityStatusExecutionService(
 ) : IMissionActivityStatusExecutionService
 {
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
+    private readonly IMissionRepository _missionRepository = missionRepository;
     private readonly IMissionTeamRepository _missionTeamRepository = missionTeamRepository;
     private readonly IPersonnelQueryRepository _personnelQueryRepository = personnelQueryRepository;
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
@@ -393,6 +395,32 @@ public class MissionActivityStatusExecutionService(
                 await _rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
                     rescueTeamLifecycleSyncResult,
                     cancellationToken);
+            }
+        }
+
+        if (activity.MissionId.HasValue
+            && effectiveStatus is MissionActivityStatus.Succeed or MissionActivityStatus.Failed or MissionActivityStatus.Cancelled)
+        {
+            var missionCompletionResolvedSosRequestIds = new List<int>();
+            await MissionCompletionSyncHelper.TryCompleteMissionIfReadyAsync(
+                activity.MissionId.Value,
+                _missionRepository,
+                _activityRepository,
+                _sosClusterRepository,
+                _sosRequestRepository,
+                _sosRequestUpdateRepository,
+                _teamIncidentRepository,
+                _logger,
+                _unitOfWork,
+                cancellationToken,
+                resolvedSosRequestIds: missionCompletionResolvedSosRequestIds);
+
+            if (missionCompletionResolvedSosRequestIds.Count > 0)
+            {
+                await _sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
+                    missionCompletionResolvedSosRequestIds,
+                    "Resolved",
+                    cancellationToken: cancellationToken);
             }
         }
 

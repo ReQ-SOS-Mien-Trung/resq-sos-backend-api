@@ -150,6 +150,62 @@ public class MissionActivityStatusExecutionServiceTests
     }
 
     [Fact]
+    public async Task ApplyAsync_CompletesMission_WhenLastActivitySettledBeforeTeamReports()
+    {
+        const int missionId = 16;
+        const int missionTeamId = 33;
+
+        var activityRepository = new RecordingMissionActivityRepository();
+        activityRepository.Upsert(new MissionActivityModel
+        {
+            Id = 10,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            Step = 1,
+            ActivityType = "RESCUE",
+            Status = MissionActivityStatus.Succeed
+        });
+        activityRepository.Upsert(new MissionActivityModel
+        {
+            Id = 11,
+            MissionId = missionId,
+            MissionTeamId = missionTeamId,
+            Step = 2,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation
+        });
+
+        var mission = new MissionModel
+        {
+            Id = missionId,
+            Status = MissionStatus.OnGoing
+        };
+        var missionRepository = new RecordingMissionRepository(mission);
+        var missionTeamRepository = new RecordingMissionTeamRepository(new MissionTeamModel
+        {
+            Id = missionTeamId,
+            MissionId = missionId,
+            RescuerTeamId = 44,
+            Status = MissionTeamExecutionStatus.CompletedWaitingReport.ToString()
+        });
+        var unitOfWork = new StubUnitOfWork();
+
+        var service = BuildService(
+            activityRepository,
+            unitOfWork,
+            missionTeamRepository: missionTeamRepository,
+            missionRepository: missionRepository);
+
+        await service.ApplyAsync(missionId, 11, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Equal(MissionStatus.Completed, missionRepository.LastStatus);
+        Assert.True(missionRepository.LastIsCompleted);
+        Assert.Equal(MissionStatus.Completed, mission.Status);
+        Assert.True(mission.IsCompleted);
+        Assert.True(unitOfWork.SaveCalls >= 2);
+    }
+
+    [Fact]
     public async Task ApplyAsync_MarksClusterCompleted_WhenLastClusterSosRequestIsResolved()
     {
         var activityRepository = CreateActivityRepository(new MissionActivityModel
@@ -367,7 +423,8 @@ public class MissionActivityStatusExecutionServiceTests
         ISosRequestRepository? sosRequestRepository = null,
         ISosClusterRepository? sosClusterRepository = null,
         ISosRequestUpdateRepository? sosRequestUpdateRepository = null,
-        ITeamIncidentRepository? teamIncidentRepository = null)
+        ITeamIncidentRepository? teamIncidentRepository = null,
+        IMissionRepository? missionRepository = null)
     {
         rescueTeamRepository ??= new RecordingRescueTeamRepository(null);
         missionTeamRepository ??= new RecordingMissionTeamRepository();
@@ -380,6 +437,7 @@ public class MissionActivityStatusExecutionServiceTests
 
         return new(
             activityRepository,
+            missionRepository ?? new NoOpMissionRepository(),
             missionTeamRepository,
             new NoOpPersonnelQueryRepository(),
             new NoOpDepotInventoryRepository(),
@@ -422,6 +480,72 @@ public class MissionActivityStatusExecutionServiceTests
             default:
                 throw new InvalidOperationException($"Unsupported test status: {status}");
         }
+    }
+
+    private sealed class RecordingMissionRepository(MissionModel? mission = null) : IMissionRepository
+    {
+        public MissionStatus? LastStatus { get; private set; }
+        public bool? LastIsCompleted { get; private set; }
+
+        public Task<MissionModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(mission?.Id == id ? mission : null);
+
+        public Task<IEnumerable<MissionModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IEnumerable<MissionModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IEnumerable<MissionModel>> GetByIdsAsync(IEnumerable<int> missionIds, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<int> CreateAsync(MissionModel model, Guid coordinatorId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task UpdateAsync(MissionModel model, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task UpdateStatusAsync(int missionId, MissionStatus status, bool isCompleted, CancellationToken cancellationToken = default)
+        {
+            LastStatus = status;
+            LastIsCompleted = isCompleted;
+
+            if (mission is not null && mission.Id == missionId)
+            {
+                mission.Status = status;
+                mission.IsCompleted = isCompleted;
+                if (isCompleted)
+                {
+                    mission.CompletedAt = DateTime.UtcNow;
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class NoOpMissionRepository : IMissionRepository
+    {
+        public Task<MissionModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<MissionModel?>(null);
+
+        public Task<IEnumerable<MissionModel>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IEnumerable<MissionModel>> GetByClusterIdAsync(int clusterId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<IEnumerable<MissionModel>> GetByIdsAsync(IEnumerable<int> missionIds, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<int> CreateAsync(MissionModel model, Guid coordinatorId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task UpdateAsync(MissionModel mission, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task UpdateStatusAsync(int missionId, MissionStatus status, bool isCompleted, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     private sealed class RecordingMissionActivityRepository : IMissionActivityRepository
@@ -476,17 +600,34 @@ public class MissionActivityStatusExecutionServiceTests
         public MissionActivityModel Get(int id) => _activities[id];
     }
 
-    private sealed class RecordingMissionTeamRepository(MissionTeamModel? missionTeam = null) : IMissionTeamRepository
+    private sealed class RecordingMissionTeamRepository : IMissionTeamRepository
     {
+        private readonly List<MissionTeamModel> _missionTeams;
+
+        public RecordingMissionTeamRepository(params MissionTeamModel[] missionTeams)
+        {
+            _missionTeams = missionTeams.ToList();
+        }
+
         public List<(int Id, string Status)> StatusUpdates { get; } = [];
         public List<(int Id, double Latitude, double Longitude, string Source)> LocationUpdates { get; } = [];
 
-        public Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult(missionTeam?.Id == id ? missionTeam : null);
-        public Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) => Task.FromResult(Enumerable.Empty<MissionTeamModel>());
+        public Task<MissionTeamModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_missionTeams.FirstOrDefault(team => team.Id == id));
+
+        public Task<IEnumerable<MissionTeamModel>> GetByMissionIdAsync(int missionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_missionTeams.Where(team => team.MissionId == missionId).AsEnumerable());
+
         public Task<int> CreateAsync(MissionTeamModel model, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task UpdateStatusAsync(int id, string status, CancellationToken cancellationToken = default)
         {
             StatusUpdates.Add((id, status));
+            var missionTeam = _missionTeams.FirstOrDefault(team => team.Id == id);
+            if (missionTeam is not null)
+            {
+                missionTeam.Status = status;
+            }
+
             return Task.CompletedTask;
         }
         public Task UpdateStatusAsync(int id, string status, string? note, CancellationToken cancellationToken = default) => UpdateStatusAsync(id, status, cancellationToken);
