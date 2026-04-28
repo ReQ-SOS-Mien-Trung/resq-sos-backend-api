@@ -10,6 +10,7 @@ public interface IDonationRepository
         int pageSize, 
         int? campaignId = null, 
         bool? isPrivate = null,
+        string? receiptCodeSearch = null,
         CancellationToken cancellationToken = default);
 
     Task<DonationModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default);

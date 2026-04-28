@@ -6,6 +6,7 @@ using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
 using RESQ.Infrastructure.Entities.Finance;
 using RESQ.Infrastructure.Mappers.Finance;
+using System.Globalization;
 using System.Linq.Expressions;
 
 namespace RESQ.Infrastructure.Persistence.Finance;
@@ -19,6 +20,7 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         int pageSize, 
         int? campaignId = null, 
         bool? isPrivate = null,
+        string? receiptCodeSearch = null,
         CancellationToken cancellationToken = default)
     {
         var repo = _unitOfWork.GetRepository<Donation>();
@@ -27,10 +29,28 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
         var successStatus = Status.Succeed.ToString();
 
         // Build composite filter using explicit checks to ensure EF Translation works well
+        var normalizedReceiptSearch = receiptCodeSearch?.Trim();
+        var searchPattern = string.IsNullOrWhiteSpace(normalizedReceiptSearch)
+            ? null
+            : $"%{normalizedReceiptSearch}%";
+        var parsedAmount = TryParseSearchAmount(normalizedReceiptSearch);
+        var parsedId = TryParseSearchId(normalizedReceiptSearch);
+        var searchesAnonymous = ContainsAny(normalizedReceiptSearch, "ẩn danh", "an danh", "anonymous");
+        var searchesGenericDonor = ContainsAny(normalizedReceiptSearch, "nhà hảo tâm", "nha hao tam", "donor");
+        var searchesDonationText = ContainsAny(normalizedReceiptSearch, "quyên góp", "quyen gop", "donate", "donated");
+
         Expression<Func<Donation, bool>> compositeFilter = x => 
             x.Status == successStatus &&
             (!campaignId.HasValue || x.FundCampaignId == campaignId) &&
-            (!isPrivate.HasValue || x.IsPrivate == isPrivate);
+            (!isPrivate.HasValue || x.IsPrivate == isPrivate) &&
+            (string.IsNullOrEmpty(normalizedReceiptSearch)
+                || (searchPattern != null && x.OrderId != null && EF.Functions.ILike(x.OrderId, searchPattern))
+                || (searchPattern != null && x.DonorName != null && EF.Functions.ILike(x.DonorName, searchPattern))
+                || (parsedAmount.HasValue && x.Amount == parsedAmount.Value)
+                || (parsedId.HasValue && x.Id == parsedId.Value)
+                || (searchesAnonymous && x.IsPrivate)
+                || (searchesGenericDonor && (x.IsPrivate || x.DonorName == null))
+                || searchesDonationText);
 
         var pagedEntities = await repo.GetPagedAsync(
             pageNumber,
@@ -102,5 +122,50 @@ public class DonationRepository(IUnitOfWork unitOfWork) : IDonationRepository
             await repo.UpdateAsync(entity);
         }
     }
+
+    private static decimal? TryParseSearchAmount(string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return null;
+        }
+
+        var digitText = new string(search.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrWhiteSpace(digitText))
+        {
+            return null;
+        }
+
+        return decimal.TryParse(digitText, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)
+            ? amount
+            : null;
+    }
+
+    private static int? TryParseSearchId(string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return null;
+        }
+
+        var trimmed = search.Trim();
+        var hashIndex = trimmed.IndexOf('#');
+        if (hashIndex >= 0 && hashIndex < trimmed.Length - 1)
+        {
+            var idText = new string(trimmed[(hashIndex + 1)..].TakeWhile(char.IsDigit).ToArray());
+            return int.TryParse(idText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var idAfterHash)
+                ? idAfterHash
+                : null;
+        }
+
+        trimmed = trimmed.TrimStart('#');
+        return int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+            ? id
+            : null;
+    }
+
+    private static bool ContainsAny(string? search, params string[] values)
+        => !string.IsNullOrWhiteSpace(search)
+            && values.Any(value => search.Contains(value, StringComparison.OrdinalIgnoreCase));
 }
 

@@ -9,4 +9,5 @@ public record GetPublicDonationsQuery : IRequest<PagedResult<GetDonationsRespons
     public int PageNumber { get; init; } = 1;
     public int PageSize { get; init; } = 10;
     public int? FundCampaignId { get; init; }
+    public string? Search { get; init; }
 }

@@ -766,10 +766,14 @@ public class InventoryController(
         [FromQuery] DateOnly? toDate = null)
     {
         var userId = GetCurrentUserId();
+        var canManageAnyInventory = (await _authorizationService
+            .AuthorizeAsync(User, null, PermissionConstants.SystemConfigManage))
+            .Succeeded;
 
         var query = new ExportInventoryMovementQuery
         {
             UserId = userId,
+            IsManager = !canManageAnyInventory,
             DepotId = depotId,
             ItemModelId = itemModelId,
             PeriodType = periodType,
