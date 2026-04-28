@@ -575,7 +575,7 @@ public sealed class AuthFlowHandlerTests
             return Task.CompletedTask;
         }
 
-        public Task SendDonationSuccessEmailAsync(string a, string b, decimal c, string d, string e, int f, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SendDonationSuccessEmailAsync(string a, string b, decimal c, string d, string e, int f, string? receiptCode = null, DateTime? paidAtUtc = null, bool isPrivate = false, CancellationToken ct = default) => Task.CompletedTask;
         public Task SendTeamInvitationEmailAsync(string a, string b, string c, int d, Guid e, CancellationToken ct = default) => Task.CompletedTask;
     }
 

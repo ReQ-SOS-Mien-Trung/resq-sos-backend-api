@@ -42,17 +42,26 @@ public class CreateRescueTeamCommandHandler(
         if (request.Members != null && request.Members.Any())
         {
             var eventCache = new Dictionary<int, (int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)>();
+            int? fallbackEventId = null;
 
             foreach (var mem in request.Members)
             {
                 var user = await userRepository.GetByIdAsync(mem.UserId, ct)
                     ?? throw new NotFoundException($"Không tìm thấy thành viên có ID {mem.UserId}");
 
-                if (!eventCache.TryGetValue(mem.EventId, out var sourceEvent))
+                var eventId = mem.EventId.GetValueOrDefault();
+                if (eventId <= 0)
                 {
-                    sourceEvent = await assemblyEventRepository.GetEventByIdAsync(mem.EventId, ct)
+                    fallbackEventId ??= await ResolveDefaultSourceEventIdAsync(request.AssemblyPointId, ct);
+                    eventId = fallbackEventId.Value;
+                    mem.EventId = eventId;
+                }
+
+                if (!eventCache.TryGetValue(eventId, out var sourceEvent))
+                {
+                    sourceEvent = await assemblyEventRepository.GetEventByIdAsync(eventId, ct)
                         ?? throw new NotFoundException($"Không tìm thấy sự kiện tập trung id = {mem.EventId}.");
-                    eventCache[mem.EventId] = sourceEvent;
+                    eventCache[eventId] = sourceEvent;
                 }
 
                 if (sourceEvent.AssemblyPointId != request.AssemblyPointId)
@@ -75,7 +84,7 @@ public class CreateRescueTeamCommandHandler(
                 if (await teamRepository.IsUserInActiveTeamAsync(mem.UserId, ct))
                     throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đang thuộc đội cứu hộ khác.");
 
-                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(mem.EventId, mem.UserId, ct);
+                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(eventId, mem.UserId, ct);
                 if (!isCheckedIn)
                     throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in hợp lệ trong sự kiện tập trung đã chọn.");
 
@@ -110,7 +119,7 @@ public class CreateRescueTeamCommandHandler(
                     mem.IsLeader,
                     user.RescuerType?.ToString() ?? "Volunteer",
                     roleInTeam ?? "Thành viên",
-                    mem.EventId);
+                    eventId);
             }
         }
 
@@ -156,5 +165,18 @@ public class CreateRescueTeamCommandHandler(
         }
 
         return teamId;
+    }
+
+    private async Task<int> ResolveDefaultSourceEventIdAsync(int assemblyPointId, CancellationToken ct)
+    {
+        var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(assemblyPointId, ct);
+        if (activeEvent.HasValue)
+            return activeEvent.Value.EventId;
+
+        var latestEvent = await assemblyEventRepository.GetLatestEventByAssemblyPointAsync(assemblyPointId, ct);
+        if (latestEvent.HasValue)
+            return latestEvent.Value.EventId;
+
+        throw new BadRequestException("Không tìm thấy sự kiện tập trung phù hợp cho điểm tập kết đã chọn.");
     }
 }

@@ -86,10 +86,11 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
 
         try
         {
+            var paidAtUtc = DateTime.UtcNow;
             var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
                 donation.Id,
                 $"[PayOS:status=PAID][Source=QueryAPI][LinkId={donation.TransactionId}]",
-                DateTime.UtcNow,
+                paidAtUtc,
                 donation.TransactionId,
                 preserveExistingTransactionId: true,
                 cancellationToken);
@@ -105,7 +106,7 @@ public class VerifyPayOSPaymentCommandHandler : IRequestHandler<VerifyPayOSPayme
                 await _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
                     donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
-                    donation.Id, CancellationToken.None
+                    donation.Id, donation.OrderId, paidAtUtc, donation.IsPrivate, CancellationToken.None
                 );
             }
 

@@ -82,10 +82,11 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
 
         try
         {
+            var paidAtUtc = DateTimeOffset.FromUnixTimeMilliseconds(queryResult.ServerTime).UtcDateTime;
             var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
                 donation.Id,
                 $"[ZaloPay:ZpTransId={queryResult.ZpTransId}][Source=QueryAPI]",
-                DateTimeOffset.FromUnixTimeMilliseconds(queryResult.ServerTime).UtcDateTime,
+                paidAtUtc,
                 queryResult.ZpTransId.ToString(),
                 preserveExistingTransactionId: false,
                 cancellationToken);
@@ -101,7 +102,7 @@ public class VerifyZaloPayPaymentCommandHandler : IRequestHandler<VerifyZaloPayP
                 await _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
                     donation.FundCampaignName ?? "Campaign", donation.FundCampaignCode ?? "RESQ",
-                    donation.Id, CancellationToken.None
+                    donation.Id, donation.OrderId, paidAtUtc, donation.IsPrivate, CancellationToken.None
                 );
             }
 

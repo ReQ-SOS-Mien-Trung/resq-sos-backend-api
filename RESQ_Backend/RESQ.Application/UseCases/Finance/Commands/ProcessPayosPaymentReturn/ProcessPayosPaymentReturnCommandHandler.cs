@@ -73,10 +73,11 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
                 donation.PaidAt = paidAt.ToUniversalTime();
             }
 
+            var paidAtUtc = donation.PaidAt ?? DateTime.UtcNow;
             var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
                 donation.Id,
                 $"[Bank:{webhook.Data.CounterAccountBankName}-{webhook.Data.CounterAccountNumber}]",
-                donation.PaidAt ?? DateTime.UtcNow,
+                paidAtUtc,
                 paymentLinkId,
                 preserveExistingTransactionId: true,
                 cancellationToken);
@@ -91,7 +92,7 @@ public class ProcessPayosPaymentReturnCommandHandler : IRequestHandler<ProcessPa
                 await _emailService.SendDonationSuccessEmailAsync(
                     donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
                     donation.FundCampaignName ?? "Chiến dịch", donation.FundCampaignCode ?? "RESQ",
-                    donation.Id, CancellationToken.None
+                    donation.Id, donation.OrderId, paidAtUtc, donation.IsPrivate, CancellationToken.None
                 );
             }
 

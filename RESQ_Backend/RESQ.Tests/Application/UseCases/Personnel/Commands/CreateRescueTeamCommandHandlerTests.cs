@@ -105,6 +105,69 @@ public class CreateRescueTeamCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_UsesActiveAssemblyEvent_WhenMemberEventIdsAreOmitted()
+    {
+        var leaderId = Guid.NewGuid();
+        var memberIds = Enumerable.Range(0, 6)
+            .Select(index => index == 0 ? leaderId : Guid.NewGuid())
+            .ToArray();
+
+        var assemblyPointRepository = new StubAssemblyPointRepository(new AssemblyPointModel
+        {
+            Id = 10,
+            Name = "AP-01",
+            Status = AssemblyPointStatus.Available
+        });
+        var assemblyEventRepository = new StubAssemblyEventRepository(
+            eventsById: new Dictionary<int, (int EventId, int AssemblyPointId, string Status)>
+            {
+                [501] = (501, 10, AssemblyEventStatus.Gathering.ToString())
+            },
+            checkedInUsersByEvent: new Dictionary<int, HashSet<Guid>>
+            {
+                [501] = memberIds.ToHashSet()
+            });
+        var userRepository = new StubUserRepository(memberIds.ToDictionary(
+            id => id,
+            id => new UserModel
+            {
+                Id = id,
+                RoleId = 3,
+                FirstName = "Test",
+                LastName = "Rescuer",
+                RescuerType = id == leaderId ? RescuerType.Core : RescuerType.Volunteer
+            }));
+        var teamRepository = new StubRescueTeamRepository();
+
+        var handler = new CreateRescueTeamCommandHandler(
+            teamRepository,
+            assemblyPointRepository,
+            assemblyEventRepository,
+            userRepository,
+            new NoOpAdminRealtimeHubService(),
+            new NoOpFirebaseService(),
+            new StubUnitOfWork(),
+            NullLogger<CreateRescueTeamCommandHandler>.Instance);
+
+        var command = new CreateRescueTeamCommand(
+            "Team Alpha",
+            RescueTeamType.Mixed,
+            10,
+            Guid.NewGuid(),
+            6,
+            memberIds.Select((id, index) => new AddMemberRequestDto
+            {
+                UserId = id,
+                IsLeader = index == 0
+            }).ToList());
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal(1, result);
+        Assert.All(teamRepository.CreatedTeam!.Members, member => Assert.Equal(501, member.SourceEventId));
+    }
+
+    [Fact]
     public async Task Handle_Throws_WhenMemberEventDoesNotBelongToAssemblyPoint()
     {
         var memberId = Guid.NewGuid();
@@ -200,10 +263,27 @@ public class CreateRescueTeamCommandHandlerTests
             => Task.FromResult(checkedInUsersByEvent.TryGetValue(eventId, out var users) && users.Count > 0);
 
         public Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.FromResult(((int EventId, string Status)?)null);
+        {
+            var evt = eventsById.Values.FirstOrDefault(e =>
+                e.AssemblyPointId == assemblyPointId &&
+                e.Status == AssemblyEventStatus.Gathering.ToString());
+
+            return Task.FromResult(evt.EventId > 0
+                ? ((int EventId, string Status)?)(evt.EventId, evt.Status)
+                : null);
+        }
 
         public Task<(int EventId, string Status)?> GetLatestEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
-            => Task.FromResult(((int EventId, string Status)?)null);
+        {
+            var evt = eventsById.Values
+                .Where(e => e.AssemblyPointId == assemblyPointId)
+                .OrderByDescending(e => e.EventId)
+                .FirstOrDefault();
+
+            return Task.FromResult(evt.EventId > 0
+                ? ((int EventId, string Status)?)(evt.EventId, evt.Status)
+                : null);
+        }
 
         public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default)
             => Task.FromResult(eventsById.TryGetValue(eventId, out var evt)
