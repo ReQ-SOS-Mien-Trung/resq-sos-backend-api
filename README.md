@@ -215,11 +215,29 @@ Section: `PayOS`
 | Key | Giá trị |
 | --- | --- |
 | `ClientId` | `7d133e03-46cb-4827-b04e-c07b97b9dc0c` |
-| `ApiKey` | PayOS API key |
-| `ChecksumKey` | PayOS checksum/HMAC key |
+| `ApiKey` | PayOS API key, nên override bằng `PayOS__ApiKey` khi deploy |
+| `ChecksumKey` | PayOS checksum/HMAC key, dùng tạo payment link và verify webhook; nên override bằng `PayOS__ChecksumKey` |
 | `BaseUrl` | `https://api-merchant.payos.vn` |
-| `ReturnUrl` | `https://resq-sos-mientrung.vercel.app/success` |
-| `CancelUrl` | `https://resq-sos-mientrung.vercel.app/fail` |
+| `ReturnUrl` | URL frontend khi thanh toán thành công, mặc định `https://resq-sos-mientrung.vercel.app/success` |
+| `CancelUrl` | URL frontend khi người dùng hủy/thanh toán thất bại, mặc định `https://resq-sos-mientrung.vercel.app/fail` |
+
+Endpoint backend liên quan:
+
+| Mục đích | Endpoint |
+| --- | --- |
+| Nhận webhook PayOS | `POST /finance/donations/payment-return` |
+| Verify thủ công/fallback | `GET /finance/donations/payos-verify?orderId={orderId}` |
+
+Biến môi trường khuyến nghị khi deploy:
+
+```text
+PayOS__ClientId=...
+PayOS__ApiKey=...
+PayOS__ChecksumKey=...
+PayOS__BaseUrl=https://api-merchant.payos.vn
+PayOS__ReturnUrl=https://resq-sos-mientrung.vercel.app/success
+PayOS__CancelUrl=https://resq-sos-mientrung.vercel.app/fail
+```
 
 ### ZaloPay Sandbox
 
@@ -232,22 +250,32 @@ Section: `ZaloPay`
 | `Key2` | ZaloPay key dùng verify webhook/callback |
 | `Endpoint` | `https://sb-openapi.zalopay.vn/v2/create` |
 | `QueryEndpoint` | `https://sb-openapi.zalopay.vn/v2/query` |
-| `CallbackUrl` | `https://resq-sos-backend-api-production.up.railway.app/finance/donations/zalopay-return` |
+| `CallbackUrl` | Backend browser-return URL đặt vào `embed_data.redirecturl`, mặc định `https://resq-sos-backend-api-production.up.railway.app/finance/donations/zalopay-return` |
+| `ReturnUrl` | Backend return URL, mặc định `https://resq-sos-backend-api-production.up.railway.app/finance/donations/zalopay-return` |
 | `RedirectUrl` | `https://resq-sos-mientrung.vercel.app/success` |
 | `CancelUrl` | `https://resq-sos-mientrung.vercel.app/fail` |
 
-### MoMo
+Endpoint backend liên quan:
 
-Code có service `MomoPaymentService`, nhưng `appsettings*.json` hiện chưa khai báo section `MomoAPI`. Nếu bật MoMo cần bổ sung:
-
-| Key | Mô tả |
+| Mục đích | Endpoint |
 | --- | --- |
-| `MomoAPI:MomoApiUrl` | Endpoint tạo payment, mặc định code fallback `https://test-payment.momo.vn/v2/gateway/api/create` |
-| `MomoAPI:PartnerCode` | Partner code |
-| `MomoAPI:AccessKey` | Access key |
-| `MomoAPI:SecretKey` | Secret key ký HMAC |
-| `MomoAPI:RedirectUrl` | URL redirect sau thanh toán |
-| `MomoAPI:IpnUrl` | Webhook/IPN URL |
+| Browser return/fallback verify | `GET /finance/donations/zalopay-return` |
+| IPN callback nếu bật server-to-server callback | `POST /finance/donations/zalopay-callback` |
+| Verify thủ công/fallback | `GET /finance/donations/zalopay-verify?apptransid={appTransId}` |
+
+Biến môi trường khuyến nghị khi deploy:
+
+```text
+ZaloPay__AppId=554
+ZaloPay__Key1=...
+ZaloPay__Key2=...
+ZaloPay__Endpoint=https://sb-openapi.zalopay.vn/v2/create
+ZaloPay__QueryEndpoint=https://sb-openapi.zalopay.vn/v2/query
+ZaloPay__CallbackUrl=https://resq-sos-backend-api-production.up.railway.app/finance/donations/zalopay-return
+ZaloPay__ReturnUrl=https://resq-sos-backend-api-production.up.railway.app/finance/donations/zalopay-return
+ZaloPay__RedirectUrl=https://resq-sos-mientrung.vercel.app/success
+ZaloPay__CancelUrl=https://resq-sos-mientrung.vercel.app/fail
+```
 
 ### AI Providers
 
@@ -289,57 +317,7 @@ Endpoint dùng cho tính tuyến đường nhiệm vụ/cứu hộ.
 | `4` | `Manager` | Quản lý kho cứu trợ |
 | `5` | `Victim` | Người dân/người tạo SOS |
 
-## 5. Tài khoản đăng nhập demo
-
-API login thường dùng `username` và `password`:
-
-```http
-POST /identity/auth/login
-```
-
-Body:
-
-```json
-{
-  "username": "admin",
-  "password": "Admin@123"
-}
-```
-
-### Tài khoản seed runtime hiện tại
-
-| Role | Username | Email mẫu | Password |
-| --- | --- | --- | --- |
-| Admin | `admin` | `admin@resq.vn` | `Admin@123` |
-| Coordinator | `coord01` đến `coord05` | `coord01@resq.vn` | `Coordinator@123` |
-| Manager | `manager01` đến `manager09` | `manager01@resq.vn` | `Manager@123` |
-| Rescuer | `rescuer001` đến `rescuer200` | `rescuer001@resq.vn` | `Rescuer@123` |
-| Victim | `victim001` đến `victim140` | `victim001@resq.vn` | `Victim@123` |
-| Victim demo PIN | `victim.demo.374745872` | `victim.demo.374745872@resq.vn` | `142200` |
-
-Các tài khoản demo nên dùng nhanh:
-
-| Mục đích | Username | Password |
-| --- | --- | --- |
-| Admin dashboard | `admin` | `Admin@123` |
-| Điều phối viên | `coord01` | `Coordinator@123` |
-| Quản lý kho | `manager01` | `Manager@123` |
-| Cứu hộ viên | `rescuer001` | `Rescuer@123` |
-| Người dân tạo SOS | `victim001` | `Victim@123` |
-| Người dân đăng nhập bằng PIN | `victim.demo.374745872` | `142200` |
-
-### Tài khoản seed legacy nếu database đang dùng migration/fixture cũ
-
-Một số DB cũ có thể có thêm các username sau:
-
-| Role | Username | Password |
-| --- | --- | --- |
-| Coordinator | `coordinator` | `Coordinator@123` |
-| Manager | `manager`, `manager2` đến `manager7` | `Manager@123` |
-| Rescuer | `rescuer`, `rescuer1` đến `rescuer80` | `Rescuer@123` |
-| Victim | `victim`, `applicant1` đến `applicant5` | `Victim@123` |
-
-## 6. Ghi chú bảo mật khi nộp/chạy demo
+## 5. Ghi chú bảo mật khi nộp/chạy demo
 
 - Các secret thật như SendGrid API key, Google client secret, PayOS/ZaloPay key và Firebase private key không nên public trong repository production.
 - Khi deploy, ưu tiên đặt secret bằng environment variable thay vì hard-code trong `appsettings*.json`.
