@@ -23,12 +23,12 @@ public class TeamIncidentQueryDto
     public bool HasInjuredMember { get; set; }
     public bool HasSupportRequest { get; set; }
     public int? SupportSosRequestId { get; set; }
+    public List<IncidentAffectedActivityDto> AffectedActivities { get; set; } = [];
+    public JsonElement? Detail { get; set; }
 }
 
 public class TeamIncidentDetailQueryDto : TeamIncidentQueryDto
 {
-    public List<IncidentAffectedActivityDto> AffectedActivities { get; set; } = [];
-    public JsonElement? Detail { get; set; }
 }
 
 internal static class TeamIncidentQueryDtoMapper
@@ -50,7 +50,20 @@ internal static class TeamIncidentQueryDtoMapper
         HasInjuredMember = HasInjuredMember(incident.DetailJson),
         HasSupportRequest = incident.NeedSupportSos || incident.SupportSosRequestId.HasValue
             || HasSupportRequestInDetail(incident.DetailJson),
-        SupportSosRequestId = incident.SupportSosRequestId
+        SupportSosRequestId = incident.SupportSosRequestId,
+        AffectedActivities = incident.AffectedActivities
+            .OrderBy(activity => activity.OrderIndex)
+            .Select(activity => new IncidentAffectedActivityDto
+            {
+                MissionActivityId = activity.MissionActivityId,
+                OrderIndex = activity.OrderIndex,
+                IsPrimary = activity.IsPrimary,
+                Step = activity.Step,
+                ActivityType = activity.ActivityType,
+                Status = activity.Status?.ToString()
+            })
+            .ToList(),
+        Detail = ParseDetail(incident.DetailJson)
     };
 
     public static TeamIncidentDetailQueryDto ToDetailDto(TeamIncidentModel incident, ReportedByDto? reportedBy) => new()

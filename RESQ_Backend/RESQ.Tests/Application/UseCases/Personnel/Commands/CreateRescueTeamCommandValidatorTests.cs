@@ -121,6 +121,19 @@ public class CreateRescueTeamCommandValidatorTests
         result.ShouldNotHaveAnyValidationErrors();
     }
 
+    [Fact]
+    public void Validate_Passes_WhenMemberEventIdsAreOmitted()
+    {
+        var command = BuildCommand();
+        foreach (var member in command.Members)
+        {
+            member.EventId = null;
+        }
+
+        var result = _validator.TestValidate(command);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
     [Theory]
     [InlineData(6)]
     [InlineData(7)]

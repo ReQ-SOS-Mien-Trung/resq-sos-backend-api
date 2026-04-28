@@ -36,6 +36,8 @@ public class GetRescuersQueryHandler(IPersonnelQueryRepository personnelQueryRep
             Ward = m.Ward,
             Province = m.Province,
             HasTeam = m.HasTeam,
+            ActiveTeamId = m.ActiveTeamId,
+            ActiveTeamName = m.ActiveTeamName,
             HasAssemblyPoint = m.HasAssemblyPoint,
             AssemblyPointId = m.AssemblyPointId,
             TopAbilities = m.TopAbilities

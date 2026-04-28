@@ -31,7 +31,6 @@ public class GetSosRequestsPagedQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 2,
-            SosRequestId = 2,
             Statuses = [SosRequestStatus.Assigned],
             Priorities = [SosPriorityLevel.High, SosPriorityLevel.High],
             SosTypes = [SosRequestType.Rescue, SosRequestType.Rescue],
@@ -42,7 +41,6 @@ public class GetSosRequestsPagedQueryHandlerTests
             ]
         }, CancellationToken.None);
 
-        Assert.Equal(2, repository.LastSosRequestId);
         Assert.Equal([SosRequestStatus.Assigned], repository.LastStatuses);
         Assert.Equal([SosPriorityLevel.High], repository.LastPriorities);
         Assert.Equal([SosRequestType.Rescue], repository.LastSosTypes);
@@ -84,7 +82,6 @@ public class GetSosRequestsPagedQueryHandlerTests
         public IReadOnlyCollection<SosPriorityLevel>? LastPriorities { get; private set; }
         public IReadOnlyCollection<SosRequestType>? LastSosTypes { get; private set; }
         public IReadOnlyList<SosSortOption>? LastSortOptions { get; private set; }
-        public int? LastSosRequestId { get; private set; }
 
         public Task CreateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UpdateAsync(SosRequestModel sosRequest, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -98,18 +95,14 @@ public class GetSosRequestsPagedQueryHandlerTests
             IReadOnlyCollection<SosPriorityLevel>? priorities = null,
             IReadOnlyCollection<SosRequestType>? sosTypes = null,
             IReadOnlyList<SosSortOption>? sortOptions = null,
-            int? sosRequestId = null,
             CancellationToken cancellationToken = default)
         {
             LastStatuses = statuses;
             LastPriorities = priorities;
             LastSosTypes = sosTypes;
             LastSortOptions = sortOptions;
-            LastSosRequestId = sosRequestId;
 
             var query = requests.AsEnumerable();
-            if (sosRequestId.HasValue)
-                query = query.Where(request => sosRequestId.Value > 0 && request.Id == sosRequestId.Value);
             if (statuses is { Count: > 0 })
                 query = query.Where(request => statuses.Contains(request.Status));
             if (priorities is { Count: > 0 })

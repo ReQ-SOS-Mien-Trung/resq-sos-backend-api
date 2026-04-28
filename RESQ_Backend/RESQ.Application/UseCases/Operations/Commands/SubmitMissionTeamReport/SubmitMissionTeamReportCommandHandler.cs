@@ -5,7 +5,6 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Operations;
-using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Queries.GetMissionTeamReport;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
@@ -25,7 +24,6 @@ public class SubmitMissionTeamReportCommandHandler(
     ISosClusterRepository sosClusterRepository,
     ITeamIncidentRepository teamIncidentRepository,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService,
-    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<SubmitMissionTeamReportCommandHandler> logger)
     : IRequestHandler<SubmitMissionTeamReportCommand, MissionTeamReportResponse>
@@ -84,8 +82,6 @@ public class SubmitMissionTeamReportCommandHandler(
         MissionTeamMemberEvaluationHelper.ValidateSubmit(memberEvaluations, missionTeam);
 
         var rescueTeamLifecycleSyncResult = RescueTeamMissionLifecycleSyncResult.None;
-        var lifecycleSosRequestIds = new HashSet<int>();
-        var resolvedSosRequestIds = new HashSet<int>();
 
         var activityStatusUpdates = new List<(int ActivityId, MissionActivityStatus Status)>();
         foreach (var item in request.Activities)
@@ -241,17 +237,8 @@ public class SubmitMissionTeamReportCommandHandler(
                 }
             }
 
-            var touchedSosRequestIds = activityStatusUpdates
-                .Select(statusUpdate => assignedActivities[statusUpdate.ActivityId].SosRequestId)
-                .Where(id => id.HasValue)
-                .Select(id => id!.Value)
-                .Distinct()
-                .ToList();
-            foreach (var sosRequestId in touchedSosRequestIds)
-                lifecycleSosRequestIds.Add(sosRequestId);
-
             await MissionActivitySosRequestSyncHelper.SyncTouchedSosRequestsAsync(
-                touchedSosRequestIds.Select(id => (int?)id),
+                activityStatusUpdates.Select(statusUpdate => assignedActivities[statusUpdate.ActivityId].SosRequestId),
                 mission.Activities,
                 sosRequestRepository,
                 sosClusterRepository,
@@ -307,12 +294,6 @@ public class SubmitMissionTeamReportCommandHandler(
                     await sosRequestRepository.UpdateStatusByClusterIdAsync(mission.ClusterId.Value, SosRequestStatus.Resolved, cancellationToken);
 
                     var clusterSosRequests = await sosRequestRepository.GetByClusterIdAsync(mission.ClusterId.Value, cancellationToken);
-                    foreach (var sos in clusterSosRequests)
-                    {
-                        lifecycleSosRequestIds.Add(sos.Id);
-                        resolvedSosRequestIds.Add(sos.Id);
-                    }
-
                     await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
                         clusterSosRequests.Select(sos => (int?)sos.Id),
                         sosRequestUpdateRepository,
@@ -328,24 +309,6 @@ public class SubmitMissionTeamReportCommandHandler(
         await rescueTeamMissionLifecycleSyncService.PushRealtimeIfNeededAsync(
             rescueTeamLifecycleSyncResult,
             cancellationToken);
-        if (resolvedSosRequestIds.Count > 0)
-        {
-            await sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
-                resolvedSosRequestIds,
-                "Resolved",
-                cancellationToken: cancellationToken);
-        }
-
-        var statusChangedSosRequestIds = lifecycleSosRequestIds
-            .Except(resolvedSosRequestIds)
-            .ToList();
-        if (statusChangedSosRequestIds.Count > 0)
-        {
-            await sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
-                statusChangedSosRequestIds,
-                "StatusChanged",
-                cancellationToken: cancellationToken);
-        }
 
         var refreshedMissionTeam = await missionTeamRepository.GetByIdAsync(request.MissionTeamId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy liên kết đội-mission với ID: {request.MissionTeamId}");

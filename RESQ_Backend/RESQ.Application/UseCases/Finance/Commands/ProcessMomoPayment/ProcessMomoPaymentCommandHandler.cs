@@ -57,10 +57,11 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
         {
             if (ipn.ResultCode == 0) // Success
             {
+                var paidAtUtc = DateTime.UtcNow;
                 var processed = await _donationPaymentProcessingService.TryProcessSuccessAsync(
                     donation.Id,
                     $"[MoMo:TransId={ipn.TransId},Type={ipn.PayType}]",
-                    DateTime.UtcNow,
+                    paidAtUtc,
                     ipn.TransId.ToString(),
                     preserveExistingTransactionId: false,
                     cancellationToken);
@@ -75,7 +76,7 @@ public class ProcessMomoPaymentCommandHandler : IRequestHandler<ProcessMomoPayme
                     await _emailService.SendDonationSuccessEmailAsync(
                         donation.Donor.Email, donation.Donor.Name, donation.Amount?.Amount ?? 0,
                         donation.FundCampaignName ?? "Campaign", donation.FundCampaignCode ?? "RESQ",
-                        donation.Id, CancellationToken.None
+                        donation.Id, donation.OrderId, paidAtUtc, donation.IsPrivate, CancellationToken.None
                     );
                 }
             }

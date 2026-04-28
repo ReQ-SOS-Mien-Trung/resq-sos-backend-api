@@ -13,6 +13,8 @@ public class RescuerModel
     public string? Ward { get; set; }
     public string? Province { get; set; }
     public bool HasTeam { get; set; }
+    public int? ActiveTeamId { get; set; }
+    public string? ActiveTeamName { get; set; }
     public bool HasAssemblyPoint { get; set; }
     public int? AssemblyPointId { get; set; }
     public List<string> TopAbilities { get; set; } = new();

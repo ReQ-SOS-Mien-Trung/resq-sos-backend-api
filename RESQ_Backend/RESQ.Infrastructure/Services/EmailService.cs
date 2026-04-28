@@ -203,17 +203,24 @@ namespace RESQ.Infrastructure.Services
             string campaignName,
             string campaignCode,
             int donationId,
+            string? receiptCode = null,
+            DateTime? paidAtUtc = null,
+            bool isPrivate = false,
             CancellationToken cancellationToken = default)
         {
             var subject = $"Xác nhận ủng hộ #{donationId} - {campaignCode}";
             
             var cultureInfo = new CultureInfo("vi-VN");
             var formattedAmount = amount.ToString("N0", cultureInfo) + " VNĐ";
-            var date = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+            var paymentTime = (paidAtUtc ?? DateTime.UtcNow).ToLocalTime();
+            var date = paymentTime.ToString("dd/MM/yyyy HH:mm", cultureInfo);
+            var resolvedReceiptCode = string.IsNullOrWhiteSpace(receiptCode)
+                ? $"RESQ-{donationId:D6}"
+                : receiptCode;
+            var visibilityText = isPrivate
+                ? "Khoản đóng góp của bạn được ghi nhận dưới hình thức ẩn danh trên trang công khai của RESQ."
+                : "Khoản đóng góp của bạn được ghi nhận công khai trên trang đóng góp của RESQ.";
             
-            var FEbaseUrl = _configuration["AppSettings:FEBaseUrl"] ?? "https://resq-sos-mientrung.vercel.app";
-            var donationUrl = $"{FEbaseUrl}/donations/success?orderCode={donationId}";
-
             var body = $@"<!DOCTYPE html>
 <html lang='vi'>
 <head>
@@ -280,17 +287,41 @@ namespace RESQ.Infrastructure.Services
                                                     </span>
                                                 </td>
                                             </tr>
+                                            <tr>
+                                                <td style='border-top: 1px dotted #000000; padding-top: 20px;'>
+                                                    <table border='0' cellpadding='0' cellspacing='0' width='100%'>
+                                                        <tr>
+                                                            <td style='padding-bottom: 14px;'>
+                                                                <span style='font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #999999; font-weight: 700; display: block; margin-bottom: 6px;'>
+                                                                    MÃ BIÊN LAI
+                                                                </span>
+                                                                <span style='font-size: 16px; font-weight: 700; color: #000000;'>
+                                                                    {resolvedReceiptCode}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style='padding-bottom: 14px;'>
+                                                                <span style='font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #999999; font-weight: 700; display: block; margin-bottom: 6px;'>
+                                                                    THỜI GIAN THANH TOÁN
+                                                                </span>
+                                                                <span style='font-size: 16px; font-weight: 700; color: #000000;'>
+                                                                    {date}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style='font-size: 14px; line-height: 1.6; color: #333333;'>
+                                                                {visibilityText}
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
                                         </table>
                                     </td>
                                 </tr>
                             </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td align='center' style='padding: 40px; border-top: 1px solid #000000;'>
-                            <a href='{donationUrl}' target='_blank' style='display:inline-block;padding:16px 40px;font-size:12px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#ffffff;text-decoration:none;background-color: #FF5722;'>
-                                XEM CHI TIẾT →
-                            </a>
                         </td>
                     </tr>
                     <tr>

@@ -49,7 +49,6 @@ public class CancelSosRequestCommandHandlerTests
             missionActivityRepo,
             teamIncidentRepo,
             unitOfWork,
-            new StubSosRequestRealtimeHubService(),
             logger);
     }
 

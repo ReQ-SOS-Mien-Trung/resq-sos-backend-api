@@ -89,7 +89,6 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
         IReadOnlyList<SosSortOption>? sortOptions = null,
-        int? sosRequestId = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.GetRepository<SosRequest>()
@@ -107,11 +106,6 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
             .Select(x => x.ToString())
             .Distinct()
             .ToArray();
-
-        if (sosRequestId.HasValue)
-        {
-            query = query.Where(x => sosRequestId.Value > 0 && x.Id == sosRequestId.Value);
-        }
 
         if (statusNames is { Length: > 0 })
         {
@@ -158,7 +152,6 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         IReadOnlyCollection<SosPriorityLevel>? priorities = null,
         IReadOnlyCollection<SosRequestType>? sosTypes = null,
         IReadOnlyList<SosSortOption>? sortOptions = null,
-        int? sosRequestId = null,
         CancellationToken cancellationToken = default)
     {
         var repository = _unitOfWork.GetRepository<SosRequest>();
@@ -177,15 +170,13 @@ public class SosRequestRepository(IUnitOfWork unitOfWork)
         var hasStatusFilter = statusNames is { Length: > 0 };
         var hasPriorityFilter = priorityNames is { Length: > 0 };
         var hasSosTypeFilter = sosTypeNames is { Length: > 0 };
-        var hasSosRequestIdFilter = sosRequestId.HasValue;
 
         var pagedEntities = await repository.GetPagedAsync(
             pageNumber,
             pageSize,
-            filter: hasSosRequestIdFilter || hasStatusFilter || hasPriorityFilter || hasSosTypeFilter
+            filter: hasStatusFilter || hasPriorityFilter || hasSosTypeFilter
                 ? request =>
-                    (!hasSosRequestIdFilter || (sosRequestId.Value > 0 && request.Id == sosRequestId.Value))
-                    && (!hasStatusFilter || (request.Status != null && statusNames!.Contains(request.Status)))
+                    (!hasStatusFilter || (request.Status != null && statusNames!.Contains(request.Status)))
                     && (!hasPriorityFilter || (request.PriorityLevel != null && priorityNames!.Contains(request.PriorityLevel)))
                     && (!hasSosTypeFilter || (request.SosType != null && sosTypeNames!.Contains(request.SosType)))
                 : null,

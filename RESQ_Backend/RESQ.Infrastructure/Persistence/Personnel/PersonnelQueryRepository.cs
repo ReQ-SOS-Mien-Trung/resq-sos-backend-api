@@ -296,6 +296,8 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 Ward = u.Ward,
                 Province = u.Province,
                 HasTeam = activeTeam != null,
+                ActiveTeamId = activeTeam?.Id,
+                ActiveTeamName = activeTeam?.Name,
                 HasAssemblyPoint = activeTeam?.AssemblyPointId != null || u.AssemblyPointId != null,
                 AssemblyPointId = activeTeam?.AssemblyPointId ?? u.AssemblyPointId,
                 TopAbilities = u.UserAbilities

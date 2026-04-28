@@ -204,18 +204,14 @@ public class DonationController : ControllerBase
     [HttpGet("zalopay-return")]
     [AllowAnonymous]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> ZaloPayReturn()
-    {
-        return await HandleZaloPayBrowserReturnAsync("zalopay-return");
-    }
+    public Task<IActionResult> ZaloPayReturn()
+        => HandleZaloPayBrowserReturnAsync("zalopay-return");
 
     [HttpGet("zalopay-callback")]
     [AllowAnonymous]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> ZaloPayCallbackBrowserReturn()
-    {
-        return await HandleZaloPayBrowserReturnAsync("zalopay-callback-get");
-    }
+    public Task<IActionResult> ZaloPayCallbackBrowserReturn()
+        => HandleZaloPayBrowserReturnAsync("zalopay-callback-get");
 
     private async Task<IActionResult> HandleZaloPayBrowserReturnAsync(string source)
     {
@@ -248,8 +244,7 @@ public class DonationController : ControllerBase
 
         try
         {
-            var command = new VerifyZaloPayPaymentCommand { AppTransId = appTransId };
-            var verified = await _mediator.Send(command);
+            var verified = await _mediator.Send(new VerifyZaloPayPaymentCommand { AppTransId = appTransId });
 
             _logger.LogInformation(
                 "ZaloPay browser return: query verify result={Result} | Source={Source} AppTransId={AppTransId} Status={Status}.",
@@ -292,7 +287,6 @@ public class DonationController : ControllerBase
 
             if (string.IsNullOrWhiteSpace(jsonBody))
             {
-                _logger.LogWarning("ZaloPay callback: empty payload.");
                 return Ok(new { return_code = 2, return_message = "invalid payload" });
             }
 
@@ -313,13 +307,8 @@ public class DonationController : ControllerBase
 
             if (callbackData == null || string.IsNullOrEmpty(callbackData.Data) || string.IsNullOrEmpty(callbackData.Mac))
             {
-                _logger.LogWarning("ZaloPay callback: invalid payload format.");
                 return Ok(new { return_code = 2, return_message = "invalid payload format" });
             }
-
-            _logger.LogInformation(
-                "ZaloPay callback verified signature | PayloadBytes={PayloadBytes}.",
-                jsonBody.Length);
 
             var command = new ProcessZaloPayPaymentCommand
             {
@@ -327,8 +316,6 @@ public class DonationController : ControllerBase
             };
 
             var success = await _mediator.Send(command);
-
-            _logger.LogInformation("ZaloPay callback processed | Success={Success}.", success);
 
             return Ok(new
             {
