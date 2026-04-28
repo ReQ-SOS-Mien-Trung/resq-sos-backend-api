@@ -4,6 +4,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.System;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Emergency.Queries.GetSosClusters;
 using RESQ.Application.UseCases.Emergency.Shared;
 using RESQ.Domain.Entities.Emergency;
@@ -16,6 +17,7 @@ public class AddSosRequestToClusterCommandHandler(
     ISosRequestRepository sosRequestRepository,
     ISosClusterGroupingConfigRepository sosClusterGroupingConfigRepository,
     IUnitOfWork unitOfWork,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     ILogger<AddSosRequestToClusterCommandHandler> logger)
     : IRequestHandler<AddSosRequestToClusterCommand, AddSosRequestToClusterResponse>
 {
@@ -25,6 +27,7 @@ public class AddSosRequestToClusterCommandHandler(
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosClusterGroupingConfigRepository _sosClusterGroupingConfigRepository = sosClusterGroupingConfigRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly ILogger<AddSosRequestToClusterCommandHandler> _logger = logger;
 
     public async Task<AddSosRequestToClusterResponse> Handle(
@@ -93,6 +96,12 @@ public class AddSosRequestToClusterCommandHandler(
             await _sosClusterRepository.UpdateAsync(cluster, cancellationToken);
             await _unitOfWork.SaveAsync();
         });
+
+        await _sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
+            incomingRequests.Select(sosRequest => sosRequest.Id),
+            "ClusterAssigned",
+            notifyUnclustered: true,
+            cancellationToken: cancellationToken);
 
         return new AddSosRequestToClusterResponse
         {

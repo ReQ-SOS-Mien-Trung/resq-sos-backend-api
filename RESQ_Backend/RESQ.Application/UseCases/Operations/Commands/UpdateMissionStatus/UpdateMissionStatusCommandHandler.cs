@@ -24,6 +24,7 @@ public class UpdateMissionStatusCommandHandler(
     ILogger<UpdateMissionStatusCommandHandler> logger,
     IAssemblyEventRepository assemblyEventRepository,
     IAdminRealtimeHubService adminRealtimeHubService,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService
 ) : IRequestHandler<UpdateMissionStatusCommand, UpdateMissionStatusResponse>
 {
@@ -35,6 +36,7 @@ public class UpdateMissionStatusCommandHandler(
     private readonly ILogger<UpdateMissionStatusCommandHandler> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
     private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
+    private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
     private readonly IRescueTeamMissionLifecycleSyncService _rescueTeamMissionLifecycleSyncService = rescueTeamMissionLifecycleSyncService;
 
     public async Task<UpdateMissionStatusResponse> Handle(UpdateMissionStatusCommand request, CancellationToken cancellationToken)
@@ -137,6 +139,17 @@ public class UpdateMissionStatusCommandHandler(
                 ChangedAt = DateTime.UtcNow
             },
             cancellationToken);
+
+        if (request.Status == MissionStatus.OnGoing && mission.ClusterId.HasValue)
+        {
+            var sosRequests = await _sosRequestRepository.GetByClusterIdAsync(
+                mission.ClusterId.Value,
+                cancellationToken);
+            await _sosRequestRealtimeHubService.PushSosRequestUpdatesAsync(
+                sosRequests.Select(sos => sos.Id),
+                "InProgress",
+                cancellationToken: cancellationToken);
+        }
 
         return new UpdateMissionStatusResponse
         {

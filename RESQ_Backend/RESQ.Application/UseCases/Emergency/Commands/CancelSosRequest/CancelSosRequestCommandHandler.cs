@@ -5,6 +5,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Emergency;
 
@@ -17,6 +18,7 @@ public class CancelSosRequestCommandHandler(
     IMissionActivityRepository missionActivityRepository,
     ITeamIncidentRepository teamIncidentRepository,
     IUnitOfWork unitOfWork,
+    ISosRequestRealtimeHubService sosRequestRealtimeHubService,
     ILogger<CancelSosRequestCommandHandler> logger
 ) : IRequestHandler<CancelSosRequestCommand, CancelSosRequestResponse>
 {
@@ -46,6 +48,11 @@ public class CancelSosRequestCommandHandler(
             teamIncidentRepository,
             logger,
             cancellationToken);
+
+        await sosRequestRealtimeHubService.PushSosRequestUpdateAsync(
+            request.SosRequestId,
+            "Cancelled",
+            cancellationToken: cancellationToken);
 
         return new CancelSosRequestResponse
         {
