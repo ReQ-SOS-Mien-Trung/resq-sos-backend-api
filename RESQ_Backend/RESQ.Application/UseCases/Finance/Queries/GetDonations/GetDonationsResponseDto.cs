@@ -3,6 +3,7 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetDonations;
 public class GetDonationsResponseDto
 {
     public int Id { get; set; }
+    public string ReceiptCode { get; set; } = string.Empty;
     public int? FundCampaignId { get; set; }
     public string FundCampaignName { get; set; } = string.Empty;
     public string DonorName { get; set; } = string.Empty;
@@ -11,4 +12,5 @@ public class GetDonationsResponseDto
     public string? Note { get; set; }
     public DateTime? CreatedAt { get; set; }
     public bool IsPrivate { get; set; }
+    public string DisplayText { get; set; } = string.Empty;
 }

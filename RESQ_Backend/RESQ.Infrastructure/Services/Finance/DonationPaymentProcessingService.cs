@@ -13,6 +13,7 @@ public class DonationPaymentProcessingService(
     IDonationRepository donationRepository,
     IFundCampaignRepository campaignRepository,
     IFundTransactionRepository fundTransactionRepository,
+    IPublicDonationHubService publicDonationHubService,
     ILogger<DonationPaymentProcessingService> logger)
     : IDonationPaymentProcessingService
 {
@@ -25,6 +26,7 @@ public class DonationPaymentProcessingService(
         CancellationToken cancellationToken = default)
     {
         var processed = false;
+        DonationModel? donationToBroadcast = null;
 
         logger.LogInformation(
             "DonationPaymentProcessing: processing success for DonationId={DonationId}, TransactionId={TransactionId}, PreserveExistingTransactionId={PreserveExistingTransactionId}.",
@@ -41,6 +43,8 @@ public class DonationPaymentProcessingService(
                 processed = false;
                 return;
             }
+
+            var wasSucceededBefore = donation.Status == Status.Succeed;
 
             if (donation.Status != Status.Succeed)
             {
@@ -113,8 +117,18 @@ public class DonationPaymentProcessingService(
             }
 
             await unitOfWork.SaveAsync();
+            if (!wasSucceededBefore)
+            {
+                donationToBroadcast = donation;
+            }
+
             processed = true;
         });
+
+        if (processed && donationToBroadcast is not null)
+        {
+            await publicDonationHubService.PushDonationSucceededAsync(donationToBroadcast, cancellationToken);
+        }
 
         logger.LogInformation("DonationPaymentProcessing: success processing result for DonationId={DonationId} => {Processed}.", donationId, processed);
         return processed;
