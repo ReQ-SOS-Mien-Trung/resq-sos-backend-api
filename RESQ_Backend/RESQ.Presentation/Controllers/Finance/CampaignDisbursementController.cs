@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Finance.Commands.AddDisbursementItems;
 using RESQ.Application.UseCases.Finance.Queries.GetCampaignDisbursements;
 using RESQ.Application.UseCases.Finance.Queries.GetFundSourceTypesMetadata;
 using RESQ.Application.UseCases.Finance.Queries.GetPublicCampaignSpending;
+using RESQ.Domain.Enum.Finance;
 using System.Security.Claims;
 
 namespace RESQ.Presentation.Controllers.Finance;
@@ -25,6 +26,27 @@ public class CampaignDisbursementController(IMediator mediator, IAuthorizationSe
     public async Task<IActionResult> GetFundSourceTypeMetadata()
     {
         var result = await _mediator.Send(new GetFundSourceTypesMetadataQuery());
+        return Ok(result);
+    }
+
+    /// <summary>[Metadata] Danh sách kiểu giải ngân dùng cho dropdown.</summary>
+    [HttpGet("metadata/disbursement-types")]
+    [ProducesResponseType(typeof(List<MetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetDisbursementTypeMetadata()
+    {
+        var result = Enum.GetValues<DisbursementType>()
+            .Select(type => new MetadataDto
+            {
+                Key = type.ToString(),
+                Value = type switch
+                {
+                    DisbursementType.AdminAllocation => "Admin chủ động cấp tiền cho kho",
+                    DisbursementType.FundingRequestApproval => "Duyệt yêu cầu cấp quỹ từ kho",
+                    _ => type.ToString()
+                }
+            })
+            .ToList();
+
         return Ok(result);
     }
 

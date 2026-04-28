@@ -28,7 +28,11 @@ public class ExportInventoryMovementQueryHandler(
         CancellationToken cancellationToken)
     {
         // 1. Resolve kho của người dùng
-        var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
+        var depotId = request.IsManager
+            ? await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken)
+            : request.DepotId is > 0
+                ? request.DepotId
+                : null;
 
         // Lấy tên kho (dùng cho tiêu đề file Excel)
         var depotName = "Toàn hệ thống";
