@@ -23,6 +23,12 @@ public class AdminOperationsHub : Hub
     public Task UnsubscribeDepot(int depotId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotGroup(depotId));
 
+    public Task SubscribeDepotCharts(int depotId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, DepotChartsGroup(depotId));
+
+    public Task UnsubscribeDepotCharts(int depotId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotChartsGroup(depotId));
+
     public Task SubscribeDepotClosure(int closureId) =>
         Groups.AddToGroupAsync(Context.ConnectionId, DepotClosureGroup(closureId));
 
@@ -78,6 +84,7 @@ public class AdminOperationsHub : Hub
         Groups.RemoveFromGroupAsync(Context.ConnectionId, RescuerScoresGroup(rescuerId));
 
     internal static string DepotGroup(int depotId) => $"admin-operations:depot:{depotId}";
+    internal static string DepotChartsGroup(int depotId) => $"admin-operations:depot-charts:{depotId}";
     internal static string DepotClosureGroup(int closureId) => $"admin-operations:closure:{closureId}";
     internal static string TransferGroup(int transferId) => $"admin-operations:transfer:{transferId}";
     internal static string SOSClusterGroup(int clusterId) => $"admin-operations:sos-cluster:{clusterId}";

@@ -22,6 +22,7 @@ public sealed class OperationalHubService(
     private const string EventDepotActivityUpdate = "ReceiveDepotActivityUpdate";
     private const string EventUpcomingReturnsUpdate = "ReceiveUpcomingReturnsUpdate";
     private const string EventDepotClosureUpdate = "ReceiveDepotClosureUpdate";
+    private const string EventChartInvalidation = "ReceiveChartInvalidation";
 
     public async Task PushAssemblyPointListUpdateAsync(CancellationToken cancellationToken = default)
     {
@@ -67,6 +68,12 @@ public sealed class OperationalHubService(
                     Status = null,
                     ChangedAt = DateTime.UtcNow
                 },
+                cancellationToken);
+
+            await SendDepotChartInvalidationsAsync(
+                depotId,
+                operation,
+                changedAt: payload.changedAt,
                 cancellationToken);
         }
         catch (Exception ex)
@@ -131,6 +138,20 @@ public sealed class OperationalHubService(
                         },
                         cancellationToken);
                     break;
+            }
+
+            if (string.Equals(resourceType, "depots", StringComparison.OrdinalIgnoreCase))
+            {
+                await SendToGroupsAsync(
+                    [OperationalHub.LogisticsGroup],
+                    EventChartInvalidation,
+                    BuildChartInvalidation(
+                        "depot-capacity",
+                        "/logistics/depot/{depotId}/chart/capacity",
+                        resourceType,
+                        "DepotListChanged",
+                        payload.changedAt),
+                    cancellationToken);
             }
         }
         catch (Exception ex)
@@ -245,6 +266,21 @@ public sealed class OperationalHubService(
 
             await SendToGroupsAsync(groups, EventDepotClosureUpdate, update, cancellationToken);
 
+            await SendDepotChartInvalidationsAsync(
+                update.SourceDepotId,
+                update.Action,
+                update.ChangedAt,
+                cancellationToken);
+
+            if (update.TargetDepotId.HasValue)
+            {
+                await SendDepotChartInvalidationsAsync(
+                    update.TargetDepotId.Value,
+                    update.Action,
+                    update.ChangedAt,
+                    cancellationToken);
+            }
+
             if (string.Equals(update.EntityType, "Transfer", StringComparison.OrdinalIgnoreCase)
                 && update.TransferId.HasValue
                 && update.TargetDepotId.HasValue)
@@ -315,4 +351,50 @@ public sealed class OperationalHubService(
 
     private static bool IsReturnSuppliesActivity(string? activityType) =>
         string.Equals(activityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+
+    private async Task SendDepotChartInvalidationsAsync(
+        int depotId,
+        string reason,
+        DateTime changedAt,
+        CancellationToken cancellationToken)
+    {
+        var groups = new[]
+        {
+            OperationalHub.DepotGroup(depotId),
+            OperationalHub.DepotChartsGroup(depotId)
+        };
+
+        var payloads = new[]
+        {
+            BuildChartInvalidation(
+                "depot-capacity",
+                $"/logistics/depot/{depotId}/chart/capacity",
+                new { depotId },
+                reason,
+                changedAt),
+            BuildChartInvalidation(
+                "depot-inventory-movement",
+                $"/logistics/depot/{depotId}/chart/inventory-movement",
+                new { depotId },
+                reason,
+                changedAt)
+        };
+
+        foreach (var payload in payloads)
+            await SendToGroupsAsync(groups, EventChartInvalidation, payload, cancellationToken);
+    }
+
+    private static object BuildChartInvalidation(
+        string chartKey,
+        string endpoint,
+        object? scope,
+        string reason,
+        DateTime changedAt) => new
+        {
+            chartKey,
+            endpoint,
+            scope,
+            reason,
+            changedAt = NormalizeChangedAt(changedAt)
+        };
 }

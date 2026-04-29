@@ -37,6 +37,29 @@ public class DashboardHubService(
 
         await _hubContext.Clients.Group(GroupName)
             .SendAsync("ReceiveVictimsByPeriod", data, cancellationToken);
+
+        var changedAt = DateTime.UtcNow;
+        var invalidations = new[]
+        {
+            BuildChartInvalidation(
+                "victims-by-period",
+                "/dashboard/victims-by-period",
+                null,
+                "SosRequestChanged",
+                changedAt),
+            BuildChartInvalidation(
+                "sos-requests-summary",
+                "/personnel/dashboard/sos-requests/summary",
+                null,
+                "SosRequestChanged",
+                changedAt)
+        };
+
+        foreach (var invalidation in invalidations)
+        {
+            await _hubContext.Clients.Group(GroupName)
+                .SendAsync("ReceiveChartInvalidation", invalidation, cancellationToken);
+        }
     }
 
     /// <inheritdoc/>
@@ -96,4 +119,18 @@ public class DashboardHubService(
             _logger.LogWarning(ex, "Failed to push assembly point realtime snapshot for AssemblyPointId={AssemblyPointId}", assemblyPointId);
         }
     }
+
+    private static object BuildChartInvalidation(
+        string chartKey,
+        string endpoint,
+        object? scope,
+        string reason,
+        DateTime changedAt) => new
+        {
+            chartKey,
+            endpoint,
+            scope,
+            reason,
+            changedAt
+        };
 }

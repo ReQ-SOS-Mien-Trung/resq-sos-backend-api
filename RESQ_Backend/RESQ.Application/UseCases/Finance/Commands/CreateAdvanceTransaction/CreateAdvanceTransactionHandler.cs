@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -18,6 +19,7 @@ public class CreateAdvanceTransactionHandler : IRequestHandler<CreateAdvanceTran
     private readonly IDepotInventoryRepository _depotInventoryRepo;
     private readonly IUserRepository _userRepo;
     private readonly IFirebaseService _firebaseService;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateAdvanceTransactionHandler(
@@ -26,6 +28,7 @@ public class CreateAdvanceTransactionHandler : IRequestHandler<CreateAdvanceTran
         IDepotInventoryRepository depotInventoryRepo,
         IUserRepository userRepo,
         IFirebaseService firebaseService,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _depotFundRepo = depotFundRepo;
@@ -33,6 +36,7 @@ public class CreateAdvanceTransactionHandler : IRequestHandler<CreateAdvanceTran
         _depotInventoryRepo = depotInventoryRepo;
         _userRepo = userRepo;
         _firebaseService = firebaseService;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -106,6 +110,21 @@ public class CreateAdvanceTransactionHandler : IRequestHandler<CreateAdvanceTran
         });
         // Notify admins about the total advance
         var totalAmount = request.Transactions.Sum(x => x.Amount);
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = depotFund.Id,
+                EntityType = "DepotFundTransaction",
+                DisbursementId = null,
+                CampaignId = depotFund.FundSourceType == FundSourceType.Campaign ? depotFund.FundSourceId : null,
+                DepotId = depotFund.DepotId,
+                Amount = totalAmount,
+                Action = "AdvanceCreated",
+                Status = DepotFundTransactionType.PersonalAdvance.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
+
         var activeAdminIds = await _userRepo.GetActiveAdminUserIdsAsync(cancellationToken);
         
         var notifyTasks = activeAdminIds.Select(adminId =>
