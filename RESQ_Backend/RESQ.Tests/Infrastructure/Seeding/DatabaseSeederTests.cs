@@ -912,6 +912,17 @@ public class DatabaseSeederTests
             RemainingQuantity = 12,
             CreatedAt = DateTime.UtcNow
         });
+        context.ReusableItems.AddRange(
+            new ReusableItem
+            {
+                Id = 9001,
+                Status = "Reserved"
+            },
+            new ReusableItem
+            {
+                Id = 9002,
+                Status = "InUse"
+            });
         context.Conversations.Add(new Conversation
         {
             Id = 9001,
@@ -935,6 +946,8 @@ public class DatabaseSeederTests
         Assert.Contains(errors, error => error.Contains("team_incidents.status", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("Inventory has", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("Inventory lots", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("Reusable items must not be seeded as Reserved/InTransit", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("Reusable items marked InUse must be referenced", StringComparison.Ordinal));
         Assert.Contains(errors, error => error.Contains("missing their victim participant", StringComparison.Ordinal));
     }
 

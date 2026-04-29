@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Infrastructure.Persistence.Context;
 
@@ -208,6 +209,48 @@ public sealed class DemoSeedValidator
             errors.Add($"{inventoryLogBalanceMismatches} consumable inventories do not match inventory log balance.");
         }
 
+        var ambiguousReusableStatusIds = await db.ReusableItems
+            .Where(item => item.Status == "Reserved" || item.Status == "InTransit")
+            .Select(item => item.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (ambiguousReusableStatusIds.Count > 0)
+        {
+            errors.Add(
+                "Reusable items must not be seeded as Reserved/InTransit without normalized mission or transfer source: "
+                + string.Join(", ", ambiguousReusableStatusIds)
+                + ".");
+        }
+
+        var reusableReturnSourceResult = await FindReusableReturnSourceIdsAsync(db, cancellationToken);
+        errors.AddRange(reusableReturnSourceResult.Errors);
+        var reusableReturnSourceIds = reusableReturnSourceResult.ReusableItemIds;
+        var inUseReusableWithoutReturnSource = await db.ReusableItems
+            .Where(item => item.Status == "InUse" && !reusableReturnSourceIds.Contains(item.Id))
+            .Select(item => item.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (inUseReusableWithoutReturnSource.Count > 0)
+        {
+            errors.Add(
+                "Reusable items marked InUse must be referenced by a pending RETURN_SUPPLIES expected return source: "
+                + string.Join(", ", inUseReusableWithoutReturnSource)
+                + ".");
+        }
+
+        var returnSourceReusableWithUnexpectedStatus = await db.ReusableItems
+            .Where(item => reusableReturnSourceIds.Contains(item.Id) && item.Status != "InUse")
+            .Select(item => item.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (returnSourceReusableWithUnexpectedStatus.Count > 0)
+        {
+            errors.Add(
+                "Reusable items referenced by pending RETURN_SUPPLIES expected return source must be marked InUse: "
+                + string.Join(", ", returnSourceReusableWithUnexpectedStatus)
+                + ".");
+        }
+
         var inventoryLogs = await db.InventoryLogs.ToListAsync(cancellationToken);
         var requiredInventoryActions = new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" };
         var missingActions = requiredInventoryActions
@@ -318,5 +361,71 @@ public sealed class DemoSeedValidator
                 _ => 0
             };
         });
+    }
+
+    private static async Task<(HashSet<int> ReusableItemIds, List<string> Errors)> FindReusableReturnSourceIdsAsync(
+        ResQDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var errors = new List<string>();
+        var reusableItemIds = new HashSet<int>();
+        var activities = await db.MissionActivities
+            .Where(activity => activity.ActivityType == "RETURN_SUPPLIES"
+                && activity.Status == "PendingConfirmation"
+                && activity.Items != null)
+            .Select(activity => new { activity.Id, activity.Items })
+            .ToListAsync(cancellationToken);
+
+        foreach (var activity in activities)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(activity.Items ?? "[]");
+                if (document.RootElement.ValueKind != JsonValueKind.Array)
+                {
+                    errors.Add($"RETURN_SUPPLIES activity #{activity.Id} items payload must be a JSON array.");
+                    continue;
+                }
+
+                foreach (var itemElement in document.RootElement.EnumerateArray())
+                {
+                    if (!TryGetPropertyIgnoreCase(itemElement, "expectedReturnUnits", out var unitsElement)
+                        || unitsElement.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var unitElement in unitsElement.EnumerateArray())
+                    {
+                        if (TryGetPropertyIgnoreCase(unitElement, "reusableItemId", out var idElement)
+                            && idElement.TryGetInt32(out var reusableItemId))
+                        {
+                            reusableItemIds.Add(reusableItemId);
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                errors.Add($"RETURN_SUPPLIES activity #{activity.Id} items payload is not valid JSON.");
+            }
+        }
+
+        return (reusableItemIds, errors);
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 }
