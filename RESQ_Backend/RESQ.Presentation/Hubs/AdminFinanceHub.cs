@@ -40,6 +40,12 @@ public class AdminFinanceHub : Hub
     public Task UnsubscribeCampaignFundFlow(int campaignId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, CampaignFundFlowGroup(campaignId));
 
+    public Task SubscribeDepotFundCharts(int depotId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, DepotFundChartsGroup(depotId));
+
+    public Task UnsubscribeDepotFundCharts(int depotId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotFundChartsGroup(depotId));
+
     public Task SubscribeDisbursements() =>
         Groups.AddToGroupAsync(Context.ConnectionId, DisbursementsGroup);
 
@@ -49,4 +55,5 @@ public class AdminFinanceHub : Hub
     internal static string FundingRequestGroup(int requestId) => $"admin-finance:funding-request:{requestId}";
     internal static string CampaignGroup(int campaignId) => $"admin-finance:campaign:{campaignId}";
     internal static string CampaignFundFlowGroup(int campaignId) => $"admin-finance:campaign-fund-flow:{campaignId}";
+    internal static string DepotFundChartsGroup(int depotId) => $"admin-finance:depot-fund-charts:{depotId}";
 }
