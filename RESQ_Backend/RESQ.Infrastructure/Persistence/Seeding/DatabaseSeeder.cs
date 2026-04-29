@@ -28,7 +28,7 @@ namespace RESQ.Infrastructure.Persistence.Seeding;
 
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
-    private const string MarkerName = "demo-seed-v5-2026-04-25";
+    private const string MarkerName = "demo-seed-v6-2026-04-29";
     private const int TotalRescuerCount = 200;
     private const int RecentRescuerCount = 20;
     private const int UnassignedRescuerCount = 40;
@@ -1334,12 +1334,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             (DepotClosureTestDepotNames[0], "Đại học Phú Yên, TP. Tuy Hòa, Phú Yên", 13.106332, 109.306890, "Available", 520_000m, 210_000m, 18_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
             (DepotClosureTestDepotNames[1], "Ga đường sắt Sài Gòn, Quận 3, TP. Hồ Chí Minh", 10.782103, 106.678803, "Available", 900_000m, 360_000m, 30_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
         };
-        var fillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m, 0.90m, 0.50m };
-
         for (var i = 0; i < depotDefs.Length; i++)
         {
             var (name, address, lat, lon, status, capacity, weightCapacity, advanceLimit, outstandingAdvanceAmount, imageUrl) = depotDefs[i];
-            var fillRatio = fillRatios[i % fillRatios.Length];
             seed.Depots.Add(new Depot
             {
                 Name = name,
@@ -1347,9 +1344,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 Location = Point(lon, lat),
                 Status = status,
                 Capacity = capacity,
-                CurrentUtilization = decimal.Round(capacity * fillRatio, 2, MidpointRounding.AwayFromZero),
+                CurrentUtilization = 0m,
                 WeightCapacity = weightCapacity,
-                CurrentWeightUtilization = decimal.Round(weightCapacity * fillRatio, 2, MidpointRounding.AwayFromZero),
+                CurrentWeightUtilization = 0m,
                 AdvanceLimit = advanceLimit,
                 OutstandingAdvanceAmount = outstandingAdvanceAmount,
                 LastUpdatedAt = seed.AnchorUtc.AddDays(-i),
@@ -1410,23 +1407,25 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             });
         }
 
-        var inventoryTarget = 620;
+        var consumableModels = seed.ItemModels
+            .Where(item => string.Equals(item.ItemType, nameof(ItemType.Consumable), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => item.Id)
+            .ToList();
+        var inventoryTarget = Math.Min(620, seed.Depots.Count * consumableModels.Count);
         for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
         {
-            var itemCount = 103 + (depotIndex < 2 ? 1 : 0);
+            var itemCount = Math.Min(consumableModels.Count, 69 + (depotIndex < 2 ? 1 : 0));
             for (var itemOffset = 0; itemOffset < itemCount && seed.Inventories.Count < inventoryTarget; itemOffset++)
             {
-                var item = seed.ItemModels[(depotIndex * 7 + itemOffset) % seed.ItemModels.Count];
-                var quantity = item.ItemType == "Reusable" ? 4 + itemOffset % 14 : 160 + (itemOffset % 30) * 20;
-                var missionReserved = itemOffset % 9 == 0 ? Math.Min(quantity / 6, 40) : 0;
-                var transferReserved = itemOffset % 13 == 0 ? Math.Min(quantity / 10, 25) : 0;
+                var item = consumableModels[(depotIndex * 11 + itemOffset) % consumableModels.Count];
+                var quantity = 160 + (itemOffset % 30) * 20;
                 seed.Inventories.Add(new SupplyInventory
                 {
                     DepotId = seed.Depots[depotIndex].Id,
                     ItemModelId = item.Id,
                     Quantity = quantity,
-                    MissionReservedQuantity = missionReserved,
-                    TransferReservedQuantity = transferReserved,
+                    MissionReservedQuantity = 0,
+                    TransferReservedQuantity = 0,
                     LastStockedAt = seed.AnchorUtc.AddDays(-itemOffset % 90),
                     IsDeleted = false
                 });
@@ -1435,7 +1434,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         var lifeJacketModel = seed.ItemModels.Single(m => m.Name == "Áo phao cứu sinh");
         var blanketModel = seed.ItemModels.Single(m => m.Name == "Chăn ấm giữ nhiệt");
-        EnsureEssentialDepotStock(seed, lifeJacketModel, blanketModel);
+        EnsureEssentialDepotStock(seed, blanketModel);
         EnsureClosureTestDepotsFullInventory(seed);
         ExcludeHueDepotItems(seed);
 
@@ -1444,17 +1443,16 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         var consumableInventories = seed.Inventories
             .Where(i => seed.ItemModels.First(m => m.Id == i.ItemModelId).ItemType == "Consumable")
-            .Take(395)
             .ToList();
         foreach (var inventory in consumableInventories)
         {
             var received = seed.AnchorUtc.AddDays(-30 - seed.Lots.Count % 300);
-            var quantity = Math.Max(20, (inventory.Quantity ?? 100) / 2);
+            var quantity = Math.Max(0, inventory.Quantity ?? 0);
             seed.Lots.Add(new SupplyInventoryLot
             {
                 SupplyInventoryId = inventory.Id,
                 Quantity = quantity,
-                RemainingQuantity = Math.Max(0, quantity - inventory.MissionReservedQuantity - inventory.TransferReservedQuantity),
+                RemainingQuantity = quantity,
                 ReceivedDate = received,
                 ExpiredDate = received.AddMonths(6 + seed.Lots.Count % 18),
                 SourceType = seed.Lots.Count % 3 == 0 ? "Purchase" : "Donation",
@@ -1477,7 +1475,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 DepotId = depot.Id,
                 ItemModelId = item.Id,
                 SerialNumber = $"{Slug(item.Name ?? "item").ToUpperInvariant()}-{Area(i).Code}-{i + 1:00000}",
-                Status = i % 17 == 0 ? "Maintenance" : i % 13 == 0 ? "Reserved" : "Available",
+                Status = i % 17 == 0 ? "Maintenance" : "Available",
                 Condition = i % 11 == 0 ? "Fair" : i % 29 == 0 ? "Poor" : "Good",
                 Note = i % 17 == 0 ? "Đang kiểm tra sau nhiệm vụ" : null,
                 CreatedAt = seed.StartUtc.AddDays(120 + i),
@@ -1489,6 +1487,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         EnsureClosureTestDepotsReusableUnits(seed);
         EnsureManagerReturnFixtureReusableUnits(seed);
         ExcludeHueDepotReusableUnits(seed);
+        RecomputeSeedDepotUtilization(seed);
         _db.ReusableItems.AddRange(seed.ReusableItems);
 
         await SeedVatInvoicesAsync(seed);
@@ -2667,7 +2666,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 // Calculated from seeded donation/disbursement history below.
                 TotalAmount = 0m,
                 CurrentBalance = 0m,
-                Status = (i % 6 == 0 && i != 6) ? "Closed" : "Active",
+                Status = "Closed",
                 CreatedBy = seed.Admins[0].Id,
                 CreatedAt = VnToUtc(start.ToDateTime(TimeOnly.MinValue)),
                 LastModifiedBy = seed.Admins[0].Id,
@@ -2946,6 +2945,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             systemFund.Balance += initialRevenue;
         }
 
+        var outstandingAdvanceByDepot = seed.Depots.ToDictionary(depot => depot.Id, _ => 0m);
         foreach (var fund in depotFunds)
         {
             var managerId = seed.Managers[fund.DepotId % seed.Managers.Count].Id;
@@ -3024,12 +3024,14 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 CreatedAt = fundCreatedAt.AddHours(2)
             });
             fund.Balance += advanceAmount;
+            outstandingAdvanceByDepot[fund.DepotId] = outstandingAdvanceByDepot.GetValueOrDefault(fund.DepotId) + advanceAmount;
 
             // 3. Deduction (VatInvoice)
             var invoice = vatInvoices.Skip(fund.Id % Math.Max(1, vatInvoices.Count)).FirstOrDefault() ?? vatInvoices.FirstOrDefault();
             if (invoice != null)
             {
-                var deductionAmount = (invoice.TotalAmount ?? 0m) > 0 ? invoice.TotalAmount.Value : 1_500_000m;
+                var invoiceAmount = invoice.TotalAmount ?? 0m;
+                var deductionAmount = invoiceAmount > 0m ? invoiceAmount : 1_500_000m;
                 if (fund.Balance >= deductionAmount)
                 {
                     _db.DepotFundTransactions.Add(new DepotFundTransaction
@@ -3066,6 +3068,17 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     CreatedAt = fundCreatedAt.AddHours(24)
                 });
                 fund.Balance -= repaymentAmount;
+                outstandingAdvanceByDepot[fund.DepotId] = outstandingAdvanceByDepot.GetValueOrDefault(fund.DepotId) - repaymentAmount;
+            }
+        }
+
+        foreach (var depot in seed.Depots)
+        {
+            var outstandingAdvance = Math.Max(0m, outstandingAdvanceByDepot.GetValueOrDefault(depot.Id));
+            depot.OutstandingAdvanceAmount = outstandingAdvance;
+            if (outstandingAdvance > depot.AdvanceLimit)
+            {
+                depot.AdvanceLimit = decimal.Round(outstandingAdvance * 1.25m, 0, MidpointRounding.AwayFromZero);
             }
         }
 
@@ -3702,18 +3715,23 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             && excludedReusableModelIds.Contains(item.ItemModelId.Value));
     }
 
-    private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel lifeJacketModel, ItemModel blanketModel)
+    private static void EnsureEssentialDepotStock(DemoSeedContext seed, ItemModel blanketModel)
     {
         for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
         {
             var depot = seed.Depots[depotIndex];
-            EnsureDepotInventory(seed, depot.Id, lifeJacketModel.Id, EssentialLifeJacketQuantity(depotIndex), depotIndex);
             EnsureDepotInventory(seed, depot.Id, blanketModel.Id, EssentialBlanketQuantity(depotIndex), depotIndex);
         }
     }
 
     private static void EnsureDepotInventory(DemoSeedContext seed, int depotId, int itemModelId, int quantity, int depotIndex)
     {
+        var itemModel = seed.ItemModels.FirstOrDefault(model => model.Id == itemModelId);
+        if (!string.Equals(itemModel?.ItemType, nameof(ItemType.Consumable), StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         var inventory = seed.Inventories.FirstOrDefault(i => i.DepotId == depotId && i.ItemModelId == itemModelId);
         if (inventory is null)
         {
@@ -3722,8 +3740,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                 DepotId = depotId,
                 ItemModelId = itemModelId,
                 Quantity = quantity,
-                MissionReservedQuantity = Math.Min(quantity / 10, 8),
-                TransferReservedQuantity = Math.Min(quantity / 12, 6),
+                MissionReservedQuantity = 0,
+                TransferReservedQuantity = 0,
                 LastStockedAt = seed.AnchorUtc.AddDays(-12 - depotIndex),
                 IsDeleted = false
             });
@@ -3731,8 +3749,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         }
 
         inventory.Quantity = quantity;
-        inventory.MissionReservedQuantity = Math.Min(quantity / 10, 8);
-        inventory.TransferReservedQuantity = Math.Min(quantity / 12, 6);
+        inventory.MissionReservedQuantity = 0;
+        inventory.TransferReservedQuantity = 0;
         inventory.LastStockedAt = seed.AnchorUtc.AddDays(-12 - depotIndex);
         inventory.IsDeleted = false;
     }
@@ -3749,6 +3767,11 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             foreach (var item in seed.ItemModels.OrderBy(model => model.Id))
             {
+                if (!string.Equals(item.ItemType, nameof(ItemType.Consumable), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 var inventory = seed.Inventories.FirstOrDefault(i => i.DepotId == closureDepot.Id && i.ItemModelId == item.Id);
                 if (inventory is null)
                 {
@@ -3902,10 +3925,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         for (var depotIndex = 0; depotIndex < seed.Depots.Count; depotIndex++)
         {
             var depot = seed.Depots[depotIndex];
-            var targetQuantity = seed.Inventories
-                .Where(i => i.DepotId == depot.Id && i.ItemModelId == lifeJacketModel.Id)
-                .Select(i => i.Quantity ?? 0)
-                .Single();
+            var targetQuantity = EssentialLifeJacketQuantity(depotIndex);
             var existingCount = seed.ReusableItems.Count(item =>
                 item.DepotId == depot.Id && item.ItemModelId == lifeJacketModel.Id);
 
@@ -3922,7 +3942,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     DepotId = depot.Id,
                     ItemModelId = lifeJacketModel.Id,
                     SerialNumber = serialNumber,
-                    Status = unitIndex % 19 == 0 ? "Maintenance" : unitIndex % 11 == 0 ? "Reserved" : "Available",
+                    Status = unitIndex % 19 == 0 ? "Maintenance" : "Available",
                     Condition = unitIndex % 23 == 0 ? "Fair" : "Good",
                     Note = unitIndex % 19 == 0 ? "Kiểm tra định kỳ trước mùa mưa bão" : null,
                     CreatedAt = seed.AnchorUtc.AddDays(-90 + (depotIndex * 7 + unitIndex) % 60),
@@ -3948,16 +3968,10 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         foreach (var closureDepot in closureDepots)
         {
-            foreach (var inventory in seed.Inventories
-                         .Where(i => i.DepotId == closureDepot.Id && i.ItemModelId.HasValue)
-                         .OrderBy(i => i.ItemModelId))
+            foreach (var itemModel in seed.ItemModels
+                         .Where(model => string.Equals(model.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+                         .OrderBy(model => model.Id))
             {
-                var itemModel = seed.ItemModels.Single(model => model.Id == inventory.ItemModelId!.Value);
-                if (!string.Equals(itemModel.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 foreach (var existingItem in seed.ReusableItems.Where(item =>
                              item.DepotId == closureDepot.Id
                              && item.ItemModelId == itemModel.Id))
@@ -3967,7 +3981,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     existingItem.UpdatedAt = seed.AnchorUtc.AddDays(-((itemModel.Id + existingItem.Id) % 18));
                 }
 
-                var targetQuantity = inventory.Quantity ?? 0;
+                var targetQuantity = ClosureTestDepotQuantity(itemModel);
                 var existingCount = seed.ReusableItems.Count(item =>
                     item.DepotId == closureDepot.Id && item.ItemModelId == itemModel.Id);
 
@@ -4079,6 +4093,71 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
             reusableModelIdsWithEnoughUnits.Add(model.Id);
         }
+    }
+
+    private static void RecomputeSeedDepotUtilization(DemoSeedContext seed)
+    {
+        var itemModelsById = seed.ItemModels.ToDictionary(model => model.Id);
+        var loadByDepot = new Dictionary<int, (decimal Volume, decimal Weight)>();
+
+        foreach (var inventory in seed.Inventories.Where(item =>
+                     item.DepotId.HasValue
+                     && item.ItemModelId.HasValue
+                     && !item.IsDeleted
+                     && itemModelsById.ContainsKey(item.ItemModelId.Value)))
+        {
+            var itemModel = itemModelsById[inventory.ItemModelId!.Value];
+            var quantity = inventory.Quantity ?? 0;
+            AddSeedDepotLoad(
+                loadByDepot,
+                inventory.DepotId!.Value,
+                quantity * (itemModel.VolumePerUnit ?? 0m),
+                quantity * (itemModel.WeightPerUnit ?? 0m));
+        }
+
+        foreach (var reusableItem in seed.ReusableItems.Where(item =>
+                     item.DepotId.HasValue
+                     && item.ItemModelId.HasValue
+                     && !item.IsDeleted
+                     && !string.Equals(item.Status, ReusableItemStatus.Decommissioned.ToString(), StringComparison.Ordinal)
+                     && itemModelsById.ContainsKey(item.ItemModelId.Value)))
+        {
+            var itemModel = itemModelsById[reusableItem.ItemModelId!.Value];
+            AddSeedDepotLoad(
+                loadByDepot,
+                reusableItem.DepotId!.Value,
+                itemModel.VolumePerUnit ?? 0m,
+                itemModel.WeightPerUnit ?? 0m);
+        }
+
+        foreach (var depot in seed.Depots)
+        {
+            var load = loadByDepot.GetValueOrDefault(depot.Id);
+            var currentVolume = decimal.Round(load.Volume, 3, MidpointRounding.AwayFromZero);
+            var currentWeight = decimal.Round(load.Weight, 3, MidpointRounding.AwayFromZero);
+
+            depot.CurrentUtilization = currentVolume;
+            depot.CurrentWeightUtilization = currentWeight;
+            if (currentVolume > (depot.Capacity ?? 0m))
+            {
+                depot.Capacity = decimal.Round(currentVolume * 1.2m, 3, MidpointRounding.AwayFromZero);
+            }
+
+            if (currentWeight > (depot.WeightCapacity ?? 0m))
+            {
+                depot.WeightCapacity = decimal.Round(currentWeight * 1.2m, 3, MidpointRounding.AwayFromZero);
+            }
+        }
+    }
+
+    private static void AddSeedDepotLoad(
+        IDictionary<int, (decimal Volume, decimal Weight)> loadByDepot,
+        int depotId,
+        decimal volume,
+        decimal weight)
+    {
+        loadByDepot.TryGetValue(depotId, out var current);
+        loadByDepot[depotId] = (current.Volume + volume, current.Weight + weight);
     }
 
     private static int EssentialLifeJacketQuantity(int depotIndex) =>
