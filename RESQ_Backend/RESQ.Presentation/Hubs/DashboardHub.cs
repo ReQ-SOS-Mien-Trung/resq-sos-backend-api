@@ -17,7 +17,7 @@ namespace RESQ.Presentation.Hubs;
 [Authorize(Policy = PermissionConstants.SystemConfigManage)]
 public class DashboardHub(IMediator mediator) : Hub
 {
-    private const string GroupName = "admin_dashboard";
+    internal const string GroupName = "admin_dashboard";
     private readonly IMediator _mediator = mediator;
 
     public override async Task OnConnectedAsync()

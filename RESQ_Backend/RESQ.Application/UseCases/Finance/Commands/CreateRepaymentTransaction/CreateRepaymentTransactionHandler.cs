@@ -1,8 +1,10 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Finance.Common;
 using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Enum.Finance;
@@ -14,17 +16,20 @@ public class CreateRepaymentTransactionHandler : IRequestHandler<CreateRepayment
     private readonly IDepotFundRepository _depotFundRepo;
     private readonly IDepotRepository _depotRepo;
     private readonly IDepotInventoryRepository _depotInventoryRepo;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateRepaymentTransactionHandler(
         IDepotFundRepository depotFundRepo,
         IDepotRepository depotRepo,
         IDepotInventoryRepository depotInventoryRepo,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _depotFundRepo = depotFundRepo;
         _depotRepo = depotRepo;
         _depotInventoryRepo = depotInventoryRepo;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -159,6 +164,21 @@ public class CreateRepaymentTransactionHandler : IRequestHandler<CreateRepayment
             await _depotRepo.UpdateAsync(depot, cancellationToken);
             await _unitOfWork.SaveAsync();
         });
+
+        await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+            new AdminDisbursementRealtimeUpdate
+            {
+                EntityId = targetDepotId,
+                EntityType = "DepotFundTransaction",
+                DisbursementId = null,
+                CampaignId = null,
+                DepotId = targetDepotId,
+                Amount = totalRepaymentAmount,
+                Action = "RepaymentCreated",
+                Status = DepotFundTransactionType.AdvanceRepayment.ToString(),
+                ChangedAt = DateTime.UtcNow
+            },
+            cancellationToken);
 
         return Unit.Value;
     }

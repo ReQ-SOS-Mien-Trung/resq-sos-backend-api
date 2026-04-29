@@ -11,12 +11,14 @@ public sealed class AdminRealtimeHubService(
     IHubContext<AdminIdentityHub> adminIdentityHubContext,
     IHubContext<AdminOperationsHub> adminOperationsHubContext,
     IHubContext<AdminSystemHub> adminSystemHubContext,
+    IHubContext<DashboardHub> dashboardHubContext,
     ILogger<AdminRealtimeHubService> logger) : IAdminRealtimeHubService
 {
     private readonly IHubContext<AdminFinanceHub> _adminFinanceHubContext = adminFinanceHubContext;
     private readonly IHubContext<AdminIdentityHub> _adminIdentityHubContext = adminIdentityHubContext;
     private readonly IHubContext<AdminOperationsHub> _adminOperationsHubContext = adminOperationsHubContext;
     private readonly IHubContext<AdminSystemHub> _adminSystemHubContext = adminSystemHubContext;
+    private readonly IHubContext<DashboardHub> _dashboardHubContext = dashboardHubContext;
     private readonly ILogger<AdminRealtimeHubService> _logger = logger;
 
     private const string FundingRequestEvent = "ReceiveFundingRequestUpdate";
@@ -33,6 +35,7 @@ public sealed class AdminRealtimeHubService(
     private const string RescuerScoresEvent = "ReceiveRescuerScoresUpdate";
     private const string SystemConfigEvent = "ReceiveSystemConfigUpdate";
     private const string AiConfigEvent = "ReceiveAiConfigUpdate";
+    private const string ChartInvalidationEvent = "ReceiveChartInvalidation";
 
     public async Task PushFundingRequestUpdateAsync(
         AdminFundingRequestRealtimeUpdate update,
@@ -48,6 +51,7 @@ public sealed class AdminRealtimeHubService(
             };
 
             await SendToFinanceGroupsAsync(groups, FundingRequestEvent, update, cancellationToken);
+            await SendDepotFundChartInvalidationsAsync(update.DepotId, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -73,6 +77,7 @@ public sealed class AdminRealtimeHubService(
             };
 
             await SendToFinanceGroupsAsync(groups, CampaignEvent, update, cancellationToken);
+            await SendCampaignFundFlowInvalidationAsync(update.CampaignId, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -102,6 +107,10 @@ public sealed class AdminRealtimeHubService(
             }
 
             await SendToFinanceGroupsAsync(groups, DisbursementEvent, update, cancellationToken);
+            await SendDepotFundChartInvalidationsAsync(update.DepotId, update.Action, update.ChangedAt, cancellationToken);
+
+            if (update.CampaignId.HasValue)
+                await SendCampaignFundFlowInvalidationAsync(update.CampaignId.Value, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -126,6 +135,22 @@ public sealed class AdminRealtimeHubService(
             };
 
             await SendToIdentityGroupsAsync(groups, RescuerApplicationEvent, update, cancellationToken);
+            await SendDashboardChartInvalidationsAsync(
+                [
+                    BuildChartInvalidation(
+                        "rescuers-daily-statistics",
+                        "/personnel/dashboard/rescuers/daily-statistics",
+                        null,
+                        update.Action,
+                        update.ChangedAt),
+                    BuildChartInvalidation(
+                        "rescuer-overview",
+                        "/personnel/dashboard/rescuers/overview",
+                        null,
+                        update.Action,
+                        update.ChangedAt)
+                ],
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -152,6 +177,9 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.DepotGroup(update.DepotId.Value));
 
             await SendToOperationsGroupsAsync(groups, DepotEvent, update, cancellationToken);
+
+            if (update.DepotId.HasValue)
+                await SendDepotChartInvalidationsAsync(update.DepotId.Value, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -184,6 +212,12 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.DepotClosureGroup(update.ClosureId.Value));
 
             await SendToOperationsGroupsAsync(groups, DepotClosureEvent, update, cancellationToken);
+
+            if (update.SourceDepotId.HasValue)
+                await SendDepotChartInvalidationsAsync(update.SourceDepotId.Value, update.Action, update.ChangedAt, cancellationToken);
+
+            if (update.TargetDepotId.HasValue)
+                await SendDepotChartInvalidationsAsync(update.TargetDepotId.Value, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -213,6 +247,8 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.DepotClosureGroup(update.ClosureId.Value));
 
             await SendToOperationsGroupsAsync(groups, TransferEvent, update, cancellationToken);
+            await SendDepotChartInvalidationsAsync(update.SourceDepotId, update.Action, update.ChangedAt, cancellationToken);
+            await SendDepotChartInvalidationsAsync(update.TargetDepotId, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -239,6 +275,22 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.SOSClusterGroup(update.ClusterId.Value));
 
             await SendToOperationsGroupsAsync(groups, SOSClusterEvent, update, cancellationToken);
+            await SendDashboardChartInvalidationsAsync(
+                [
+                    BuildChartInvalidation(
+                        "sos-requests-summary",
+                        "/personnel/dashboard/sos-requests/summary",
+                        null,
+                        update.Action,
+                        update.ChangedAt),
+                    BuildChartInvalidation(
+                        "victims-by-period",
+                        "/dashboard/victims-by-period",
+                        null,
+                        update.Action,
+                        update.ChangedAt)
+                ],
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -268,6 +320,22 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.SOSClusterGroup(update.ClusterId.Value));
 
             await SendToOperationsGroupsAsync(groups, MissionEvent, update, cancellationToken);
+            await SendDashboardChartInvalidationsAsync(
+                [
+                    BuildChartInvalidation(
+                        "mission-success-rate-summary",
+                        "/personnel/dashboard/missions/success-rate/summary",
+                        null,
+                        update.Action,
+                        update.ChangedAt),
+                    BuildChartInvalidation(
+                        "mission-team-reports-summary",
+                        "/personnel/dashboard/mission-team-reports/summary",
+                        null,
+                        update.Action,
+                        update.ChangedAt)
+                ],
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -301,6 +369,26 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.DepotGroup(update.DepotId.Value));
 
             await SendToOperationsGroupsAsync(groups, MissionActivityEvent, update, cancellationToken);
+
+            await SendDashboardChartInvalidationsAsync(
+                [
+                    BuildChartInvalidation(
+                        "mission-success-rate-summary",
+                        "/personnel/dashboard/missions/success-rate/summary",
+                        null,
+                        update.Action,
+                        update.ChangedAt),
+                    BuildChartInvalidation(
+                        "mission-team-reports-summary",
+                        "/personnel/dashboard/mission-team-reports/summary",
+                        null,
+                        update.Action,
+                        update.ChangedAt)
+                ],
+                cancellationToken);
+
+            if (update.DepotId.HasValue)
+                await SendDepotChartInvalidationsAsync(update.DepotId.Value, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -327,6 +415,22 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminOperationsHub.RescueTeamGroup(update.TeamId.Value));
 
             await SendToOperationsGroupsAsync(groups, RescueTeamEvent, update, cancellationToken);
+            await SendDashboardChartInvalidationsAsync(
+                [
+                    BuildChartInvalidation(
+                        "rescuers-daily-statistics",
+                        "/personnel/dashboard/rescuers/daily-statistics",
+                        null,
+                        update.Action,
+                        update.ChangedAt),
+                    BuildChartInvalidation(
+                        "rescuer-overview",
+                        "/personnel/dashboard/rescuers/overview",
+                        null,
+                        update.Action,
+                        update.ChangedAt)
+                ],
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -348,6 +452,17 @@ public sealed class AdminRealtimeHubService(
                 [AdminOperationsHub.RescuerScoresGroup(update.RescuerId)],
                 RescuerScoresEvent,
                 update,
+                cancellationToken);
+
+            await SendDashboardChartInvalidationsAsync(
+                [
+                    BuildChartInvalidation(
+                        "mission-team-reports-summary",
+                        "/personnel/dashboard/mission-team-reports/summary",
+                        null,
+                        update.Action,
+                        update.ChangedAt)
+                ],
                 cancellationToken);
         }
         catch (Exception ex)
@@ -473,6 +588,117 @@ public sealed class AdminRealtimeHubService(
         await Task.WhenAll(tasks);
     }
 
+    private async Task SendDashboardChartInvalidationsAsync(
+        IEnumerable<object> payloads,
+        CancellationToken cancellationToken)
+    {
+        var tasks = payloads
+            .Select(payload => _dashboardHubContext.Clients
+                .Group(DashboardHub.GroupName)
+                .SendAsync(ChartInvalidationEvent, payload, cancellationToken))
+            .ToList();
+
+        if (tasks.Count == 0)
+            return;
+
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task SendDepotChartInvalidationsAsync(
+        int depotId,
+        string reason,
+        DateTime changedAt,
+        CancellationToken cancellationToken)
+    {
+        var groups = new[]
+        {
+            AdminOperationsHub.DepotGroup(depotId),
+            AdminOperationsHub.DepotChartsGroup(depotId)
+        };
+
+        var payloads = new[]
+        {
+            BuildChartInvalidation(
+                "depot-capacity",
+                $"/logistics/depot/{depotId}/chart/capacity",
+                new { depotId },
+                reason,
+                changedAt),
+            BuildChartInvalidation(
+                "depot-inventory-movement",
+                $"/logistics/depot/{depotId}/chart/inventory-movement",
+                new { depotId },
+                reason,
+                changedAt)
+        };
+
+        foreach (var payload in payloads)
+            await SendToOperationsGroupsAsync(groups, ChartInvalidationEvent, payload, cancellationToken);
+    }
+
+    private async Task SendDepotFundChartInvalidationsAsync(
+        int depotId,
+        string reason,
+        DateTime changedAt,
+        CancellationToken cancellationToken)
+    {
+        var groups = new[] { AdminFinanceHub.DepotFundChartsGroup(depotId) };
+        var payloads = new[]
+        {
+            BuildChartInvalidation(
+                "depot-fund-movement",
+                $"/finance/depot-funds/{depotId}/chart/fund-movement",
+                new { depotId },
+                reason,
+                changedAt),
+            BuildChartInvalidation(
+                "depot-fund-movement-multi-line",
+                $"/finance/depot-funds/{depotId}/chart/fund-movement/multi-line",
+                new { depotId },
+                reason,
+                changedAt)
+        };
+
+        foreach (var payload in payloads)
+            await SendToFinanceGroupsAsync(groups, ChartInvalidationEvent, payload, cancellationToken);
+    }
+
+    private async Task SendCampaignFundFlowInvalidationAsync(
+        int campaignId,
+        string reason,
+        DateTime changedAt,
+        CancellationToken cancellationToken)
+    {
+        var groups = new[]
+        {
+            AdminFinanceHub.CampaignGroup(campaignId),
+            AdminFinanceHub.CampaignFundFlowGroup(campaignId)
+        };
+
+        var payload = BuildChartInvalidation(
+            "campaign-fund-flow",
+            $"/finance/campaigns/{campaignId}/chart/fund-flow",
+            new { campaignId },
+            reason,
+            changedAt);
+
+        await SendToFinanceGroupsAsync(groups, ChartInvalidationEvent, payload, cancellationToken);
+    }
+
     private static DateTime NormalizeChangedAt(DateTime changedAt) =>
         changedAt == default ? DateTime.UtcNow : changedAt;
+
+    private static object BuildChartInvalidation(
+        string chartKey,
+        string endpoint,
+        object? scope,
+        string reason,
+        DateTime changedAt) => new
+        {
+            chartKey,
+            endpoint,
+            scope,
+            reason,
+            changedAt = NormalizeChangedAt(changedAt)
+        };
 }
