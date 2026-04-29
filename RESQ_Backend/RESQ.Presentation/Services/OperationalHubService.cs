@@ -20,6 +20,7 @@ public sealed class OperationalHubService(
     private const string EventLogisticsUpdate = "ReceiveLogisticsUpdate";
     private const string EventSupplyRequestUpdate = "ReceiveSupplyRequestUpdate";
     private const string EventDepotActivityUpdate = "ReceiveDepotActivityUpdate";
+    private const string EventUpcomingReturnsUpdate = "ReceiveUpcomingReturnsUpdate";
     private const string EventDepotClosureUpdate = "ReceiveDepotClosureUpdate";
 
     public async Task PushAssemblyPointListUpdateAsync(CancellationToken cancellationToken = default)
@@ -185,6 +186,30 @@ public sealed class OperationalHubService(
             };
 
             await SendToGroupsAsync(groups, EventDepotActivityUpdate, update, cancellationToken);
+
+            if (IsReturnSuppliesActivity(update.ActivityType))
+            {
+                var upcomingReturnsPayload = new
+                {
+                    update.DepotId,
+                    update.ActivityId,
+                    update.MissionId,
+                    update.MissionTeamId,
+                    update.RescueTeamId,
+                    update.ActivityType,
+                    update.Action,
+                    update.Status,
+                    update.EstimatedTime,
+                    update.MissionExpectedEndTime,
+                    update.ChangedAt
+                };
+
+                await SendToGroupsAsync(
+                    new[] { OperationalHub.UpcomingReturnsDepotGroup(update.DepotId) },
+                    EventUpcomingReturnsUpdate,
+                    upcomingReturnsPayload,
+                    cancellationToken);
+            }
         }
         catch (Exception ex)
         {
@@ -287,4 +312,7 @@ public sealed class OperationalHubService(
 
     private static DateTime NormalizeChangedAt(DateTime changedAt) =>
         changedAt == default ? DateTime.UtcNow : changedAt;
+
+    private static bool IsReturnSuppliesActivity(string? activityType) =>
+        string.Equals(activityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase);
 }
