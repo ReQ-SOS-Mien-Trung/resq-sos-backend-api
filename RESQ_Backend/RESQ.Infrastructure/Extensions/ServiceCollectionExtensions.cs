@@ -33,6 +33,7 @@ using RESQ.Infrastructure.Services;
 using RESQ.Infrastructure.Services.Finance;
 using RESQ.Infrastructure.Services.Identity;
 using RESQ.Infrastructure.Services.Logistics;
+using RESQ.Infrastructure.Services.Maintenance;
 using RESQ.Infrastructure.Services.Payments;
 using RESQ.Infrastructure.Services.Ai;
 using RESQ.Infrastructure.Services.Personnel;
@@ -203,6 +204,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInventoryQueryService, InventoryQueryService>();
         services.AddScoped<IStockThresholdResolver, StockThresholdResolver>();
         services.AddScoped<IStockWarningEvaluatorService, StockWarningEvaluatorService>();
+        services.AddScoped<ISeedDataSyncService, SeedDataSyncService>();
         services.AddScoped<DemoSeedValidator>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
