@@ -67,16 +67,6 @@ public class CreateRescueTeamCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_Fails_WhenAnyMemberEventIdIsInvalid()
-    {
-        var command = BuildCommand();
-        command.Members[0].EventId = 0;
-
-        var result = _validator.TestValidate(command);
-        result.ShouldHaveValidationErrorFor(x => x.Members);
-    }
-
-    [Fact]
     public void Validate_Fails_WhenMembersContainDuplicateRescuer()
     {
         var command = BuildCommand();
@@ -90,7 +80,7 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenNoLeaderInMembers()
     {
         var members = Enumerable.Range(0, 6)
-            .Select(_ => new AddMemberRequestDto { UserId = Guid.NewGuid(), EventId = 100, IsLeader = false })
+            .Select(_ => new AddMemberRequestDto { UserId = Guid.NewGuid(), IsLeader = false })
             .ToList();
 
         var command = new CreateRescueTeamCommand(
@@ -104,7 +94,7 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Fails_WhenMultipleLeadersInMembers()
     {
         var members = Enumerable.Range(0, 6)
-            .Select(i => new AddMemberRequestDto { UserId = Guid.NewGuid(), EventId = 100 + i, IsLeader = i < 2 })
+            .Select(i => new AddMemberRequestDto { UserId = Guid.NewGuid(), IsLeader = i < 2 })
             .ToList();
 
         var command = new CreateRescueTeamCommand(
@@ -118,19 +108,6 @@ public class CreateRescueTeamCommandValidatorTests
     public void Validate_Passes_WhenCommandIsValid()
     {
         var result = _validator.TestValidate(BuildCommand());
-        result.ShouldNotHaveAnyValidationErrors();
-    }
-
-    [Fact]
-    public void Validate_Passes_WhenMemberEventIdsAreOmitted()
-    {
-        var command = BuildCommand();
-        foreach (var member in command.Members)
-        {
-            member.EventId = null;
-        }
-
-        var result = _validator.TestValidate(command);
         result.ShouldNotHaveAnyValidationErrors();
     }
 
@@ -168,7 +145,6 @@ public class CreateRescueTeamCommandValidatorTests
             .Select(i => new AddMemberRequestDto
             {
                 UserId = Guid.NewGuid(),
-                EventId = 100 + i,
                 IsLeader = i == 0
             })
             .ToList();

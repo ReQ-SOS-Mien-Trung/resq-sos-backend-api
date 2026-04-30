@@ -27,8 +27,6 @@ public class CreateRescueTeamCommandValidator : AbstractValidator<CreateRescueTe
             .NotNull().WithMessage("Danh sách thành viên không được để trống.")
             .Must((command, members) => members != null && members.Count == command.MaxMembers)
             .WithMessage(cmd => $"Số lượng thành viên truyền vào ({cmd.Members?.Count ?? 0}) phải bằng đúng số lượng tối đa của đội ({cmd.MaxMembers}).")
-            .Must(members => members != null && members.All(m => !m.EventId.HasValue || m.EventId.Value > 0))
-            .WithMessage("EventId của thành viên phải lớn hơn 0 nếu được cung cấp.")
             .Must(members => members != null && members.Select(m => m.UserId).Distinct().Count() == members.Count)
             .WithMessage("Danh sách thành viên không được chứa trùng rescuer.")
             .Must(members => members != null && members.Count(m => m.IsLeader) == 1)
