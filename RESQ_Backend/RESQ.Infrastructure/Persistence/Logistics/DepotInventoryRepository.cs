@@ -1808,6 +1808,29 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         await _unitOfWork.SaveAsync();
     }
 
+    public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        string? discrepancyNote,
+        CancellationToken cancellationToken = default)
+        => ReceiveMissionReturnAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            consumableItems,
+            reusableItems,
+            legacyReusableQuantities,
+            [],
+            [],
+            discrepancyNote,
+            cancellationToken);
+
     public async Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
         int depotId,
         int missionId,
@@ -1816,6 +1839,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
         List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        List<MissionReturnLostConsumableItem> lostConsumableItems,
+        List<MissionReturnLostReusableItem> lostReusableItems,
         string? discrepancyNote,
         CancellationToken cancellationToken = default)
     {
@@ -2047,6 +2072,28 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             }
         }
 
+        await ApplyMissionReturnLostConsumablesAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            lostConsumableItems,
+            discrepancyNote,
+            resultLookup,
+            now,
+            cancellationToken);
+
+        await ApplyMissionReturnLostReusableItemsAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            lostReusableItems,
+            discrepancyNote,
+            resultLookup,
+            now,
+            cancellationToken);
+
         await _unitOfWork.SaveAsync();
 
         result.Items = resultLookup.Values
@@ -2063,6 +2110,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> consumableItems,
         List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
         List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        List<MissionReturnLostConsumableItem> lostConsumableItems,
+        List<MissionReturnLostReusableItem> lostReusableItems,
         string? discrepancyNote,
         CancellationToken cancellationToken = default)
     {
@@ -2090,6 +2139,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 fallbackConsumables,
                 reusableItems,
                 legacyReusableQuantities,
+                lostConsumableItems,
+                lostReusableItems,
                 discrepancyNote,
                 cancellationToken);
         }
@@ -2177,6 +2228,28 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         await _unitOfWork.SaveAsync();
 
+        await ApplyMissionReturnLostConsumablesAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            lostConsumableItems,
+            discrepancyNote,
+            resultLookup,
+            now,
+            cancellationToken);
+
+        await ApplyMissionReturnLostReusableItemsAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            lostReusableItems,
+            discrepancyNote,
+            resultLookup,
+            now,
+            cancellationToken);
+
         if (fallbackConsumables.Count > 0
             || reusableItems.Any(item => item.ReusableItemId > 0)
             || legacyReusableQuantities.Any(item => item.Quantity > 0))
@@ -2189,6 +2262,8 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 fallbackConsumables,
                 reusableItems,
                 legacyReusableQuantities,
+                [],
+                [],
                 discrepancyNote,
                 cancellationToken);
 
@@ -2212,6 +2287,201 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             .OrderBy(item => item.ItemModelId)
             .ToList();
         return result;
+    }
+
+    private async Task ApplyMissionReturnLostConsumablesAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        IReadOnlyCollection<MissionReturnLostConsumableItem> lostConsumableItems,
+        string? discrepancyNote,
+        IDictionary<int, MissionSupplyReturnExecutionItemDto> resultLookup,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var normalizedLostItems = lostConsumableItems
+            .Where(item => item.Quantity > 0)
+            .GroupBy(item => (item.ItemModelId, item.SupplyInventoryLotId, Note: item.Note.Trim()))
+            .Select(group => new MissionReturnLostConsumableItem(
+                group.Key.ItemModelId,
+                group.Sum(item => item.Quantity),
+                group.Key.SupplyInventoryLotId,
+                group.Key.Note))
+            .ToList();
+
+        foreach (var lostItem in normalizedLostItems)
+        {
+            SupplyInventory inventory;
+            SupplyInventoryLot? lot = null;
+            ItemModel itemModel;
+
+            if (lostItem.SupplyInventoryLotId.HasValue)
+            {
+                lot = await _unitOfWork.SetTracked<SupplyInventoryLot>()
+                    .Include(l => l.SupplyInventory)
+                        .ThenInclude(inventory => inventory.ItemModel)
+                            .ThenInclude(item => item!.Category)
+                    .FirstOrDefaultAsync(l => l.Id == lostItem.SupplyInventoryLotId.Value, cancellationToken)
+                    ?? throw new InvalidOperationException($"Không tìm thấy lot #{lostItem.SupplyInventoryLotId.Value} để ghi nhận mất đồ.");
+
+                inventory = lot.SupplyInventory;
+                if (inventory.DepotId != depotId)
+                    throw new InvalidOperationException($"Lot #{lot.Id} không thuộc kho #{depotId}.");
+
+                if (inventory.ItemModelId != lostItem.ItemModelId)
+                    throw new InvalidOperationException($"Lot #{lot.Id} không khớp item #{lostItem.ItemModelId}.");
+
+                itemModel = inventory.ItemModel
+                    ?? throw new InvalidOperationException($"Lot #{lot.Id} không có metadata vật phẩm.");
+            }
+            else
+            {
+                inventory = await _unitOfWork.SetTracked<SupplyInventory>()
+                    .Include(i => i.ItemModel)
+                        .ThenInclude(item => item!.Category)
+                    .FirstOrDefaultAsync(i => i.DepotId == depotId && i.ItemModelId == lostItem.ItemModelId, cancellationToken)
+                    ?? throw new InvalidOperationException(
+                        $"Không tìm thấy tồn kho vật phẩm #{lostItem.ItemModelId} tại kho #{depotId} để ghi nhận mất đồ.");
+
+                itemModel = inventory.ItemModel
+                    ?? throw new InvalidOperationException($"Vật phẩm #{lostItem.ItemModelId} không có metadata.");
+            }
+
+            await ApplyLostInventoryCapacityDeltaAsync(depotId, itemModel, lostItem.Quantity, now, cancellationToken);
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                DepotSupplyInventoryId = inventory.Id,
+                SupplyInventoryLotId = lot?.Id,
+                ItemModelId = itemModel.Id,
+                ActionType = InventoryActionType.Adjust.ToString(),
+                QuantityChange = -lostItem.Quantity,
+                SourceType = InventorySourceType.Lost.ToString(),
+                SourceId = activityId,
+                MissionId = missionId,
+                PerformedBy = performedBy,
+                Note = BuildMissionReturnNote(
+                    $"Ghi nhận mất {lostItem.Quantity} {itemModel.Unit ?? "đơn vị"} {itemModel.Name} từ activity #{activityId}, mission #{missionId}. Lý do: {lostItem.Note}",
+                    discrepancyNote),
+                CreatedAt = now
+            });
+
+            _ = GetOrCreateReturnResultItem(resultLookup, itemModel);
+        }
+    }
+
+    private async Task ApplyMissionReturnLostReusableItemsAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        IReadOnlyCollection<MissionReturnLostReusableItem> lostReusableItems,
+        string? discrepancyNote,
+        IDictionary<int, MissionSupplyReturnExecutionItemDto> resultLookup,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var normalizedLostItems = lostReusableItems
+            .Where(item => item.ReusableItemId > 0)
+            .GroupBy(item => item.ReusableItemId)
+            .Select(group => group.First())
+            .ToList();
+
+        if (normalizedLostItems.Count == 0)
+            return;
+
+        var lostLookup = normalizedLostItems.ToDictionary(item => item.ReusableItemId);
+        var reusableIds = normalizedLostItems.Select(item => item.ReusableItemId).ToList();
+        var reusableUnits = await _unitOfWork.SetTracked<ReusableItem>()
+            .Where(item => reusableIds.Contains(item.Id))
+            .Include(item => item.ItemModel)
+                .ThenInclude(item => item!.Category)
+            .ToListAsync(cancellationToken);
+
+        if (reusableUnits.Count != reusableIds.Count)
+        {
+            var foundIds = reusableUnits.Select(item => item.Id).ToHashSet();
+            var missingIds = reusableIds.Where(id => !foundIds.Contains(id));
+            throw new InvalidOperationException($"Không tìm thấy reusable units để ghi nhận mất: {string.Join(", ", missingIds)}.");
+        }
+
+        foreach (var unit in reusableUnits)
+        {
+            if (!string.Equals(unit.Status, nameof(ReusableItemStatus.InUse), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Reusable unit #{unit.Id} không ở trạng thái InUse để ghi nhận mất.");
+
+            if (unit.DepotId != depotId)
+                throw new InvalidOperationException($"Reusable unit #{unit.Id} không thuộc kho #{depotId}.");
+
+            var lostInfo = lostLookup[unit.Id];
+            var itemModel = unit.ItemModel
+                ?? throw new InvalidOperationException($"Reusable unit #{unit.Id} không có metadata vật phẩm.");
+
+            unit.Status = nameof(ReusableItemStatus.Lost);
+            unit.IsDeleted = true;
+            unit.SupplyRequestId = null;
+            unit.Note = lostInfo.Note;
+            unit.UpdatedAt = now;
+
+            await ApplyLostInventoryCapacityDeltaAsync(depotId, itemModel, 1, now, cancellationToken);
+
+            await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
+            {
+                ReusableItemId = unit.Id,
+                ItemModelId = itemModel.Id,
+                ActionType = InventoryActionType.Adjust.ToString(),
+                QuantityChange = -1,
+                SourceType = InventorySourceType.Lost.ToString(),
+                SourceId = activityId,
+                MissionId = missionId,
+                PerformedBy = performedBy,
+                Note = BuildMissionReturnNote(
+                    $"Ghi nhận mất {itemModel.Name} (ReusableItemId: {unit.Id}, S/N: {unit.SerialNumber ?? "N/A"}) từ activity #{activityId}, mission #{missionId}. Lý do: {lostInfo.Note}",
+                    discrepancyNote),
+                CreatedAt = now
+            });
+
+            var resultItem = GetOrCreateReturnResultItem(resultLookup, itemModel);
+            resultItem.LostReusableUnits.Add(new SupplyExecutionReusableUnitDto
+            {
+                ReusableItemId = unit.Id,
+                ItemModelId = itemModel.Id,
+                ItemName = itemModel.Name ?? string.Empty,
+                SerialNumber = unit.SerialNumber,
+                Condition = unit.Condition,
+                Note = unit.Note
+            });
+        }
+    }
+
+    private async Task ApplyLostInventoryCapacityDeltaAsync(
+        int depotId,
+        ItemModel itemModel,
+        int quantity,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        if (itemModel.Category != null)
+        {
+            itemModel.Category.Quantity = Math.Max(0, (itemModel.Category.Quantity ?? 0) - quantity);
+            itemModel.Category.UpdatedAt = now;
+        }
+
+        var volumeDelta = (itemModel.VolumePerUnit ?? 0m) * quantity;
+        var weightDelta = (itemModel.WeightPerUnit ?? 0m) * quantity;
+        if (volumeDelta <= 0m && weightDelta <= 0m)
+            return;
+
+        var depotEntity = await _unitOfWork.SetTracked<Depot>()
+            .FirstOrDefaultAsync(depot => depot.Id == depotId, cancellationToken);
+        if (depotEntity is null)
+            return;
+
+        if (volumeDelta > 0m)
+            depotEntity.CurrentUtilization = Math.Max(0m, (depotEntity.CurrentUtilization ?? 0m) - volumeDelta);
+        if (weightDelta > 0m)
+            depotEntity.CurrentWeightUtilization = Math.Max(0m, (depotEntity.CurrentWeightUtilization ?? 0m) - weightDelta);
     }
 
     private static string BuildMissionReturnNote(string baseNote, string? discrepancyNote)

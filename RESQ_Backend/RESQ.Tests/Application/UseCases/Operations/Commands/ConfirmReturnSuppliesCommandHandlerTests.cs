@@ -96,7 +96,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 {
                     ItemModelId = itemId,
                     Quantity = 5,
-                    LotAllocations = [new ConfirmReturnLotAllocationDto { LotId = expectedLot.LotId, QuantityTaken = expectedLot.QuantityTaken, ExpiredDate = expectedLot.ExpiredDate }]
+                    LotAllocations = [new ConfirmReturnLotAllocationDto { LotId = expectedLot.LotId, QuantityTaken = expectedLot.QuantityTaken }]
                 }
             ],
             [],
@@ -240,7 +240,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 new ActualReturnedReusableItemDto
                 {
                     ItemModelId = itemId,
-                    Quantity = 2,
                     Units = expectedUnits
                         .Select(unit => new ActualReturnedReusableUnitDto { ReusableItemId = unit.ReusableItemId })
                         .ToList()
@@ -381,6 +380,243 @@ public class ConfirmReturnSuppliesCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_RecordsLostReusableUnit_WhenUnitIsReturnedFalse()
+    {
+        const int activityId = 31;
+        const int missionId = 9;
+        const int depotId = 4;
+        const int itemId = 80;
+        var userId = Guid.NewGuid();
+
+        var returnedUnit = new SupplyExecutionReusableUnitDto
+        {
+            ReusableItemId = 171,
+            ItemModelId = itemId,
+            ItemName = "Cang khieng thuong",
+            SerialNumber = "D4-R080-001"
+        };
+        var lostUnit = new SupplyExecutionReusableUnitDto
+        {
+            ReusableItemId = 172,
+            ItemModelId = itemId,
+            ItemName = "Cang khieng thuong",
+            SerialNumber = "D4-R080-002"
+        };
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Cang khieng thuong",
+                    Quantity = 2,
+                    Unit = "chiec",
+                    ExpectedReturnUnits = [returnedUnit, lostUnit]
+                }
+            })
+        };
+
+        var depotInventoryRepository = new StubDepotInventoryRepository
+        {
+            ManagerDepotIds = [depotId],
+            ReturnResult = new MissionSupplyReturnExecutionResult
+            {
+                Items =
+                [
+                    new MissionSupplyReturnExecutionItemDto
+                    {
+                        ItemModelId = itemId,
+                        ItemName = "Cang khieng thuong",
+                        Unit = "chiec",
+                        ActualQuantity = 1,
+                        ReturnedReusableUnits = [returnedUnit],
+                        LostReusableUnits = [lostUnit]
+                    }
+                ]
+            }
+        };
+
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            new StubMissionActivityRepository(activity),
+            depotInventoryRepository,
+            new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+            {
+                [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+            }),
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var response = await handler.Handle(new ConfirmReturnSuppliesCommand(
+            activityId,
+            userId,
+            [],
+            [
+                new ActualReturnedReusableItemDto
+                {
+                    ItemModelId = itemId,
+                    Units =
+                    [
+                        new ActualReturnedReusableUnitDto { ReusableItemId = returnedUnit.ReusableItemId },
+                        new ActualReturnedReusableUnitDto
+                        {
+                            ReusableItemId = lostUnit.ReusableItemId,
+                            IsReturned = false,
+                            Note = "Mat trong qua trinh cuu ho"
+                        }
+                    ]
+                }
+            ],
+            "Thieu 1 thiet bi"), CancellationToken.None);
+
+        var receivedReusable = Assert.Single(depotInventoryRepository.ReceivedReusableItems);
+        var lostReusable = Assert.Single(depotInventoryRepository.LostReusableItems);
+
+        Assert.True(response.DiscrepancyRecorded);
+        Assert.Equal(returnedUnit.ReusableItemId, receivedReusable.ReusableItemId);
+        Assert.Equal(lostUnit.ReusableItemId, lostReusable.ReusableItemId);
+        Assert.Equal("Mat trong qua trinh cuu ho", lostReusable.Note);
+    }
+
+    [Fact]
+    public async Task Handle_RequiresUnitNote_WhenReusableUnitIsLost()
+    {
+        const int activityId = 33;
+        const int missionId = 9;
+        const int depotId = 4;
+        const int itemId = 80;
+        var userId = Guid.NewGuid();
+
+        var lostUnit = new SupplyExecutionReusableUnitDto
+        {
+            ReusableItemId = 172,
+            ItemModelId = itemId,
+            ItemName = "Cang khieng thuong",
+            SerialNumber = "D4-R080-002"
+        };
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Cang khieng thuong",
+                    Quantity = 1,
+                    Unit = "chiec",
+                    ExpectedReturnUnits = [lostUnit]
+                }
+            })
+        };
+
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            new StubMissionActivityRepository(activity),
+            new StubDepotInventoryRepository { ManagerDepotIds = [depotId] },
+            new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+            {
+                [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+            }),
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
+            handler.Handle(new ConfirmReturnSuppliesCommand(
+                activityId,
+                userId,
+                [],
+                [
+                    new ActualReturnedReusableItemDto
+                    {
+                        ItemModelId = itemId,
+                        Units =
+                        [
+                            new ActualReturnedReusableUnitDto
+                            {
+                                ReusableItemId = lostUnit.ReusableItemId,
+                                IsReturned = false
+                            }
+                        ]
+                    }
+                ],
+                "Thieu 1 thiet bi"), CancellationToken.None));
+
+        Assert.Contains("isReturned=false", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Handle_RequiresConsumableItemNote_WhenReturnQuantityIsMissing()
+    {
+        const int activityId = 32;
+        const int missionId = 9;
+        const int depotId = 4;
+        const int itemId = 111;
+        const int lotId = 68;
+        var userId = Guid.NewGuid();
+
+        var activity = new MissionActivityModel
+        {
+            Id = activityId,
+            MissionId = missionId,
+            DepotId = depotId,
+            ActivityType = "RETURN_SUPPLIES",
+            Status = MissionActivityStatus.PendingConfirmation,
+            Items = JsonSerializer.Serialize(new List<SupplyToCollectDto>
+            {
+                new()
+                {
+                    ItemId = itemId,
+                    ItemName = "Thuoc huyet ap",
+                    Quantity = 5,
+                    Unit = "vien",
+                    ExpectedReturnLotAllocations =
+                    [
+                        new SupplyExecutionLotDto { LotId = lotId, QuantityTaken = 5 }
+                    ]
+                }
+            })
+        };
+
+        var handler = new ConfirmReturnSuppliesCommandHandler(
+            new StubMissionActivityRepository(activity),
+            new StubDepotInventoryRepository { ManagerDepotIds = [depotId] },
+            new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
+            {
+                [itemId] = new() { Id = itemId, Name = "Thuoc huyet ap", Unit = "vien", ItemType = "Consumable" }
+            }),
+            new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
+
+        var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(() =>
+            handler.Handle(new ConfirmReturnSuppliesCommand(
+                activityId,
+                userId,
+                [
+                    new ActualReturnedConsumableItemDto
+                    {
+                        ItemModelId = itemId,
+                        Quantity = 3,
+                        LotAllocations =
+                        [
+                            new ConfirmReturnLotAllocationDto { LotId = lotId, QuantityTaken = 3 }
+                        ]
+                    }
+                ],
+                [],
+                "Thieu 2 vien"), CancellationToken.None));
+
+        Assert.Contains("phai nhap note", RemoveDiacritics(ex.Message), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Handle_MapsInventoryInvalidOperation_ToBadRequest()
     {
         const int activityId = 24;
@@ -505,7 +741,6 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                     new ActualReturnedReusableItemDto
                     {
                         ItemModelId = itemId,
-                        Quantity = null,
                         Units = null!
                     }
                 ],
@@ -610,6 +845,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         public MissionSupplyReturnExecutionResult ReturnResult { get; set; } = new();
         public List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> ReceivedConsumableItemsByLot { get; private set; } = [];
         public List<(int ReusableItemId, string? Condition, string? Note)> ReceivedReusableItems { get; private set; } = [];
+        public List<MissionReturnLostConsumableItem> LostConsumableItems { get; private set; } = [];
+        public List<MissionReturnLostReusableItem> LostReusableItems { get; private set; } = [];
         public Func<Exception>? ExceptionFactory { get; set; }
 
         public Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -659,11 +896,34 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
             string? discrepancyNote,
             CancellationToken cancellationToken = default)
+            => ReceiveMissionReturnAsync(
+                depotId,
+                missionId,
+                activityId,
+                performedBy,
+                consumableItems,
+                reusableItems,
+                legacyReusableQuantities,
+                [],
+                [],
+                discrepancyNote,
+                cancellationToken);
+
+        public Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(int depotId, int missionId, int activityId, Guid performedBy,
+            List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
+            List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+            List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+            List<MissionReturnLostConsumableItem> lostConsumableItems,
+            List<MissionReturnLostReusableItem> lostReusableItems,
+            string? discrepancyNote,
+            CancellationToken cancellationToken = default)
         {
             if (ExceptionFactory is not null)
                 throw ExceptionFactory();
 
             ReceivedReusableItems = reusableItems;
+            LostConsumableItems = lostConsumableItems;
+            LostReusableItems = lostReusableItems;
             return Task.FromResult(ReturnResult);
         }
 
@@ -671,6 +931,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> consumableItems,
             List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
             List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+            List<MissionReturnLostConsumableItem> lostConsumableItems,
+            List<MissionReturnLostReusableItem> lostReusableItems,
             string? discrepancyNote,
             CancellationToken cancellationToken = default)
         {
@@ -679,6 +941,8 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
             ReceivedConsumableItemsByLot = consumableItems;
             ReceivedReusableItems = reusableItems;
+            LostConsumableItems = lostConsumableItems;
+            LostReusableItems = lostReusableItems;
             return Task.FromResult(ReturnResult);
         }
 

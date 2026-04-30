@@ -178,8 +178,10 @@ public class SupplyToCollectDto
     public List<SupplyExecutionLotDto>? ReturnedLotAllocations { get; set; }
     /// <summary>Chỉ có sau khi depot manager confirm return: reusable units thực tế đã nhận lại.</summary>
     public List<SupplyExecutionReusableUnitDto>? ReturnedReusableUnits { get; set; }
+    public List<SupplyExecutionReusableUnitDto>? LostReusableUnits { get; set; }
     /// <summary>Chỉ có sau khi depot manager confirm return: số lượng thực tế được nhập lại cho item này.</summary>
     public int? ActualReturnedQuantity { get; set; }
+    public string? ReturnNote { get; set; }
     /// <summary>Tỉ lệ dự trù buffer so với số lượng cần thiết (ví dụ: 0.10 = 10%). Được tính khi tạo mission.</summary>
     public double? BufferRatio { get; set; }
     /// <summary>Số lượng dự trù buffer được tính toán: CEIL(Quantity × BufferRatio). Được reserve upfront trong kho.</summary>
