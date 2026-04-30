@@ -261,6 +261,109 @@ public sealed class DemoSeedValidator
             errors.Add($"Inventory logs are missing action types: {string.Join(", ", missingActions)}.");
         }
 
+        var rescuerApplicationUsersNotRescuers = await db.RescuerApplications
+            .Where(application => application.UserId.HasValue)
+            .Where(application => !db.Users.Any(user =>
+                user.Id == application.UserId
+                && user.RoleId == 3))
+            .Select(application => application.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (rescuerApplicationUsersNotRescuers.Count > 0)
+        {
+            errors.Add(
+                "Rescuer applications must belong to rescuer role users: "
+                + string.Join(", ", rescuerApplicationUsersNotRescuers)
+                + ".");
+        }
+
+        var approvedApplicationsWithInvalidUserState = await db.RescuerApplications
+            .Where(application => application.Status == "Approved" && application.UserId.HasValue)
+            .Where(application => !db.Users.Any(user =>
+                user.Id == application.UserId
+                && user.RoleId == 3
+                && user.IsEmailVerified
+                && user.RescuerProfile != null
+                && user.RescuerProfile.IsEligibleRescuer
+                && user.RescuerProfile.Step == 3))
+            .Select(application => application.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (approvedApplicationsWithInvalidUserState.Count > 0)
+        {
+            errors.Add(
+                "Approved rescuer applications must have verified eligible rescuer users at step 3: "
+                + string.Join(", ", approvedApplicationsWithInvalidUserState)
+                + ".");
+        }
+
+        var eligibleRescuersMissingApprovedApplication = await db.RescuerProfiles
+            .Where(profile => profile.IsEligibleRescuer)
+            .Where(profile => !db.RescuerApplications.Any(application =>
+                application.UserId == profile.UserId
+                && application.Status == "Approved"))
+            .Select(profile => profile.UserId)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (eligibleRescuersMissingApprovedApplication.Count > 0)
+        {
+            errors.Add(
+                "Eligible rescuers are missing approved applications: "
+                + string.Join(", ", eligibleRescuersMissingApprovedApplication)
+                + ".");
+        }
+
+        var duplicateApprovedRescuerApplications = await db.RescuerApplications
+            .Where(application => application.Status == "Approved" && application.UserId.HasValue)
+            .GroupBy(application => application.UserId)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (duplicateApprovedRescuerApplications.Count > 0)
+        {
+            errors.Add(
+                "Rescuers must not have duplicate approved applications: "
+                + string.Join(", ", duplicateApprovedRescuerApplications)
+                + ".");
+        }
+
+        var approvedRequestsMissingDepotFunds = await db.FundingRequests
+            .Where(request => request.Status == "Approved" && request.ApprovedCampaignId.HasValue)
+            .Where(request => !db.DepotFunds.Any(fund =>
+                fund.DepotId == request.DepotId
+                && fund.FundSourceType == "Campaign"
+                && fund.FundSourceId == request.ApprovedCampaignId))
+            .Select(request => request.Id)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (approvedRequestsMissingDepotFunds.Count > 0)
+        {
+            errors.Add(
+                "Approved funding requests are missing matching campaign depot fund sources: "
+                + string.Join(", ", approvedRequestsMissingDepotFunds)
+                + ".");
+        }
+
+        var campaignDisbursementsMissingDepotTransactions = await db.CampaignDisbursements
+            .Where(disbursement => disbursement.FundingRequestId.HasValue)
+            .Where(disbursement => !db.DepotFundTransactions.Any(transaction =>
+                transaction.ReferenceType == "CampaignDisbursement"
+                && transaction.ReferenceId == disbursement.Id
+                && transaction.DepotFund.DepotId == disbursement.DepotId
+                && transaction.DepotFund.FundSourceType == "Campaign"
+                && transaction.DepotFund.FundSourceId == disbursement.FundCampaignId))
+            .Select(disbursement => disbursement.FundingRequestId!.Value)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (campaignDisbursementsMissingDepotTransactions.Count > 0)
+        {
+            errors.Add(
+                "Campaign funding request disbursements are missing matching depot fund allocation transactions: "
+                + string.Join(", ", campaignDisbursementsMissingDepotTransactions)
+                + ".");
+        }
+
         var conversationsWithoutVictimParticipant = await db.Conversations
             .Where(c => c.VictimId != null)
             .CountAsync(c => !db.ConversationParticipants.Any(p =>

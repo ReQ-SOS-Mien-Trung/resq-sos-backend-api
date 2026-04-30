@@ -77,7 +77,7 @@ public class DatabaseSeederTests
             await context.RescuerProfiles.CountAsync(profile =>
                 recentRescuerIds.Contains(profile.UserId)
                 && profile.IsEligibleRescuer
-                && profile.Step == 5
+                && profile.Step == 3
                 && profile.ApprovedAt >= recentRescuerCutoff
                 && profile.ApprovedAt <= seedAnchorUtc));
 
@@ -352,7 +352,7 @@ public class DatabaseSeederTests
             .OrderBy(group => group.Key)
             .Select(group => group.Count())
             .ToListAsync();
-        Assert.Equal(new[] { 3, 2, 1, 3, 2, 1, 1, 3, 2 }, depotFundCounts);
+        Assert.Equal(new[] { 5, 6, 7, 5, 4, 5, 5, 5, 4 }, depotFundCounts);
         Assert.All(
             await context.DepotFunds.ToListAsync(),
             fund => Assert.True(
@@ -634,6 +634,92 @@ public class DatabaseSeederTests
             Assert.True(campaign.CampaignStartDate <= new DateOnly(2026, 4, 24));
             Assert.True(campaign.CampaignEndDate > new DateOnly(2026, 4, 30));
         });
+    }
+
+    [Fact]
+    public async Task SeedAsync_AlignsApprovedRescuerApplicationsWithRescuerList()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var eligibleRescuerIds = await context.RescuerProfiles
+            .Where(profile => profile.IsEligibleRescuer)
+            .Select(profile => profile.UserId)
+            .ToListAsync();
+        var approvedApplicationUserIds = await context.RescuerApplications
+            .Where(application => application.Status == "Approved" && application.UserId.HasValue)
+            .Select(application => application.UserId!.Value)
+            .ToListAsync();
+
+        Assert.Equal(160, eligibleRescuerIds.Count);
+        Assert.Equal(
+            eligibleRescuerIds.OrderBy(id => id),
+            approvedApplicationUserIds.OrderBy(id => id));
+
+        var invalidApprovedApplications = await context.RescuerApplications
+            .Where(application => application.Status == "Approved" && application.UserId.HasValue)
+            .Where(application => !context.Users.Any(user =>
+                user.Id == application.UserId
+                && user.RoleId == 3
+                && user.IsEmailVerified
+                && user.RescuerProfile != null
+                && user.RescuerProfile.IsEligibleRescuer
+                && user.RescuerProfile.Step == 3))
+            .Select(application => application.Id)
+            .ToListAsync();
+        Assert.Empty(invalidApprovedApplications);
+
+        var applicationsForNonRescuerUsers = await context.RescuerApplications
+            .Where(application => application.UserId.HasValue)
+            .Where(application => !context.Users.Any(user =>
+                user.Id == application.UserId
+                && user.RoleId == 3))
+            .Select(application => application.Id)
+            .ToListAsync();
+        Assert.Empty(applicationsForNonRescuerUsers);
+
+        Assert.Equal(5, await context.RescuerApplications.CountAsync(application => application.Status == "Pending"));
+        Assert.Equal(5, await context.RescuerApplications.CountAsync(application => application.Status == "Rejected"));
+    }
+
+    [Fact]
+    public async Task SeedAsync_CreatesMatchingDepotFundSourcesForApprovedFundingRequests()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var missingDepotFundSources = await context.FundingRequests
+            .Where(request => request.Status == "Approved" && request.ApprovedCampaignId.HasValue)
+            .Where(request => !context.DepotFunds.Any(fund =>
+                fund.DepotId == request.DepotId
+                && fund.FundSourceType == "Campaign"
+                && fund.FundSourceId == request.ApprovedCampaignId))
+            .Select(request => request.Id)
+            .ToListAsync();
+        Assert.Empty(missingDepotFundSources);
+
+        var missingDepotFundTransactions = await context.CampaignDisbursements
+            .Where(disbursement => disbursement.FundingRequestId.HasValue)
+            .Where(disbursement => !context.DepotFundTransactions.Any(transaction =>
+                transaction.ReferenceType == "CampaignDisbursement"
+                && transaction.ReferenceId == disbursement.Id
+                && transaction.DepotFund.DepotId == disbursement.DepotId
+                && transaction.DepotFund.FundSourceType == "Campaign"
+                && transaction.DepotFund.FundSourceId == disbursement.FundCampaignId))
+            .Select(disbursement => disbursement.FundingRequestId!.Value)
+            .ToListAsync();
+        Assert.Empty(missingDepotFundTransactions);
+
+        var request19 = await context.FundingRequests.SingleAsync(request => request.Id == 19);
+        Assert.Equal(8, request19.ApprovedCampaignId);
+        Assert.True(await context.DepotFunds.AnyAsync(fund =>
+            fund.DepotId == request19.DepotId
+            && fund.FundSourceType == "Campaign"
+            && fund.FundSourceId == request19.ApprovedCampaignId));
     }
 
     [Fact]
