@@ -41,7 +41,7 @@ public class DatabaseSeederTests
         Assert.Equal(841, firstCounts.SupplyInventories);
         Assert.Equal(95, firstCounts.SupplyRequests);
         Assert.Equal(2001, firstCounts.InventoryLogs);
-        Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v2-2026-04-24"));
+        Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v6-2026-04-29"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
 
@@ -612,6 +612,28 @@ public class DatabaseSeederTests
         var secondSnapshot = await LoadSosCoordinateSnapshotsAsync(secondContext);
 
         Assert.Equal(firstSnapshot, secondSnapshot);
+    }
+
+    [Fact]
+    public async Task SeedAsync_CreatesActiveCampaignFixturesForDonation()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var activeCampaigns = await context.FundCampaigns
+            .Where(campaign => campaign.Status == "Active")
+            .OrderBy(campaign => campaign.Id)
+            .ToListAsync();
+
+        Assert.Equal(new[] { 7, 10, 11 }, activeCampaigns.Select(campaign => campaign.Id));
+        Assert.Contains(activeCampaigns, campaign => campaign.Name == "Chiến dịch lũ sớm Huế - Quảng Trị #7");
+        Assert.All(activeCampaigns, campaign =>
+        {
+            Assert.True(campaign.CampaignStartDate <= new DateOnly(2026, 4, 24));
+            Assert.True(campaign.CampaignEndDate > new DateOnly(2026, 4, 30));
+        });
     }
 
     [Fact]

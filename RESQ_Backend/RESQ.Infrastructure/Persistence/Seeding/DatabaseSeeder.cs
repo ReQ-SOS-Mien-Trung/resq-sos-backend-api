@@ -2654,19 +2654,27 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
         for (var i = 0; i < 11; i++)
         {
-            var start = DateOnly.FromDateTime(seed.StartUtc.AddDays(120 + i * 75));
+            var isActiveCampaign = IsSeedActiveCampaign(i);
+            var start = isActiveCampaign
+                ? ActiveCampaignStartDate(i, seed.Options.AnchorDate)
+                : DateOnly.FromDateTime(seed.StartUtc.AddDays(120 + i * 75));
+            var end = isActiveCampaign
+                ? ActiveCampaignEndDate(i, seed.Options.AnchorDate)
+                : start.AddDays(45);
             var campaign = new FundCampaign
             {
                 Code = $"FC-{start.Year}-B{i + 1:00}",
                 Name = CampaignName(i),
                 Region = "Huế - Đà Nẵng - Quảng Trị - Quảng Nam - Quảng Ngãi",
                 CampaignStartDate = start,
-                CampaignEndDate = start.AddDays(45),
+                CampaignEndDate = end,
                 TargetAmount = 1_500_000_000m + i * 150_000_000m,
                 // Calculated from seeded donation/disbursement history below.
                 TotalAmount = 0m,
                 CurrentBalance = 0m,
-                Status = "Closed",
+                Status = isActiveCampaign
+                    ? FundCampaignStatus.Active.ToString()
+                    : FundCampaignStatus.Closed.ToString(),
                 CreatedBy = seed.Admins[0].Id,
                 CreatedAt = VnToUtc(start.ToDateTime(TimeOnly.MinValue)),
                 LastModifiedBy = seed.Admins[0].Id,
@@ -5906,6 +5914,24 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         };
         return names[index % names.Length] + $" #{index + 1}";
     }
+
+    private static bool IsSeedActiveCampaign(int index) => index is 6 or 9 or 10;
+
+    private static DateOnly ActiveCampaignStartDate(int index, DateOnly anchorDate) => index switch
+    {
+        6 => anchorDate.AddDays(-50),
+        9 => anchorDate.AddDays(-45),
+        10 => anchorDate.AddDays(-42),
+        _ => throw new ArgumentOutOfRangeException(nameof(index), index, "Campaign is not configured as an active seed campaign.")
+    };
+
+    private static DateOnly ActiveCampaignEndDate(int index, DateOnly anchorDate) => index switch
+    {
+        6 => anchorDate.AddDays(90),
+        9 => anchorDate.AddDays(75),
+        10 => anchorDate.AddDays(60),
+        _ => throw new ArgumentOutOfRangeException(nameof(index), index, "Campaign is not configured as an active seed campaign.")
+    };
 
     private sealed class ConsumableInventoryHistoryPlan
     {
