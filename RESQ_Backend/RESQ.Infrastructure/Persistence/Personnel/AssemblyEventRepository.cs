@@ -99,6 +99,35 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 cancellationToken);
     }
 
+    public async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(
+        int assemblyPointId,
+        Guid rescuerId,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await _unitOfWork.Set<AssemblyParticipant>()
+            .Where(p => p.RescuerId == rescuerId && p.IsCheckedIn && !p.IsCheckedOut)
+            .Join(
+                _unitOfWork.Set<AssemblyEvent>().Where(e => e.AssemblyPointId == assemblyPointId),
+                p => p.AssemblyEventId,
+                e => e.Id,
+                (p, e) => new { Participant = p, Event = e })
+            .OrderByDescending(x => x.Participant.CheckInTime)
+            .ThenByDescending(x => x.Event.AssemblyDate)
+            .Select(x => new
+            {
+                x.Event.Id,
+                x.Event.AssemblyPointId,
+                x.Event.Status,
+                x.Event.AssemblyDate,
+                x.Event.CheckInDeadline
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null
+            ? null
+            : (row.Id, row.AssemblyPointId, row.Status, row.AssemblyDate, row.CheckInDeadline);
+    }
+
     public async Task<bool> CheckOutAsync(int eventId, Guid rescuerId,
         CancellationToken cancellationToken = default)
     {

@@ -5,10 +5,10 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Identity;
 using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
+using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Personnel;
-using RESQ.Application.UseCases.Personnel.RescueTeams.Commands;
 
 namespace RESQ.Application.UseCases.Personnel.RescueTeams.Handlers;
 
@@ -44,38 +44,11 @@ public class CreateRescueTeamCommandHandler(
         if (request.Members != null && request.Members.Any())
         {
             var eventCache = new Dictionary<int, (int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)>();
-            int? fallbackEventId = null;
 
             foreach (var mem in request.Members)
             {
                 var user = await userRepository.GetByIdAsync(mem.UserId, ct)
                     ?? throw new NotFoundException($"Không tìm thấy thành viên có ID {mem.UserId}");
-
-                var eventId = mem.EventId.GetValueOrDefault();
-                if (eventId <= 0)
-                {
-                    fallbackEventId ??= await ResolveDefaultSourceEventIdAsync(request.AssemblyPointId, ct);
-                    eventId = fallbackEventId.Value;
-                    mem.EventId = eventId;
-                }
-
-                if (!eventCache.TryGetValue(eventId, out var sourceEvent))
-                {
-                    sourceEvent = await assemblyEventRepository.GetEventByIdAsync(eventId, ct)
-                        ?? throw new NotFoundException($"Không tìm thấy sự kiện tập trung id = {mem.EventId}.");
-                    eventCache[eventId] = sourceEvent;
-                }
-
-                if (sourceEvent.AssemblyPointId != request.AssemblyPointId)
-                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} không thuộc điểm tập kết được chọn.");
-
-                if (!Enum.TryParse<AssemblyEventStatus>(sourceEvent.Status, true, out var eventStatus) ||
-                    (eventStatus != AssemblyEventStatus.Gathering &&
-                     eventStatus != AssemblyEventStatus.Completed &&
-                     eventStatus != AssemblyEventStatus.Cancelled))
-                {
-                    throw new BadRequestException($"Sự kiện tập trung id = {mem.EventId} không hợp lệ để tạo đội.");
-                }
 
                 if (user.RoleId != 3)
                     throw new BadRequestException($"Người dùng {user.LastName} {user.FirstName} không phải là nhân sự cứu hộ (Role Rescuer).");
@@ -86,9 +59,18 @@ public class CreateRescueTeamCommandHandler(
                 if (await teamRepository.IsUserInActiveTeamAsync(mem.UserId, ct))
                     throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đang thuộc đội cứu hộ khác.");
 
-                var isCheckedIn = await assemblyEventRepository.IsParticipantCheckedInAsync(eventId, mem.UserId, ct);
-                if (!isCheckedIn)
-                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in hợp lệ trong sự kiện tập trung đã chọn.");
+                var sourceEvent = await ResolveCheckedInSourceEventAsync(
+                    mem.EventId,
+                    request.AssemblyPointId,
+                    mem.UserId,
+                    eventCache,
+                    ct);
+
+                if (sourceEvent is null)
+                    throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in hợp lệ tại điểm tập kết đã chọn.");
+
+                mem.EventId = sourceEvent.Value.EventId;
+                var eventId = sourceEvent.Value.EventId;
 
                 string? roleInTeam = null;
 
@@ -179,16 +161,54 @@ public class CreateRescueTeamCommandHandler(
         return teamId;
     }
 
-    private async Task<int> ResolveDefaultSourceEventIdAsync(int assemblyPointId, CancellationToken ct)
+    private async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> ResolveCheckedInSourceEventAsync(
+        int? requestedEventId,
+        int assemblyPointId,
+        Guid userId,
+        Dictionary<int, (int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)> eventCache,
+        CancellationToken ct)
     {
-        var activeEvent = await assemblyEventRepository.GetActiveEventByAssemblyPointAsync(assemblyPointId, ct);
-        if (activeEvent.HasValue)
-            return activeEvent.Value.EventId;
+        if (requestedEventId.GetValueOrDefault() > 0)
+        {
+            var eventId = requestedEventId!.Value;
+            if (!eventCache.TryGetValue(eventId, out var requestedEvent))
+            {
+                var loadedEvent = await assemblyEventRepository.GetEventByIdAsync(eventId, ct);
+                if (loadedEvent.HasValue)
+                {
+                    requestedEvent = loadedEvent.Value;
+                    eventCache[eventId] = requestedEvent;
+                }
+            }
 
-        var latestEvent = await assemblyEventRepository.GetLatestEventByAssemblyPointAsync(assemblyPointId, ct);
-        if (latestEvent.HasValue)
-            return latestEvent.Value.EventId;
+            if (eventCache.TryGetValue(eventId, out requestedEvent)
+                && requestedEvent.AssemblyPointId == assemblyPointId
+                && IsValidTeamSourceEventStatus(requestedEvent.Status)
+                && await assemblyEventRepository.IsParticipantCheckedInAsync(eventId, userId, ct))
+            {
+                return requestedEvent;
+            }
+        }
 
-        throw new BadRequestException("Không tìm thấy sự kiện tập trung phù hợp cho điểm tập kết đã chọn.");
+        var inferredEvent = await assemblyEventRepository.GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(
+            assemblyPointId,
+            userId,
+            ct);
+
+        if (inferredEvent.HasValue && IsValidTeamSourceEventStatus(inferredEvent.Value.Status))
+        {
+            eventCache[inferredEvent.Value.EventId] = inferredEvent.Value;
+            return inferredEvent.Value;
+        }
+
+        return null;
+    }
+
+    private static bool IsValidTeamSourceEventStatus(string status)
+    {
+        return Enum.TryParse<AssemblyEventStatus>(status, true, out var eventStatus)
+            && (eventStatus == AssemblyEventStatus.Gathering
+                || eventStatus == AssemblyEventStatus.Completed
+                || eventStatus == AssemblyEventStatus.Cancelled);
     }
 }

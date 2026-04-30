@@ -40,6 +40,12 @@ public interface IAssemblyEventRepository
     Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
     Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default);
 
+    /// <summary>Tìm event mới nhất trong một điểm tập kết mà rescuer đang check-in hợp lệ.</summary>
+    Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(
+        int assemblyPointId,
+        Guid rescuerId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện (phân trang).
     /// <para><paramref name="search"/>: tìm đồng thời theo firstName, lastName, phone hoặc email (OR).</para>
     /// </summary>
