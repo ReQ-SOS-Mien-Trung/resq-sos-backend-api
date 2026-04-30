@@ -41,6 +41,11 @@ namespace RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint
 
             await unitOfWork.SaveAsync();
             await operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken);
+            await operationalHubService.PushAssemblyEventCheckedInRescuersUpdateAsync(
+                request.EventId,
+                "CheckedOut",
+                request.RescuerId,
+                cancellationToken);
 
             // Lấy tên rescuer để đưa vào nội dung thông báo
             var rescuer = await userRepository.GetByIdAsync(request.RescuerId, cancellationToken);

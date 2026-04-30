@@ -450,6 +450,7 @@ public class MissionActivityStatusExecutionServiceTests
             NullLogger<MissionActivityStatusExecutionService>.Instance,
             assemblyEventRepository ?? new RecordingAssemblyEventRepository(),
             new StubSosRequestRealtimeHubService(),
+            new StubOperationalHubService(),
             lifecycleSyncService);
     }
 
