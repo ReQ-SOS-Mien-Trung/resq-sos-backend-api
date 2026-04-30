@@ -39,7 +39,6 @@ using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.GetMetadata;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotItemModelAlerts;
-using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyPickupHistoryActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyReturnHistoryActivities;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotThresholds;
@@ -513,12 +512,10 @@ public class InventoryController(
 
     /// <summary>Xem tổng số lượng tồn kho theo danh mục của kho do người dùng hiện tại quản lý.</summary>
     [HttpGet("my-depot/quantity-by-category")]
-    [Authorize(Policy = PermissionConstants.InventoryGlobalManage)]
+    [Authorize(Policy = PermissionConstants.PolicyInventoryRead)]
     public async Task<IActionResult> GetMyDepotInventoryByCategory([FromQuery] int depotId)
     {
-        var userId = GetCurrentUserId();
-
-        var result = await _mediator.Send(new GetMyDepotInventoryByCategoryQuery(userId, depotId));
+        var result = await _mediator.Send(new GetDepotInventoryByCategoryQuery(depotId));
         return Ok(result);
     }
 
