@@ -43,8 +43,6 @@ public class CreateRescueTeamCommandHandler(
 
         if (request.Members != null && request.Members.Any())
         {
-            var eventCache = new Dictionary<int, (int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)>();
-
             foreach (var mem in request.Members)
             {
                 var user = await userRepository.GetByIdAsync(mem.UserId, ct)
@@ -60,16 +58,13 @@ public class CreateRescueTeamCommandHandler(
                     throw new ConflictException($"Nhân sự {user.LastName} {user.FirstName} đang thuộc đội cứu hộ khác.");
 
                 var sourceEvent = await ResolveCheckedInSourceEventAsync(
-                    mem.EventId,
                     request.AssemblyPointId,
                     mem.UserId,
-                    eventCache,
                     ct);
 
                 if (sourceEvent is null)
                     throw new BadRequestException($"Nhân sự {user.LastName} {user.FirstName} chưa check-in hợp lệ tại điểm tập kết đã chọn.");
 
-                mem.EventId = sourceEvent.Value.EventId;
                 var eventId = sourceEvent.Value.EventId;
 
                 string? roleInTeam = null;
@@ -162,34 +157,10 @@ public class CreateRescueTeamCommandHandler(
     }
 
     private async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> ResolveCheckedInSourceEventAsync(
-        int? requestedEventId,
         int assemblyPointId,
         Guid userId,
-        Dictionary<int, (int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)> eventCache,
         CancellationToken ct)
     {
-        if (requestedEventId.GetValueOrDefault() > 0)
-        {
-            var eventId = requestedEventId!.Value;
-            if (!eventCache.TryGetValue(eventId, out var requestedEvent))
-            {
-                var loadedEvent = await assemblyEventRepository.GetEventByIdAsync(eventId, ct);
-                if (loadedEvent.HasValue)
-                {
-                    requestedEvent = loadedEvent.Value;
-                    eventCache[eventId] = requestedEvent;
-                }
-            }
-
-            if (eventCache.TryGetValue(eventId, out requestedEvent)
-                && requestedEvent.AssemblyPointId == assemblyPointId
-                && IsValidTeamSourceEventStatus(requestedEvent.Status)
-                && await assemblyEventRepository.IsParticipantCheckedInAsync(eventId, userId, ct))
-            {
-                return requestedEvent;
-            }
-        }
-
         var inferredEvent = await assemblyEventRepository.GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(
             assemblyPointId,
             userId,
@@ -197,7 +168,6 @@ public class CreateRescueTeamCommandHandler(
 
         if (inferredEvent.HasValue && IsValidTeamSourceEventStatus(inferredEvent.Value.Status))
         {
-            eventCache[inferredEvent.Value.EventId] = inferredEvent.Value;
             return inferredEvent.Value;
         }
 
