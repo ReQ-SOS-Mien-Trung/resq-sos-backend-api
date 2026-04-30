@@ -95,7 +95,8 @@ public class CheckInAtAssemblyPointCommandHandler(
             request.AssemblyEventId,
             "CheckedIn",
             request.UserId,
-            cancellationToken);
+            cancellationToken,
+            evt.AssemblyPointId);
     }
 
     /// <summary>

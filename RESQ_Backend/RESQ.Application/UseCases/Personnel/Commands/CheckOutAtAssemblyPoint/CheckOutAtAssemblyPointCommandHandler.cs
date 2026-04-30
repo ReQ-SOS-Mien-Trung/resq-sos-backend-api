@@ -45,7 +45,8 @@ namespace RESQ.Application.UseCases.Personnel.Commands.CheckOutAtAssemblyPoint
                 request.EventId,
                 "CheckedOut",
                 request.RescuerId,
-                cancellationToken);
+                cancellationToken,
+                evt.AssemblyPointId);
 
             // Lấy tên rescuer để đưa vào nội dung thông báo
             var rescuer = await userRepository.GetByIdAsync(request.RescuerId, cancellationToken);

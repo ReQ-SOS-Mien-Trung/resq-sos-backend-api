@@ -302,10 +302,10 @@ namespace RESQ.Presentation.Controllers.Personnel
 
         /// <summary>Lấy danh sách rescuer đã check-in tại sự kiện tập trung (để coordinator chia team).</summary>
         /// <summary><paramref name="search"/>: tìm kiếm theo firstName, lastName, phone hoặc email (OR).</summary>
-        [HttpGet("events/{eventId}/checked-in-rescuers")]
+        [HttpGet("{assemblyPointId:int}/checked-in-rescuers")]
         [Authorize(Policy = PermissionConstants.PolicyPersonnelManage)]
         public async Task<IActionResult> GetCheckedInRescuers(
-            int eventId,
+            int assemblyPointId,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] RescuerType? rescuerType = null,
@@ -313,7 +313,7 @@ namespace RESQ.Presentation.Controllers.Personnel
             [FromQuery] string? abilityCategoryCode = null,
             [FromQuery] string? search = null)
         {
-            var query = new GetCheckedInRescuersQuery(eventId, pageNumber, pageSize, rescuerType, abilitySubgroupCode, abilityCategoryCode, search);
+            var query = new GetCheckedInRescuersByAssemblyPointQuery(assemblyPointId, pageNumber, pageSize, rescuerType, abilitySubgroupCode, abilityCategoryCode, search);
             var result = await _mediator.Send(query);
             return Ok(result);
         }

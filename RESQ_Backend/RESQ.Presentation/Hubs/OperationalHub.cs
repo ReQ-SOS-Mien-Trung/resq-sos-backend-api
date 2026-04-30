@@ -77,6 +77,12 @@ public class OperationalHub : Hub
     public Task UnsubscribeAssemblyEventCheckedInRescuers(int eventId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, AssemblyEventCheckedInRescuersGroup(eventId));
 
+    public Task SubscribeAssemblyPointCheckedInRescuers(int assemblyPointId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, AssemblyPointCheckedInRescuersGroup(assemblyPointId));
+
+    public Task UnsubscribeAssemblyPointCheckedInRescuers(int assemblyPointId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, AssemblyPointCheckedInRescuersGroup(assemblyPointId));
+
     public Task SubscribeDepotClosures(int depotId) =>
         Groups.AddToGroupAsync(Context.ConnectionId, DepotClosuresGroup(depotId));
 
@@ -104,6 +110,7 @@ public class OperationalHub : Hub
     internal static string UpcomingReturnsDepotGroup(int depotId) => $"operational:upcoming-returns:depot:{depotId}";
     internal static string ActivityGroup(int activityId) => $"operational:activity:{activityId}";
     internal static string AssemblyEventCheckedInRescuersGroup(int eventId) => $"operational:assembly-event:{eventId}:checked-in-rescuers";
+    internal static string AssemblyPointCheckedInRescuersGroup(int assemblyPointId) => $"operational:assembly-point:{assemblyPointId}:checked-in-rescuers";
     internal static string DepotClosuresGroup(int depotId) => $"operational:closures:depot:{depotId}";
     internal static string ClosureGroup(int closureId) => $"operational:closure:{closureId}";
     internal static string TransferGroup(int transferId) => $"operational:transfer:{transferId}";
