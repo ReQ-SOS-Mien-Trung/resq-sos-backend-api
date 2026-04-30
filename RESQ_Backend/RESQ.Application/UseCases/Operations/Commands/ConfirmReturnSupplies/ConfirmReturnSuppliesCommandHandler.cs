@@ -172,8 +172,7 @@ public class ConfirmReturnSuppliesCommandHandler(
                     LotAllocations = [new ConfirmReturnLotAllocationDto
                     {
                         LotId = lot.LotId,
-                        QuantityTaken = lot.QuantityTaken,
-                        ExpiredDate = lot.ExpiredDate
+                        QuantityTaken = lot.QuantityTaken
                     }]
                 }))
                 .ToList();
@@ -183,6 +182,8 @@ public class ConfirmReturnSuppliesCommandHandler(
         }
 
         var actualConsumables = new List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)>();
+        var lostConsumables = new List<MissionReturnLostConsumableItem>();
+        var returnNotesByItem = new Dictionary<int, string>();
         var actualConsumableQuantities = new Dictionary<int, int>();
         var actualConsumableLotQuantities = new Dictionary<(int ItemModelId, int LotId), int>();
 
@@ -193,6 +194,9 @@ public class ConfirmReturnSuppliesCommandHandler(
 
             if (consumableItem.Quantity < 0)
                 throw new BadRequestException($"Số lượng consumable trả về cho item #{consumableItem.ItemModelId} không hợp lệ.");
+
+            if (!string.IsNullOrWhiteSpace(consumableItem.Note))
+                returnNotesByItem[consumableItem.ItemModelId] = consumableItem.Note.Trim();
 
             var requestedLots = (consumableItem.LotAllocations ?? [])
                 .Where(lot => lot.QuantityTaken > 0)
@@ -221,7 +225,7 @@ public class ConfirmReturnSuppliesCommandHandler(
                     actualConsumables.Add((
                         consumableItem.ItemModelId,
                         requestedLot.QuantityTaken,
-                        requestedLot.ExpiredDate,
+                        null,
                         requestedLot.LotId));
                     actualConsumableQuantities[consumableItem.ItemModelId] =
                         actualConsumableQuantities.GetValueOrDefault(consumableItem.ItemModelId) + requestedLot.QuantityTaken;
@@ -240,7 +244,7 @@ public class ConfirmReturnSuppliesCommandHandler(
                 actualConsumables.Add((
                     consumableItem.ItemModelId,
                     consumableItem.Quantity,
-                    consumableItem.ExpiredDate,
+                    null,
                     null));
                 actualConsumableQuantities[consumableItem.ItemModelId] =
                     actualConsumableQuantities.GetValueOrDefault(consumableItem.ItemModelId) + consumableItem.Quantity;
@@ -257,11 +261,44 @@ public class ConfirmReturnSuppliesCommandHandler(
                     throw new BadRequestException(
                         $"Lot #{expectedLot.LotId} của item #{expectedLots.Key} trả về vượt số lượng expected return ({actualLotQuantity}/{expectedLot.QuantityTaken}).");
                 }
+
+                var missingQuantity = expectedLot.QuantityTaken - actualLotQuantity;
+                if (missingQuantity > 0)
+                {
+                    var note = ResolveRequiredReturnNote(returnNotesByItem, expectedLots.Key,
+                        $"Item consumable #{expectedLots.Key}: phải nhập note khi số lượng trả về thiếu so với expected.");
+                    lostConsumables.Add(new MissionReturnLostConsumableItem(
+                        expectedLots.Key,
+                        missingQuantity,
+                        expectedLot.LotId,
+                        note));
+                }
             }
+        }
+
+        foreach (var plannedConsumable in plannedConsumableQuantities)
+        {
+            if (expectedConsumableLotsByItem.ContainsKey(plannedConsumable.Key))
+                continue;
+
+            var actualQuantity = actualConsumableQuantities.GetValueOrDefault(plannedConsumable.Key);
+            var missingQuantity = plannedConsumable.Value - actualQuantity;
+            if (missingQuantity <= 0)
+                continue;
+
+            var note = ResolveRequiredReturnNote(returnNotesByItem, plannedConsumable.Key,
+                $"Item consumable #{plannedConsumable.Key}: phải nhập note khi số lượng trả về thiếu so với expected.");
+            lostConsumables.Add(new MissionReturnLostConsumableItem(
+                plannedConsumable.Key,
+                missingQuantity,
+                null,
+                note));
         }
 
         var explicitReusableItems = new List<(int ReusableItemId, string? Condition, string? Note)>();
         var explicitReusableIdsSet = new HashSet<int>();
+        var submittedReusableIdsByItem = new Dictionary<int, HashSet<int>>();
+        var lostReusableItems = new List<MissionReturnLostReusableItem>();
         var legacyReusableQuantities = new List<(int ItemModelId, int Quantity)>();
         var actualReusableQuantities = new Dictionary<int, int>();
 
@@ -274,21 +311,17 @@ public class ConfirmReturnSuppliesCommandHandler(
                 .Where(unit => unit.ReusableItemId > 0)
                 .ToList();
 
-            if (reusableItem.Quantity.HasValue && reusableItem.Quantity.Value < 0)
-                throw new BadRequestException($"Số lượng reusable fallback cho item #{reusableItem.ItemModelId} không hợp lệ.");
-
-            if (!hasExpectedReusableSnapshot && explicitUnits.Count > 0 && reusableItem.Quantity.HasValue && reusableItem.Quantity.Value != explicitUnits.Count)
-                throw new BadRequestException(
-                    $"Item reusable #{reusableItem.ItemModelId}: quantity không khớp số lượng units thực tế được gửi lên.");
-
-            if (hasExpectedReusableSnapshot && explicitUnits.Count == 0 && (reusableItem.Quantity ?? 0) > 0)
-                throw new BadRequestException(
-                    $"Item reusable #{reusableItem.ItemModelId}: mission này yêu cầu xác nhận trả theo từng unit hoặc serial, không cho quantity fallback.");
-
             foreach (var unit in explicitUnits)
             {
                 if (!explicitReusableIdsSet.Add(unit.ReusableItemId))
                     throw new BadRequestException($"Reusable unit #{unit.ReusableItemId} bị gửi trùng trong payload confirm return.");
+
+                if (!submittedReusableIdsByItem.TryGetValue(reusableItem.ItemModelId, out var submittedReusableIds))
+                {
+                    submittedReusableIds = [];
+                    submittedReusableIdsByItem[reusableItem.ItemModelId] = submittedReusableIds;
+                }
+                submittedReusableIds.Add(unit.ReusableItemId);
 
                 if (hasExpectedReusableSnapshot)
                 {
@@ -301,18 +334,35 @@ public class ConfirmReturnSuppliesCommandHandler(
                             $"Reusable unit #{unit.ReusableItemId} không khớp item model #{reusableItem.ItemModelId}.");
                 }
 
-                explicitReusableItems.Add((unit.ReusableItemId, unit.Condition, unit.Note));
-            }
+                if (!unit.IsReturned)
+                {
+                    var note = ResolveRequiredReusableLostNote(unit.Note, unit.ReusableItemId);
+                    lostReusableItems.Add(new MissionReturnLostReusableItem(unit.ReusableItemId, note));
+                    continue;
+                }
 
-            if (!hasExpectedReusableSnapshot && explicitUnits.Count == 0 && (reusableItem.Quantity ?? 0) > 0)
-            {
-                legacyReusableQuantities.Add((reusableItem.ItemModelId, reusableItem.Quantity!.Value));
+                explicitReusableItems.Add((unit.ReusableItemId, unit.Condition, unit.Note));
             }
 
             actualReusableQuantities[reusableItem.ItemModelId] =
                 actualReusableQuantities.GetValueOrDefault(reusableItem.ItemModelId)
-                + explicitUnits.Count
-                + (!hasExpectedReusableSnapshot && explicitUnits.Count == 0 ? reusableItem.Quantity ?? 0 : 0);
+                + explicitUnits.Count(unit => unit.IsReturned);
+        }
+
+        if (hasExpectedReusableSnapshot)
+        {
+            foreach (var expectedReusable in expectedReusableUnitsByItem)
+            {
+                var submittedReusableIds = submittedReusableIdsByItem.GetValueOrDefault(expectedReusable.Key) ?? [];
+                var missingUnitIds = expectedReusable.Value
+                    .Select(unit => unit.ReusableItemId)
+                    .Where(id => !submittedReusableIds.Contains(id))
+                    .ToList();
+
+                if (missingUnitIds.Count > 0)
+                    throw new BadRequestException(
+                        $"Item reusable #{expectedReusable.Key}: phải gửi các unit bị thiếu ({string.Join(", ", missingUnitIds)}) với isReturned=false và note.");
+            }
         }
 
         var discrepancyDetected = false;
@@ -354,6 +404,8 @@ public class ConfirmReturnSuppliesCommandHandler(
                 actualConsumables,
                 explicitReusableItems,
                 legacyReusableQuantities,
+                lostConsumables,
+                lostReusableItems,
                 request.DiscrepancyNote,
                 cancellationToken);
         }
@@ -363,6 +415,7 @@ public class ConfirmReturnSuppliesCommandHandler(
         }
 
         HydrateExpectedReturnData(executionResult, validItems);
+        ApplyReturnNotes(executionResult, returnNotesByItem);
 
         await MissionSupplyExecutionSnapshotHelper.PersistReturnExecutionAsync(
             activity,
@@ -451,6 +504,38 @@ public class ConfirmReturnSuppliesCommandHandler(
 
     private static bool IsReusableItem(RESQ.Domain.Entities.Logistics.ItemModelRecord itemRecord) =>
         string.Equals(itemRecord.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase);
+
+    private static string ResolveRequiredReturnNote(
+        IReadOnlyDictionary<int, string> returnNotesByItem,
+        int itemModelId,
+        string errorMessage)
+    {
+        if (returnNotesByItem.TryGetValue(itemModelId, out var note) && !string.IsNullOrWhiteSpace(note))
+            return note.Trim();
+
+        throw new BadRequestException(errorMessage);
+    }
+
+    private static string ResolveRequiredReusableLostNote(
+        string? unitNote,
+        int reusableItemId)
+    {
+        if (!string.IsNullOrWhiteSpace(unitNote))
+            return unitNote.Trim();
+
+        throw new BadRequestException($"Reusable unit #{reusableItemId}: phải nhập note khi isReturned=false.");
+    }
+
+    private static void ApplyReturnNotes(
+        MissionSupplyReturnExecutionResult executionResult,
+        IReadOnlyDictionary<int, string> returnNotesByItem)
+    {
+        foreach (var item in executionResult.Items)
+        {
+            if (returnNotesByItem.TryGetValue(item.ItemModelId, out var note) && !string.IsNullOrWhiteSpace(note))
+                item.ReturnNote = note.Trim();
+        }
+    }
 
     private static SupplyExecutionReusableUnitDto CloneReusableUnit(SupplyExecutionReusableUnitDto unit) => new()
     {

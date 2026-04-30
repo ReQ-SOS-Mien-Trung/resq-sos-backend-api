@@ -11,6 +11,16 @@ using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.Repositories.Logistics;
 
+public record MissionReturnLostConsumableItem(
+    int ItemModelId,
+    int Quantity,
+    int? SupplyInventoryLotId,
+    string Note);
+
+public record MissionReturnLostReusableItem(
+    int ReusableItemId,
+    string Note);
+
 public interface IDepotInventoryRepository
 {
     Task<int?> GetActiveDepotIdByManagerAsync(Guid userId, CancellationToken cancellationToken = default);
@@ -150,6 +160,29 @@ public interface IDepotInventoryRepository
         string? discrepancyNote,
         CancellationToken cancellationToken = default);
 
+    Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate)> consumableItems,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        List<MissionReturnLostConsumableItem> lostConsumableItems,
+        List<MissionReturnLostReusableItem> lostReusableItems,
+        string? discrepancyNote,
+        CancellationToken cancellationToken = default)
+        => ReceiveMissionReturnAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            consumableItems,
+            reusableItems,
+            legacyReusableQuantities,
+            discrepancyNote,
+            cancellationToken);
+
     Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnByLotAsync(
         int depotId,
         int missionId,
@@ -169,6 +202,33 @@ public interface IDepotInventoryRepository
             consumableItems.Select(item => (item.ItemModelId, item.Quantity, item.ExpiredDate)).ToList(),
             reusableItems,
             legacyReusableQuantities,
+            discrepancyNote,
+            cancellationToken);
+    }
+
+    Task<MissionSupplyReturnExecutionResult> ReceiveMissionReturnByLotAsync(
+        int depotId,
+        int missionId,
+        int activityId,
+        Guid performedBy,
+        List<(int ItemModelId, int Quantity, DateTime? ExpiredDate, int? SupplyInventoryLotId)> consumableItems,
+        List<(int ReusableItemId, string? Condition, string? Note)> reusableItems,
+        List<(int ItemModelId, int Quantity)> legacyReusableQuantities,
+        List<MissionReturnLostConsumableItem> lostConsumableItems,
+        List<MissionReturnLostReusableItem> lostReusableItems,
+        string? discrepancyNote,
+        CancellationToken cancellationToken = default)
+    {
+        return ReceiveMissionReturnAsync(
+            depotId,
+            missionId,
+            activityId,
+            performedBy,
+            consumableItems.Select(item => (item.ItemModelId, item.Quantity, item.ExpiredDate)).ToList(),
+            reusableItems,
+            legacyReusableQuantities,
+            lostConsumableItems,
+            lostReusableItems,
             discrepancyNote,
             cancellationToken);
     }
