@@ -18,6 +18,7 @@ public class CreateRescueTeamCommandHandler(
     IAssemblyEventRepository assemblyEventRepository,
     IUserRepository userRepository,
     IAdminRealtimeHubService adminRealtimeHubService,
+    IOperationalHubService operationalHubService,
     IFirebaseService firebaseService,
     IUnitOfWork unitOfWork,
     ILogger<CreateRescueTeamCommandHandler> logger) : IRequestHandler<CreateRescueTeamCommand, int>
@@ -38,6 +39,7 @@ public class CreateRescueTeamCommandHandler(
             request.MaxMembers);
 
         team.LoadAssemblyPointName(ap.Name!);
+        var touchedEventIds = new HashSet<int>();
 
         if (request.Members != null && request.Members.Any())
         {
@@ -120,6 +122,7 @@ public class CreateRescueTeamCommandHandler(
                     user.RescuerType?.ToString() ?? "Volunteer",
                     roleInTeam ?? "Thành viên",
                     eventId);
+                touchedEventIds.Add(eventId);
             }
         }
 
@@ -144,6 +147,14 @@ public class CreateRescueTeamCommandHandler(
                 ChangedAt = DateTime.UtcNow
             },
             ct);
+
+        foreach (var eventId in touchedEventIds)
+        {
+            await operationalHubService.PushAssemblyEventCheckedInRescuersUpdateAsync(
+                eventId,
+                "TeamAssignmentChanged",
+                cancellationToken: ct);
+        }
 
         if (memberIds.Count > 0)
         {

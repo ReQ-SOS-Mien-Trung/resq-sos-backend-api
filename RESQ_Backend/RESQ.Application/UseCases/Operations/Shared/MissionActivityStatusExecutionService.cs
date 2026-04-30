@@ -30,6 +30,7 @@ public class MissionActivityStatusExecutionService(
     ILogger<MissionActivityStatusExecutionService> logger,
     IAssemblyEventRepository assemblyEventRepository,
     ISosRequestRealtimeHubService sosRequestRealtimeHubService,
+    IOperationalHubService operationalHubService,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService
 ) : IMissionActivityStatusExecutionService
 {
@@ -47,6 +48,7 @@ public class MissionActivityStatusExecutionService(
     private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
     private readonly ISosRequestRealtimeHubService _sosRequestRealtimeHubService = sosRequestRealtimeHubService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
     private readonly IRescueTeamMissionLifecycleSyncService _rescueTeamMissionLifecycleSyncService = rescueTeamMissionLifecycleSyncService;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
@@ -511,6 +513,10 @@ public class MissionActivityStatusExecutionService(
             if (shouldSave)
             {
                 await _unitOfWork.SaveAsync();
+                await _operationalHubService.PushAssemblyEventCheckedInRescuersUpdateAsync(
+                    eventId,
+                    "ReturnedCheckIn",
+                    cancellationToken: cancellationToken);
             }
         }
         catch (Exception ex)

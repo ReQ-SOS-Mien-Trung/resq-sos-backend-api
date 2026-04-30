@@ -91,6 +91,11 @@ public class CheckInAtAssemblyPointCommandHandler(
 
         await unitOfWork.SaveAsync();
         await operationalHubService.PushAssemblyPointListUpdateAsync(cancellationToken);
+        await operationalHubService.PushAssemblyEventCheckedInRescuersUpdateAsync(
+            request.AssemblyEventId,
+            "CheckedIn",
+            request.UserId,
+            cancellationToken);
     }
 
     /// <summary>

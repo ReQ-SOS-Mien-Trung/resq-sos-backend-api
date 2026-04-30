@@ -6,6 +6,12 @@ public interface IOperationalHubService
 {
     Task PushAssemblyPointListUpdateAsync(CancellationToken cancellationToken = default);
 
+    Task PushAssemblyEventCheckedInRescuersUpdateAsync(
+        int eventId,
+        string operation,
+        Guid? rescuerId = null,
+        CancellationToken cancellationToken = default);
+
     Task PushDepotInventoryUpdateAsync(
         int depotId,
         string operation,
