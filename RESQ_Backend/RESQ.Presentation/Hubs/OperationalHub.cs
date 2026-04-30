@@ -71,6 +71,12 @@ public class OperationalHub : Hub
     public Task UnsubscribeActivity(int activityId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, ActivityGroup(activityId));
 
+    public Task SubscribeAssemblyEventCheckedInRescuers(int eventId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, AssemblyEventCheckedInRescuersGroup(eventId));
+
+    public Task UnsubscribeAssemblyEventCheckedInRescuers(int eventId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, AssemblyEventCheckedInRescuersGroup(eventId));
+
     public Task SubscribeDepotClosures(int depotId) =>
         Groups.AddToGroupAsync(Context.ConnectionId, DepotClosuresGroup(depotId));
 
@@ -97,6 +103,7 @@ public class OperationalHub : Hub
     internal static string DepotActivitiesGroup(int depotId) => $"operational:activities:depot:{depotId}";
     internal static string UpcomingReturnsDepotGroup(int depotId) => $"operational:upcoming-returns:depot:{depotId}";
     internal static string ActivityGroup(int activityId) => $"operational:activity:{activityId}";
+    internal static string AssemblyEventCheckedInRescuersGroup(int eventId) => $"operational:assembly-event:{eventId}:checked-in-rescuers";
     internal static string DepotClosuresGroup(int depotId) => $"operational:closures:depot:{depotId}";
     internal static string ClosureGroup(int closureId) => $"operational:closure:{closureId}";
     internal static string TransferGroup(int transferId) => $"operational:transfer:{transferId}";

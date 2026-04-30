@@ -16,6 +16,7 @@ public sealed class OperationalHubService(
     private readonly ILogger<OperationalHubService> _logger = logger;
 
     private const string EventApListUpdate = "ReceiveAssemblyPointListUpdate";
+    private const string EventAssemblyEventCheckedInRescuersUpdate = "ReceiveAssemblyEventCheckedInRescuersUpdate";
     private const string EventDepotInventory = "ReceiveDepotInventoryUpdate";
     private const string EventLogisticsUpdate = "ReceiveLogisticsUpdate";
     private const string EventSupplyRequestUpdate = "ReceiveSupplyRequestUpdate";
@@ -36,6 +37,36 @@ public sealed class OperationalHubService(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[OperationalHub] Failed to push {Event}", EventApListUpdate);
+        }
+    }
+
+    public async Task PushAssemblyEventCheckedInRescuersUpdateAsync(
+        int eventId,
+        string operation,
+        Guid? rescuerId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = new
+            {
+                eventId,
+                operation,
+                rescuerId,
+                changedAt = DateTime.UtcNow
+            };
+
+            await _hubContext.Clients
+                .Group(OperationalHub.AssemblyEventCheckedInRescuersGroup(eventId))
+                .SendAsync(EventAssemblyEventCheckedInRescuersUpdate, payload, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "[OperationalHub] Failed to push {Event} for EventId={EventId}",
+                EventAssemblyEventCheckedInRescuersUpdate,
+                eventId);
         }
     }
 

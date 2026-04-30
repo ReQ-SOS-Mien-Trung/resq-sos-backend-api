@@ -11,6 +11,7 @@ using RESQ.Domain.Entities.Identity;
 using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Identity;
 using RESQ.Domain.Enum.Personnel;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Personnel.Commands;
 
@@ -77,6 +78,7 @@ public class CreateRescueTeamCommandHandlerTests
             assemblyEventRepository,
             userRepository,
             new NoOpAdminRealtimeHubService(),
+            new StubOperationalHubService(),
             new NoOpFirebaseService(),
             unitOfWork,
             NullLogger<CreateRescueTeamCommandHandler>.Instance);
@@ -145,6 +147,7 @@ public class CreateRescueTeamCommandHandlerTests
             assemblyEventRepository,
             userRepository,
             new NoOpAdminRealtimeHubService(),
+            new StubOperationalHubService(),
             new NoOpFirebaseService(),
             new StubUnitOfWork(),
             NullLogger<CreateRescueTeamCommandHandler>.Instance);
@@ -198,6 +201,7 @@ public class CreateRescueTeamCommandHandlerTests
                 }
             }),
             new NoOpAdminRealtimeHubService(),
+            new StubOperationalHubService(),
             new NoOpFirebaseService(),
             new StubUnitOfWork(),
             NullLogger<CreateRescueTeamCommandHandler>.Instance);

@@ -257,6 +257,7 @@ public class RescueTeamMissionLifecycleSyncServiceTests
         }
 
         public Task PushAssemblyPointListUpdateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PushAssemblyEventCheckedInRescuersUpdateAsync(int eventId, string operation, Guid? rescuerId = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushDepotInventoryUpdateAsync(int depotId, string operation, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushSupplyRequestUpdateAsync(SupplyRequestRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushDepotActivityUpdateAsync(DepotActivityRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
