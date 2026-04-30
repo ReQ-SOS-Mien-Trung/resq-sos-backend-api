@@ -171,7 +171,7 @@ public class CreateRescueTeamCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_Throws_WhenMemberEventDoesNotBelongToAssemblyPoint()
+    public async Task Handle_Throws_WhenMemberDoesNotHaveValidCheckInAtAssemblyPoint()
     {
         var memberId = Guid.NewGuid();
 
@@ -224,7 +224,7 @@ public class CreateRescueTeamCommandHandlerTests
         var ex = await Assert.ThrowsAsync<RESQ.Application.Exceptions.BadRequestException>(
             () => handler.Handle(command, CancellationToken.None));
 
-        Assert.Contains("không thuộc điểm tập kết", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("chưa check-in hợp lệ", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class StubAssemblyPointRepository(AssemblyPointModel? assemblyPoint) : IAssemblyPointRepository
@@ -265,6 +265,21 @@ public class CreateRescueTeamCommandHandlerTests
 
         public Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default)
             => Task.FromResult(checkedInUsersByEvent.TryGetValue(eventId, out var users) && users.Count > 0);
+
+        public Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(int assemblyPointId, Guid rescuerId, CancellationToken cancellationToken = default)
+        {
+            var evt = checkedInUsersByEvent
+                .Where(pair => pair.Value.Contains(rescuerId))
+                .Select(pair => eventsById.TryGetValue(pair.Key, out var evt) ? evt : default)
+                .Where(evt => evt.EventId > 0 && evt.AssemblyPointId == assemblyPointId)
+                .OrderByDescending(evt => evt.EventId)
+                .FirstOrDefault();
+
+            return Task.FromResult(evt.EventId > 0
+                ? ((int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?)
+                    (evt.EventId, evt.AssemblyPointId, evt.Status, DateTime.UtcNow, DateTime.UtcNow.AddHours(1))
+                : null);
+        }
 
         public Task<(int EventId, string Status)?> GetActiveEventByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
         {
