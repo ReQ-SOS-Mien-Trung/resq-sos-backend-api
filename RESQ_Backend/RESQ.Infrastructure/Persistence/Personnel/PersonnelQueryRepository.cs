@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -195,17 +197,6 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         if (rescuerTypeStr != null)
             query = query.Where(u => u.RescuerProfile != null && u.RescuerProfile.RescuerType!.ToLower() == rescuerTypeStr);
 
-        // Filter: search (OR across firstName, lastName, phone, email)
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = search.Trim().ToLower();
-            query = query.Where(u =>
-                (u.FirstName != null && u.FirstName.ToLower().Contains(term)) ||
-                (u.LastName  != null && u.LastName.ToLower().Contains(term))  ||
-                (u.Phone     != null && u.Phone.ToLower().Contains(term))     ||
-                (u.Email     != null && u.Email.ToLower().Contains(term)));
-        }
-
         // Filter: ability subgroup
         if (abilitySubgroupCode != null)
             query = query.Where(u => u.UserAbilities.Any(ua =>
@@ -256,15 +247,57 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
                 inApCodeUserIds.Contains(u.Id));
         }
 
+        var hasSearch = !string.IsNullOrWhiteSpace(search);
+        var normalizedSearchTerm = string.Empty;
+        var queryBeforeSearch = query;
+
+        if (hasSearch)
+        {
+            var term = search!.Trim().ToLower();
+            normalizedSearchTerm = NormalizeForSearch(term);
+
+            query = query.Where(u =>
+                (u.FirstName != null && u.FirstName.ToLower().Contains(term)) ||
+                (u.LastName != null && u.LastName.ToLower().Contains(term)) ||
+                (((u.FirstName ?? "") + " " + (u.LastName ?? "")).ToLower().Contains(term)) ||
+                (((u.LastName ?? "") + " " + (u.FirstName ?? "")).ToLower().Contains(term)) ||
+                (u.Username != null && u.Username.ToLower().Contains(term)) ||
+                (u.Phone != null && u.Phone.ToLower().Contains(term)) ||
+                (u.Email != null && u.Email.ToLower().Contains(term)));
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var users = await query
-            .OrderByDescending(u => u.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .Include(u => u.UserAbilities)
-                .ThenInclude(ua => ua.Ability)
-            .ToListAsync(cancellationToken);
+        List<User> users;
+
+        if (hasSearch && totalCount == 0)
+        {
+            var normalizedUsers = await queryBeforeSearch
+                .OrderByDescending(u => u.CreatedAt)
+                .Include(u => u.UserAbilities)
+                    .ThenInclude(ua => ua.Ability)
+                .ToListAsync(cancellationToken);
+
+            var matchedUsers = normalizedUsers
+                .Where(u => MatchesNormalizedSearch(u, normalizedSearchTerm))
+                .ToList();
+
+            totalCount = matchedUsers.Count;
+            users = matchedUsers
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+        }
+        else
+        {
+            users = await query
+                .OrderByDescending(u => u.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Include(u => u.UserAbilities)
+                    .ThenInclude(ua => ua.Ability)
+                .ToListAsync(cancellationToken);
+        }
 
         var userIds = users.Select(u => u.Id).ToList();
 
@@ -309,6 +342,41 @@ public class PersonnelQueryRepository(IUnitOfWork unitOfWork) : IPersonnelQueryR
         }).ToList();
 
         return new PagedResult<RescuerModel>(models, totalCount, pageNumber, pageSize);
+    }
+
+    private static bool MatchesNormalizedSearch(User user, string normalizedTerm)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTerm))
+            return true;
+
+        return NormalizeForSearch(user.FirstName).Contains(normalizedTerm) ||
+               NormalizeForSearch(user.LastName).Contains(normalizedTerm) ||
+               NormalizeForSearch($"{user.FirstName} {user.LastName}").Contains(normalizedTerm) ||
+               NormalizeForSearch($"{user.LastName} {user.FirstName}").Contains(normalizedTerm) ||
+               NormalizeForSearch(user.Username).Contains(normalizedTerm) ||
+               NormalizeForSearch(user.Phone).Contains(normalizedTerm) ||
+               NormalizeForSearch(user.Email).Contains(normalizedTerm);
+    }
+
+    private static string NormalizeForSearch(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+                builder.Append(character);
+        }
+
+        return builder
+            .ToString()
+            .Normalize(NormalizationForm.FormC)
+            .Replace('đ', 'd')
+            .Replace('Đ', 'd');
     }
 
     public async Task<List<RescueTeamModel>> GetAllAvailableTeamsAsync(CancellationToken cancellationToken = default)
