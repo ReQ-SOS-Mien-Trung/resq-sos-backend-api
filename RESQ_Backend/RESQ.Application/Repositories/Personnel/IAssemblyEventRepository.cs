@@ -51,6 +51,15 @@ public interface IAssemblyEventRepository
         string? search = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Lấy danh sách rescuer đã check-in từ tất cả sự kiện thuộc một điểm tập kết.</summary>
+    Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersByAssemblyPointAsync(
+        int assemblyPointId, int pageNumber, int pageSize,
+        RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
+        string? abilitySubgroupCode = null,
+        string? abilityCategoryCode = null,
+        string? search = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Lấy danh sách sự kiện tập trung của một điểm tập kết (phân trang).</summary>
     Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 

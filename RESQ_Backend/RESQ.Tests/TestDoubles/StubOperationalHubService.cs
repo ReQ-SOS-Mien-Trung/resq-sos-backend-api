@@ -13,7 +13,8 @@ internal sealed class StubOperationalHubService : IOperationalHubService
         int eventId,
         string operation,
         Guid? rescuerId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? assemblyPointId = null)
         => Task.CompletedTask;
 
     public Task PushDepotInventoryUpdateAsync(int depotId, string operation, CancellationToken cancellationToken = default)

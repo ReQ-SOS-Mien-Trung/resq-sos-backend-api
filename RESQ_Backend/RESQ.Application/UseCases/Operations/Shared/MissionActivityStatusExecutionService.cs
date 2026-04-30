@@ -516,7 +516,8 @@ public class MissionActivityStatusExecutionService(
                 await _operationalHubService.PushAssemblyEventCheckedInRescuersUpdateAsync(
                     eventId,
                     "ReturnedCheckIn",
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken,
+                    assemblyPointId: assemblyPointId);
             }
         }
         catch (Exception ex)

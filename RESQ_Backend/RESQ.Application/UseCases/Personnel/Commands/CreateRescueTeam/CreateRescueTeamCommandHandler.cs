@@ -153,7 +153,8 @@ public class CreateRescueTeamCommandHandler(
             await operationalHubService.PushAssemblyEventCheckedInRescuersUpdateAsync(
                 eventId,
                 "TeamAssignmentChanged",
-                cancellationToken: ct);
+                cancellationToken: ct,
+                assemblyPointId: request.AssemblyPointId);
         }
 
         if (memberIds.Count > 0)
