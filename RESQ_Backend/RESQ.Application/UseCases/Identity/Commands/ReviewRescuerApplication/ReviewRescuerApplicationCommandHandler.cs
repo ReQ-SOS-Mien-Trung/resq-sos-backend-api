@@ -56,6 +56,9 @@ namespace RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication
                 {
                     // 1. Chuyển RoleId sang Rescuer (3) để được cấp quyền cứu hộ
                     user.RoleId = 3;
+                    user.IsEmailVerified = true;
+                    user.EmailVerificationToken = null;
+                    user.EmailVerificationTokenExpiry = null;
                     user.IsEligibleRescuer = true;
                     user.RescuerStep = 3; // Hoàn thành onboard/duyệt
                     user.ApprovedBy = request.ReviewedBy;

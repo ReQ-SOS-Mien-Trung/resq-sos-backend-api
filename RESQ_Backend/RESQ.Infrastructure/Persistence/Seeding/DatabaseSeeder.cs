@@ -792,13 +792,13 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             var name = VietnameseName(i + 40);
             var rescuerNumber = i + 1;
             var user = CreateUser($"rescuer{rescuerNumber:000}", 3, rescuerNumber, name.Last, name.First, SeedConstants.RescuerPasswordHash, Area(i), seed);
+            user.IsEmailVerified = true;
             if (IsRecentRescuerNumber(rescuerNumber))
             {
                 var recentIndex = RecentRescuerIndex(rescuerNumber);
                 var createdAt = RecentRescuerCreatedAt(seed, recentIndex);
                 user.CreatedAt = createdAt;
                 user.UpdatedAt = createdAt.AddHours(8 + recentIndex % 18);
-                user.IsEmailVerified = true;
             }
 
             users.Add(user);
@@ -902,37 +902,96 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             deployableRescuers[i].AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id;
         }
 
-        var profiles = seed.Rescuers.Select((user, index) => new RescuerProfile
+        var profiles = seed.Rescuers.Select((user, index) =>
         {
-            UserId = user.Id,
-            RescuerType = index % 4 == 0 ? "Core" : "Volunteer",
-            IsEligibleRescuer = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id),
-            Step = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id) ? 5 : 4,
-            ApprovedBy = seed.Admins[0].Id,
-            ApprovedAt = IsRecentRescuerNumber(index + 1)
-                ? RecentRescuerApprovedAt(seed, user.CreatedAt, RecentRescuerIndex(index + 1))
-                : seed.StartUtc.AddDays(20 + index)
+            var isApprovedRescuer = index < EligibleAssignedRescuerCount || standbyRescuerIds.Contains(user.Id);
+            return new RescuerProfile
+            {
+                UserId = user.Id,
+                RescuerType = index % 4 == 0 ? "Core" : "Volunteer",
+                IsEligibleRescuer = isApprovedRescuer,
+                Step = isApprovedRescuer ? 3 : 0,
+                ApprovedBy = isApprovedRescuer ? seed.Admins[0].Id : null,
+                ApprovedAt = null
+            };
         }).ToList();
 
         _db.RescuerProfiles.AddRange(profiles);
         await _db.SaveChangesAsync(cancellationToken);
 
         var applications = new List<RescuerApplication>();
-        for (var i = 0; i < 45; i++)
+        var profilesByUserId = profiles.ToDictionary(profile => profile.UserId);
+        var approvedRescuerIds = profiles
+            .Where(profile => profile.IsEligibleRescuer)
+            .Select(profile => profile.UserId)
+            .ToHashSet();
+        var approvedApplicationUsers = seed.Rescuers
+            .Where(rescuer => approvedRescuerIds.Contains(rescuer.Id))
+            .ToList();
+        var nonApprovedApplicationUsers = seed.Rescuers
+            .Where(rescuer => !approvedRescuerIds.Contains(rescuer.Id))
+            .ToList();
+
+        var applicationIndex = 0;
+        foreach (var user in approvedApplicationUsers)
         {
-            var approved = i < 35;
-            var rejected = i >= 40;
-            var userId = approved ? seed.Rescuers[i].Id : seed.Victims[i].Id;
-            var submitted = seed.StartUtc.AddDays(50 + i * 9);
+            var rescuerNumber = seed.Rescuers.IndexOf(user) + 1;
+            var submitted = IsRecentRescuerNumber(rescuerNumber)
+                ? user.CreatedAt!.Value.AddHours(4 + RecentRescuerIndex(rescuerNumber) % 12)
+                : seed.StartUtc.AddDays(50 + applicationIndex * 3);
+            var reviewedAt = IsRecentRescuerNumber(rescuerNumber)
+                ? RecentRescuerApprovedAt(seed, user.CreatedAt, RecentRescuerIndex(rescuerNumber))
+                : submitted.AddDays(2 + applicationIndex % 4);
+            if (reviewedAt <= submitted)
+            {
+                reviewedAt = submitted.AddDays(1);
+            }
+
             applications.Add(new RescuerApplication
             {
-                UserId = userId,
-                Status = approved ? "Approved" : rejected ? "Rejected" : "Pending",
+                UserId = user.Id,
+                Status = "Approved",
                 SubmittedAt = submitted,
-                ReviewedAt = rejected || approved ? submitted.AddDays(2 + i % 4) : null,
-                ReviewedBy = rejected || approved ? seed.Admins[0].Id : null,
-                AdminNote = approved ? "Đủ hồ sơ và đã xác minh kỹ năng cơ bản" : rejected ? "Thiếu giấy tờ xác minh" : null
+                ReviewedAt = reviewedAt,
+                ReviewedBy = seed.Admins[0].Id,
+                AdminNote = "Đủ hồ sơ và đã xác minh kỹ năng cơ bản"
             });
+
+            profilesByUserId[user.Id].ApprovedAt = reviewedAt;
+            profilesByUserId[user.Id].ApprovedBy = seed.Admins[0].Id;
+            applicationIndex++;
+        }
+
+        foreach (var user in nonApprovedApplicationUsers.Take(5))
+        {
+            var submitted = user.CreatedAt!.Value.AddDays(2 + applicationIndex % 4);
+            applications.Add(new RescuerApplication
+            {
+                UserId = user.Id,
+                Status = "Pending",
+                SubmittedAt = submitted,
+                AdminNote = null
+            });
+
+            profilesByUserId[user.Id].Step = 1;
+            applicationIndex++;
+        }
+
+        foreach (var user in nonApprovedApplicationUsers.Skip(5).Take(5))
+        {
+            var submitted = user.CreatedAt!.Value.AddDays(2 + applicationIndex % 4);
+            applications.Add(new RescuerApplication
+            {
+                UserId = user.Id,
+                Status = "Rejected",
+                SubmittedAt = submitted,
+                ReviewedAt = submitted.AddDays(2 + applicationIndex % 3),
+                ReviewedBy = seed.Admins[0].Id,
+                AdminNote = "Thiếu giấy tờ xác minh"
+            });
+
+            profilesByUserId[user.Id].Step = 1;
+            applicationIndex++;
         }
 
         _db.RescuerApplications.AddRange(applications);
@@ -2750,41 +2809,6 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             CreatedAt = donation.PaidAt ?? donation.CreatedAt
         }));
 
-        var depotFundCounts = new[] { 3, 2, 1, 3, 2, 1, 1 };
-        var depotFundBalanceRatios = new[]
-        {
-            new[] { 0.50m, 0.30m, 0.20m },
-            new[] { 0.65m, 0.35m },
-            new[] { 1.00m }
-        };
-        foreach (var depot in seed.Depots)
-        {
-            var fundCount = depotFundCounts[(depot.Id - 1) % depotFundCounts.Length];
-            var ratios = depotFundBalanceRatios[fundCount == 3 ? 0 : fundCount == 2 ? 1 : 2];
-            var totalDepotBalance = 85_000_000 + depot.Id * 12_000_000;
-
-            for (var fundIndex = 0; fundIndex < fundCount; fundIndex++)
-            {
-                var fundSourceType = fundIndex == 1
-                    ? FundSourceType.SystemFund.ToString()
-                    : FundSourceType.Campaign.ToString();
-                var fundSourceId = fundSourceType == FundSourceType.SystemFund.ToString()
-                    ? systemFund.Id
-                    : seed.FundCampaigns[(depot.Id + fundIndex) % seed.FundCampaigns.Count].Id;
-
-                _db.DepotFunds.Add(new DepotFund
-                {
-                    DepotId = depot.Id,
-                    Balance = decimal.Round(totalDepotBalance * ratios[fundIndex], 0, MidpointRounding.AwayFromZero),
-                    LastUpdatedAt = seed.AnchorUtc.AddHours(-fundIndex),
-                    FundSourceType = fundSourceType,
-                    FundSourceId = fundSourceId
-                });
-            }
-        }
-        await _db.SaveChangesAsync(cancellationToken);
-        var depotFunds = await _db.DepotFunds.OrderBy(f => f.Id).ToListAsync(cancellationToken);
-
         var seededDisbursements = new List<CampaignDisbursement>();
 
         for (var i = 0; i < 42; i++)
@@ -2839,7 +2863,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
-        foreach (var request in seed.FundingRequests.Where(r => r.Status == "Approved").Take(25))
+        foreach (var request in seed.FundingRequests.Where(r => r.Status == "Approved"))
         {
             var disbursement = new CampaignDisbursement
             {
@@ -2923,6 +2947,37 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             campaign.CurrentBalance = totalRaised - totalDisbursed;
         }
 
+        var campaignDepotFunds = seededDisbursements
+            .GroupBy(disbursement => new { disbursement.DepotId, disbursement.FundCampaignId })
+            .Select(group => new DepotFund
+            {
+                DepotId = group.Key.DepotId,
+                Balance = 0m,
+                LastUpdatedAt = group.Max(disbursement => disbursement.CreatedAt),
+                FundSourceType = FundSourceType.Campaign.ToString(),
+                FundSourceId = group.Key.FundCampaignId
+            })
+            .OrderBy(fund => fund.DepotId)
+            .ThenBy(fund => fund.FundSourceId)
+            .ToList();
+
+        var systemDepotFunds = seed.Depots
+            .OrderBy(depot => depot.Id)
+            .Select(depot => new DepotFund
+            {
+                DepotId = depot.Id,
+                Balance = 0m,
+                LastUpdatedAt = seed.AnchorUtc,
+                FundSourceType = FundSourceType.SystemFund.ToString(),
+                FundSourceId = systemFund.Id
+            })
+            .ToList();
+
+        _db.DepotFunds.AddRange(campaignDepotFunds);
+        _db.DepotFunds.AddRange(systemDepotFunds);
+        await _db.SaveChangesAsync(cancellationToken);
+        var depotFunds = await _db.DepotFunds.OrderBy(f => f.Id).ToListAsync(cancellationToken);
+
         var vatInvoices = await _db.VatInvoices.OrderBy(v => v.Id).ToListAsync(cancellationToken);
 
         // Calculate LiquidationRevenue needed to support all allocations from SystemFund
@@ -2931,7 +2986,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
         {
             if (fund.FundSourceType == FundSourceType.SystemFund.ToString())
             {
-                totalSystemFundNeeded += 25_000_000m + fund.Id * 5_000_000m;
+                totalSystemFundNeeded += 25_000_000m + fund.DepotId * 5_000_000m;
             }
         }
 
@@ -2961,14 +3016,9 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             fund.Balance = 0; // Reset for recalculation
 
             // 1. Allocation
-            decimal allocationAmount = 25_000_000m + fund.Id * 5_000_000m;
-            int? allocationRefId = null;
-            string allocationRefType = "";
-
             if (fund.FundSourceType == FundSourceType.SystemFund.ToString())
             {
-                allocationRefType = "SystemFund";
-                allocationRefId = systemFund.Id;
+                var allocationAmount = 25_000_000m + fund.DepotId * 5_000_000m;
 
                 _db.SystemFundTransactions.Add(new SystemFundTransaction
                 {
@@ -2982,38 +3032,47 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
                     CreatedAt = fundCreatedAt
                 });
                 systemFund.Balance -= allocationAmount;
-            }
-            else
-            {
-                allocationRefType = DepotFundReferenceType.CampaignDisbursement.ToString();
-                var disbursement = seededDisbursements.FirstOrDefault(d => d.DepotId == fund.DepotId && d.FundCampaignId == fund.FundSourceId);
-                if (disbursement != null)
-                {
-                    allocationRefId = disbursement.Id;
-                    allocationAmount = disbursement.Amount;
-                }
-                else if (seededDisbursements.Count > 0)
-                {
-                    allocationRefId = seededDisbursements[0].Id;
-                }
-                else
-                {
-                    allocationRefId = 1;
-                }
-            }
 
-            _db.DepotFundTransactions.Add(new DepotFundTransaction
+                _db.DepotFundTransactions.Add(new DepotFundTransaction
+                {
+                    DepotFundId = fund.Id,
+                    TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                    Amount = allocationAmount,
+                    ReferenceType = DepotFundReferenceType.SystemFund.ToString(),
+                    ReferenceId = systemFund.Id,
+                    Note = "Nhận phân bổ từ quỹ hệ thống vào quỹ kho",
+                    CreatedBy = seed.Admins[0].Id,
+                    CreatedAt = fundCreatedAt
+                });
+                fund.Balance += allocationAmount;
+            }
+            else if (fund.FundSourceType == FundSourceType.Campaign.ToString() && fund.FundSourceId.HasValue)
             {
-                DepotFundId = fund.Id,
-                TransactionType = DepotFundTransactionType.Allocation.ToString(),
-                Amount = allocationAmount,
-                ReferenceType = allocationRefType,
-                ReferenceId = allocationRefId,
-                Note = "Nhận giải ngân vào quỹ kho",
-                CreatedBy = seed.Admins[0].Id,
-                CreatedAt = fundCreatedAt
-            });
-            fund.Balance += allocationAmount;
+                var disbursementsForFund = seededDisbursements
+                    .Where(disbursement => disbursement.DepotId == fund.DepotId
+                        && disbursement.FundCampaignId == fund.FundSourceId.Value)
+                    .OrderBy(disbursement => disbursement.CreatedAt)
+                    .ThenBy(disbursement => disbursement.Id)
+                    .ToList();
+
+                foreach (var disbursement in disbursementsForFund)
+                {
+                    _db.DepotFundTransactions.Add(new DepotFundTransaction
+                    {
+                        DepotFundId = fund.Id,
+                        TransactionType = DepotFundTransactionType.Allocation.ToString(),
+                        Amount = disbursement.Amount,
+                        ReferenceType = DepotFundReferenceType.CampaignDisbursement.ToString(),
+                        ReferenceId = disbursement.Id,
+                        Note = disbursement.FundingRequestId.HasValue
+                            ? $"Nhận giải ngân từ yêu cầu cấp quỹ #{disbursement.FundingRequestId}"
+                            : "Nhận giải ngân từ chiến dịch vào quỹ kho",
+                        CreatedBy = disbursement.CreatedBy,
+                        CreatedAt = disbursement.CreatedAt
+                    });
+                    fund.Balance += disbursement.Amount;
+                }
+            }
 
             // 2. Personal Advance
             var advanceAmount = 5_000_000m + fund.Id * 1_000_000m;

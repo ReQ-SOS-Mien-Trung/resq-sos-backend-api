@@ -33,6 +33,11 @@ namespace RESQ.Application.UseCases.Identity.Commands.SubmitRescuerApplication
                 throw new NotFoundException("Người dùng", request.UserId);
             }
 
+            if (!user.IsEmailVerified)
+            {
+                throw new BadRequestException("Vui lòng xác minh email trước khi gửi đơn đăng ký cứu hộ.");
+            }
+
             // 2. Check if user already has a pending application
             var existingApplication = await _rescuerApplicationRepository.GetPendingByUserIdAsync(request.UserId, cancellationToken);
             if (existingApplication is not null)

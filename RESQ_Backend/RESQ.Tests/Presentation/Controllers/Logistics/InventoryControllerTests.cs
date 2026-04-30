@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Enum.Logistics;
@@ -15,11 +16,58 @@ namespace RESQ.Tests.Presentation.Controllers.Logistics;
 public class InventoryControllerTests
 {
     [Fact]
+    public async Task GetMyDepotInventoryByCategory_UsesReadOnlyDepotQuery()
+    {
+        var response = new List<DepotCategoryQuantityDto>
+        {
+            new()
+            {
+                CategoryId = 1,
+                CategoryCode = "FOOD",
+                CategoryName = "Food",
+                TotalConsumableQuantity = 12,
+                AvailableConsumableQuantity = 10
+            }
+        };
+
+        var mediator = new RecordingMediator(_ => response);
+        var controller = CreateController(mediator);
+
+        var result = await controller.GetMyDepotInventoryByCategory(depotId: 3);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var sentQuery = Assert.IsType<GetDepotInventoryByCategoryQuery>(Assert.Single(mediator.SentRequests));
+
+        Assert.Equal(3, sentQuery.DepotId);
+        Assert.Same(response, okResult.Value);
+    }
+
+    [Fact]
     public async Task SearchReusableItemRecords_ExcludesDecommissionedStatusFromForwardedQuery()
     {
         var response = new PagedResult<ReusableUnitDto>([], 0, 1, 20);
         var mediator = new RecordingMediator(_ => response);
-        var controller = new InventoryController(
+        var controller = CreateController(mediator);
+
+        var result = await controller.SearchReusableItemRecords(
+            depotId: 3,
+            itemModelId: 301,
+            serialNumber: "SN-001",
+            pageNumber: 1,
+            pageSize: 20);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var sentQuery = Assert.IsType<GetMyDepotReusableUnitsQuery>(Assert.Single(mediator.SentRequests));
+
+        Assert.Equal(
+            Enum.GetValues<ReusableItemStatus>().Where(status => status != ReusableItemStatus.Decommissioned).ToList(),
+            sentQuery.Statuses);
+        Assert.Same(response, okResult.Value);
+    }
+
+    private static InventoryController CreateController(RecordingMediator mediator)
+    {
+        return new InventoryController(
             mediator,
             new StubItemCategoryRepository(),
             new AllowAuthorizationService(),
@@ -38,21 +86,6 @@ public class InventoryControllerTests
                 }
             }
         };
-
-        var result = await controller.SearchReusableItemRecords(
-            depotId: 3,
-            itemModelId: 301,
-            serialNumber: "SN-001",
-            pageNumber: 1,
-            pageSize: 20);
-
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var sentQuery = Assert.IsType<GetMyDepotReusableUnitsQuery>(Assert.Single(mediator.SentRequests));
-
-        Assert.Equal(
-            Enum.GetValues<ReusableItemStatus>().Where(status => status != ReusableItemStatus.Decommissioned).ToList(),
-            sentQuery.Statuses);
-        Assert.Same(response, okResult.Value);
     }
 
     private sealed class AllowAuthorizationService : IAuthorizationService
