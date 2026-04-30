@@ -325,6 +325,133 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         return new PagedResult<CheckedInRescuerDto>(dtos, total, pageNumber, pageSize);
     }
 
+    public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersByAssemblyPointAsync(
+        int assemblyPointId, int pageNumber, int pageSize,
+        RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
+        string? abilitySubgroupCode = null,
+        string? abilityCategoryCode = null,
+        string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        var rescuerTypeStr = rescuerType?.ToString();
+
+        IQueryable<Guid>? abilityFilteredUserIds = null;
+        if (abilitySubgroupCode != null || abilityCategoryCode != null)
+        {
+            var abilityQuery = _unitOfWork.Set<UserAbility>();
+            if (abilitySubgroupCode != null)
+                abilityQuery = abilityQuery.Where(ua =>
+                    ua.Ability.AbilitySubgroup != null &&
+                    ua.Ability.AbilitySubgroup.Code == abilitySubgroupCode);
+            if (abilityCategoryCode != null)
+                abilityQuery = abilityQuery.Where(ua =>
+                    ua.Ability.AbilitySubgroup != null &&
+                    ua.Ability.AbilitySubgroup.AbilityCategory != null &&
+                    ua.Ability.AbilitySubgroup.AbilityCategory.Code == abilityCategoryCode);
+            abilityFilteredUserIds = abilityQuery.Select(ua => ua.UserId).Distinct();
+        }
+
+        var joinedQuery = _unitOfWork.Set<AssemblyParticipant>()
+            .Where(p => p.IsCheckedIn && !p.IsCheckedOut)
+            .Join(
+                _unitOfWork.Set<AssemblyEvent>().Where(e => e.AssemblyPointId == assemblyPointId),
+                p => p.AssemblyEventId,
+                e => e.Id,
+                (p, e) => new { Participant = p, Event = e })
+            .Join(
+                _unitOfWork.Set<User>().Include(u => u.RescuerProfile),
+                pe => pe.Participant.RescuerId,
+                u => u.Id,
+                (pe, u) => new { pe.Participant, pe.Event, User = u });
+
+        if (rescuerTypeStr != null)
+            joinedQuery = joinedQuery.Where(x => x.User.RescuerProfile != null &&
+                                                 x.User.RescuerProfile.RescuerType == rescuerTypeStr);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            joinedQuery = joinedQuery.Where(x =>
+                (x.User.FirstName != null && x.User.FirstName.ToLower().Contains(term)) ||
+                (x.User.LastName  != null && x.User.LastName.ToLower().Contains(term))  ||
+                (x.User.Phone     != null && x.User.Phone.ToLower().Contains(term))     ||
+                (x.User.Email     != null && x.User.Email.ToLower().Contains(term)));
+        }
+
+        if (abilityFilteredUserIds != null)
+            joinedQuery = joinedQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));
+
+        var rows = await joinedQuery
+            .OrderByDescending(x => x.Participant.CheckInTime)
+            .ThenByDescending(x => x.Event.AssemblyDate)
+            .ToListAsync(cancellationToken);
+
+        var uniqueRows = rows
+            .GroupBy(x => x.User.Id)
+            .Select(g => g
+                .OrderByDescending(x => x.Participant.CheckInTime ?? DateTime.MinValue)
+                .ThenByDescending(x => x.Event.AssemblyDate)
+                .First())
+            .OrderByDescending(x => x.Participant.CheckInTime ?? DateTime.MinValue)
+            .ThenByDescending(x => x.Event.AssemblyDate)
+            .ToList();
+
+        var total = uniqueRows.Count;
+
+        var items = uniqueRows
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var userIds = items.Select(x => x.User.Id).ToList();
+
+        var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+
+        var usersInTeam = await _unitOfWork.Set<RescueTeamMember>()
+            .Where(m => userIds.Contains(m.UserId)
+                && m.Status == acceptedStatus
+                && m.Team!.Status != disbandedStatus)
+            .Select(m => m.UserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var allAbilities = await _unitOfWork.Set<UserAbility>()
+            .Where(ua => userIds.Contains(ua.UserId))
+            .Include(ua => ua.Ability)
+                .ThenInclude(a => a.AbilitySubgroup)
+            .ToListAsync(cancellationToken);
+
+        var abilitiesDict = allAbilities
+            .GroupBy(ua => ua.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(ua => ua.Level)
+                    .Take(3)
+                    .Select(ua => ua.Ability?.AbilitySubgroup?.Description ?? ua.Ability?.Description ?? "")
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList()
+            );
+
+        var dtos = items.Select(x => new CheckedInRescuerDto
+        {
+            UserId = x.User.Id,
+            FirstName = x.User.FirstName,
+            LastName = x.User.LastName,
+            Phone = x.User.Phone,
+            Email = x.User.Email,
+            AvatarUrl = x.User.AvatarUrl,
+            RescuerType = x.User.RescuerProfile?.RescuerType,
+            CheckedInAt = (x.Participant.CheckInTime ?? DateTime.MinValue).ToVietnamTime(),
+            IsInTeam = usersInTeam.Contains(x.User.Id),
+            IsEarly = x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value < x.Event.AssemblyDate,
+            IsLate = x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value > x.Event.AssemblyDate,
+            TopAbilities = abilitiesDict.TryGetValue(x.User.Id, out var abs) ? abs : new()
+        }).ToList();
+
+        return new PagedResult<CheckedInRescuerDto>(dtos, total, pageNumber, pageSize);
+    }
+
     public async Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(
         int assemblyPointId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {

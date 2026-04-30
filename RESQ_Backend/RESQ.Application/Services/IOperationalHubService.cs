@@ -10,7 +10,8 @@ public interface IOperationalHubService
         int eventId,
         string operation,
         Guid? rescuerId = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        int? assemblyPointId = null);
 
     Task PushDepotInventoryUpdateAsync(
         int depotId,

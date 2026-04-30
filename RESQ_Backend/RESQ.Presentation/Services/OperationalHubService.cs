@@ -44,21 +44,34 @@ public sealed class OperationalHubService(
         int eventId,
         string operation,
         Guid? rescuerId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? assemblyPointId = null)
     {
         try
         {
             var payload = new
             {
                 eventId,
+                assemblyPointId,
                 operation,
                 rescuerId,
                 changedAt = DateTime.UtcNow
             };
 
-            await _hubContext.Clients
-                .Group(OperationalHub.AssemblyEventCheckedInRescuersGroup(eventId))
-                .SendAsync(EventAssemblyEventCheckedInRescuersUpdate, payload, cancellationToken);
+            var groups = new HashSet<string>(StringComparer.Ordinal)
+            {
+                OperationalHub.AssemblyEventCheckedInRescuersGroup(eventId)
+            };
+
+            if (assemblyPointId.HasValue)
+            {
+                groups.Add(OperationalHub.AssemblyPointCheckedInRescuersGroup(assemblyPointId.Value));
+            }
+
+            await Task.WhenAll(groups.Select(group =>
+                _hubContext.Clients
+                    .Group(group)
+                    .SendAsync(EventAssemblyEventCheckedInRescuersUpdate, payload, cancellationToken)));
         }
         catch (Exception ex)
         {
