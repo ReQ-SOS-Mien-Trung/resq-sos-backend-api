@@ -24,6 +24,7 @@ public class SupplyExecutionItemDto
     public int ItemModelId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string? Unit { get; set; }
+    public string? ReturnNote { get; set; }
     public int Quantity { get; set; }
     public List<SupplyExecutionLotDto> LotAllocations { get; set; } = [];
     public List<SupplyExecutionReusableUnitDto> ReusableUnits { get; set; } = [];
@@ -44,12 +45,14 @@ public class MissionSupplyReturnExecutionItemDto
     public int ItemModelId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string? Unit { get; set; }
+    public string? ReturnNote { get; set; }
     public int ExpectedQuantity { get; set; }
     public int ActualQuantity { get; set; }
     public List<SupplyExecutionLotDto> ExpectedReturnLotAllocations { get; set; } = [];
     public List<SupplyExecutionLotDto> ReturnedLotAllocations { get; set; } = [];
     public List<SupplyExecutionReusableUnitDto> ExpectedReusableUnits { get; set; } = [];
     public List<SupplyExecutionReusableUnitDto> ReturnedReusableUnits { get; set; } = [];
+    public List<SupplyExecutionReusableUnitDto> LostReusableUnits { get; set; } = [];
 }
 
 public class MissionSupplyReturnExecutionResult

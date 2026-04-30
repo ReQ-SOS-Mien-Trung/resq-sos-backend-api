@@ -7,5 +7,6 @@ public enum ReusableItemStatus
     InTransit,      // Đang vận chuyển đến kho đích
     InUse,
     Maintenance,
-    Decommissioned
+    Decommissioned,
+    Lost
 }

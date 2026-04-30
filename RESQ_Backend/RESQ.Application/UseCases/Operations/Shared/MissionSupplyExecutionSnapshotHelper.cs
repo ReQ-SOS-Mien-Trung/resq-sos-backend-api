@@ -228,6 +228,9 @@ internal static class MissionSupplyExecutionSnapshotHelper
                 continue;
 
             supply.ActualReturnedQuantity = executionItem.ActualQuantity;
+            supply.ReturnNote = string.IsNullOrWhiteSpace(executionItem.ReturnNote)
+                ? supply.ReturnNote
+                : executionItem.ReturnNote;
             supply.ReturnedLotAllocations = executionItem.ReturnedLotAllocations.Count == 0
                 ? null
                 : executionItem.ReturnedLotAllocations.Select(CloneLot).ToList();
@@ -237,6 +240,9 @@ internal static class MissionSupplyExecutionSnapshotHelper
             supply.ReturnedReusableUnits = executionItem.ReturnedReusableUnits.Count == 0
                 ? null
                 : executionItem.ReturnedReusableUnits.Select(CloneReusableUnit).ToList();
+            supply.LostReusableUnits = executionItem.LostReusableUnits.Count == 0
+                ? null
+                : executionItem.LostReusableUnits.Select(CloneReusableUnit).ToList();
             supply.ExpectedReturnUnits = executionItem.ExpectedReusableUnits.Count == 0
                 ? supply.ExpectedReturnUnits
                 : executionItem.ExpectedReusableUnits.Select(CloneReusableUnit).ToList();
