@@ -18,7 +18,7 @@ namespace RESQ.Tests.Application.UseCases.Personnel.Commands;
 public class CreateRescueTeamCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_AllowsCoordinatorToCreateTeam_FromMultipleSelectedEvents()
+    public async Task Handle_AllowsCoordinatorToCreateTeam_FromMultipleCheckedInEvents()
     {
         var leaderId = Guid.NewGuid();
         var memberIds = new[]
@@ -92,7 +92,6 @@ public class CreateRescueTeamCommandHandlerTests
             memberIds.Select((id, index) => new AddMemberRequestDto
             {
                 UserId = id,
-                EventId = memberEventMap[id],
                 IsLeader = index == 0
             }).ToList());
 
@@ -107,7 +106,7 @@ public class CreateRescueTeamCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UsesActiveAssemblyEvent_WhenMemberEventIdsAreOmitted()
+    public async Task Handle_UsesCheckedInEvent_WhenMembersHaveNoEventIds()
     {
         var leaderId = Guid.NewGuid();
         var memberIds = Enumerable.Range(0, 6)
@@ -216,7 +215,6 @@ public class CreateRescueTeamCommandHandlerTests
                 .Select(index => new AddMemberRequestDto
                 {
                     UserId = index == 0 ? memberId : Guid.NewGuid(),
-                    EventId = 999,
                     IsLeader = index == 0
                 })
                 .ToList());
