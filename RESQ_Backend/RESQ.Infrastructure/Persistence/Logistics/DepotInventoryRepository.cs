@@ -1077,6 +1077,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var now = DateTime.UtcNow;
         var itemIds = items.Select(x => x.ItemModelId).Distinct().ToList();
         var itemLookup = await _unitOfWork.Set<ItemModel>()
+            .Include(i => i.Category)
             .Where(i => itemIds.Contains(i.Id))
             .ToDictionaryAsync(i => i.Id, cancellationToken);
         var reservationItems = new List<SupplyExecutionItemDto>(items.Count);
@@ -1341,6 +1342,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 inventory.Quantity                = currentQty      - quantity;
                 inventory.MissionReservedQuantity = currentReserved - quantity;
                 inventory.LastStockedAt           = now;
+                await ApplyInventoryCapacityDeltaAsync(depotId, itemModel, -quantity, now, cancellationToken);
 
                 // -- FEFO lot deduction ------------------------------------------
                 var lots = await _unitOfWork.SetTracked<SupplyInventoryLot>()
@@ -1873,6 +1875,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         var itemLookup = itemIds.Count == 0
             ? new Dictionary<int, ItemModel>()
             : await _unitOfWork.Set<ItemModel>()
+                .Include(i => i.Category)
                 .Where(i => itemIds.Contains(i.Id))
                 .ToDictionaryAsync(i => i.Id, cancellationToken);
 
@@ -1929,6 +1932,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
             inventory.Quantity = (inventory.Quantity ?? 0) + quantity;
             inventory.LastStockedAt = now;
+            await ApplyInventoryCapacityDeltaAsync(depotId, itemModel, quantity, now, cancellationToken);
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
@@ -1940,9 +1944,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 SourceId = activityId,
                 MissionId = missionId,
                 PerformedBy = performedBy,
-                Note = BuildMissionReturnNote(
-                    $"Nhập lại {itemModel.Name} từ activity #{activityId}, mission #{missionId}",
-                    discrepancyNote),
+                Note = discrepancyNote,
                 CreatedAt = now
             });
 
@@ -1980,12 +1982,14 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             unit.SupplyRequestId = null;
             unit.UpdatedAt = now;
 
+            string? reusableReturnNote = discrepancyNote;
             if (reusableUpdateLookup.TryGetValue(unit.Id, out var updateInfo))
             {
                 if (!string.IsNullOrWhiteSpace(updateInfo.Condition))
                     unit.Condition = updateInfo.Condition;
                 if (updateInfo.Note != null)
                     unit.Note = updateInfo.Note;
+                reusableReturnNote = updateInfo.Note ?? discrepancyNote;
             }
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
@@ -1997,9 +2001,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 SourceId = activityId,
                 MissionId = missionId,
                 PerformedBy = performedBy,
-                Note = BuildMissionReturnNote(
-                    $"Nhận lại {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) từ activity #{activityId}, mission #{missionId}",
-                    discrepancyNote),
+                Note = reusableReturnNote,
                 CreatedAt = now
             });
 
@@ -2052,9 +2054,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     SourceId = activityId,
                     MissionId = missionId,
                     PerformedBy = performedBy,
-                    Note = BuildMissionReturnNote(
-                        $"Nhận lại {itemModel.Name} (S/N: {unit.SerialNumber ?? "N/A"}) theo legacy fallback từ activity #{activityId}, mission #{missionId}",
-                        discrepancyNote),
+                    Note = discrepancyNote,
                     CreatedAt = now
                 });
 
@@ -2158,6 +2158,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             var lot = await _unitOfWork.SetTracked<SupplyInventoryLot>()
                 .Include(l => l.SupplyInventory)
                     .ThenInclude(inventory => inventory.ItemModel)
+                        .ThenInclude(item => item!.Category)
                 .FirstOrDefaultAsync(l => l.Id == item.SupplyInventoryLotId, cancellationToken)
                 ?? throw new InvalidOperationException($"Không tìm thấy lot #{item.SupplyInventoryLotId}.");
 
@@ -2174,29 +2175,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             lot.RemainingQuantity += item.Quantity;
             inventory.Quantity = (inventory.Quantity ?? 0) + item.Quantity;
             inventory.LastStockedAt = now;
-
-            // Cộng lại category.Quantity
-            if (itemModel.Category != null)
-            {
-                itemModel.Category.Quantity = (itemModel.Category.Quantity ?? 0) + item.Quantity;
-                itemModel.Category.UpdatedAt = now;
-            }
-
-            // Cộng lại depot utilization (volume + weight)
-            var volumeDelta = (itemModel.VolumePerUnit ?? 0m) * item.Quantity;
-            var weightDelta = (itemModel.WeightPerUnit ?? 0m) * item.Quantity;
-            if (volumeDelta > 0m || weightDelta > 0m)
-            {
-                var depotEntity = await _unitOfWork.SetTracked<Depot>()
-                    .FirstOrDefaultAsync(d => d.Id == depotId, cancellationToken);
-                if (depotEntity != null)
-                {
-                    if (volumeDelta > 0m)
-                        depotEntity.CurrentUtilization = (depotEntity.CurrentUtilization ?? 0m) + volumeDelta;
-                    if (weightDelta > 0m)
-                        depotEntity.CurrentWeightUtilization = (depotEntity.CurrentWeightUtilization ?? 0m) + weightDelta;
-                }
-            }
+            await ApplyInventoryCapacityDeltaAsync(depotId, itemModel, item.Quantity, now, cancellationToken);
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
@@ -2208,9 +2187,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 SourceId = activityId,
                 MissionId = missionId,
                 PerformedBy = performedBy,
-                Note = BuildMissionReturnNote(
-                    $"Nhập lại {itemModel.Name} vào lô gốc #{lot.Id} từ activity #{activityId}, mission #{missionId}",
-                    discrepancyNote),
+                Note = discrepancyNote,
                 CreatedAt = now
             });
 
@@ -2348,8 +2325,6 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                     ?? throw new InvalidOperationException($"Vật phẩm #{lostItem.ItemModelId} không có metadata.");
             }
 
-            await ApplyLostInventoryCapacityDeltaAsync(depotId, itemModel, lostItem.Quantity, now, cancellationToken);
-
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
                 DepotSupplyInventoryId = inventory.Id,
@@ -2357,13 +2332,11 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 ItemModelId = itemModel.Id,
                 ActionType = InventoryActionType.Adjust.ToString(),
                 QuantityChange = -lostItem.Quantity,
-                SourceType = InventorySourceType.Lost.ToString(),
+                SourceType = InventorySourceType.Mission.ToString(),
                 SourceId = activityId,
                 MissionId = missionId,
                 PerformedBy = performedBy,
-                Note = BuildMissionReturnNote(
-                    $"Ghi nhận mất {lostItem.Quantity} {itemModel.Unit ?? "đơn vị"} {itemModel.Name} từ activity #{activityId}, mission #{missionId}. Lý do: {lostItem.Note}",
-                    discrepancyNote),
+                Note = lostItem.Note,
                 CreatedAt = now
             });
 
@@ -2424,7 +2397,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             unit.Note = lostInfo.Note;
             unit.UpdatedAt = now;
 
-            await ApplyLostInventoryCapacityDeltaAsync(depotId, itemModel, 1, now, cancellationToken);
+            await ApplyInventoryCapacityDeltaAsync(depotId, itemModel, -1, now, cancellationToken);
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
             {
@@ -2432,13 +2405,11 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 ItemModelId = itemModel.Id,
                 ActionType = InventoryActionType.Adjust.ToString(),
                 QuantityChange = -1,
-                SourceType = InventorySourceType.Lost.ToString(),
+                SourceType = InventorySourceType.Mission.ToString(),
                 SourceId = activityId,
                 MissionId = missionId,
                 PerformedBy = performedBy,
-                Note = BuildMissionReturnNote(
-                    $"Ghi nhận mất {itemModel.Name} (ReusableItemId: {unit.Id}, S/N: {unit.SerialNumber ?? "N/A"}) từ activity #{activityId}, mission #{missionId}. Lý do: {lostInfo.Note}",
-                    discrepancyNote),
+                Note = lostInfo.Note,
                 CreatedAt = now
             });
 
@@ -2455,22 +2426,25 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         }
     }
 
-    private async Task ApplyLostInventoryCapacityDeltaAsync(
+    private async Task ApplyInventoryCapacityDeltaAsync(
         int depotId,
         ItemModel itemModel,
-        int quantity,
+        int quantityDelta,
         DateTime now,
         CancellationToken cancellationToken)
     {
+        if (quantityDelta == 0)
+            return;
+
         if (itemModel.Category != null)
         {
-            itemModel.Category.Quantity = Math.Max(0, (itemModel.Category.Quantity ?? 0) - quantity);
+            itemModel.Category.Quantity = Math.Max(0, (itemModel.Category.Quantity ?? 0) + quantityDelta);
             itemModel.Category.UpdatedAt = now;
         }
 
-        var volumeDelta = (itemModel.VolumePerUnit ?? 0m) * quantity;
-        var weightDelta = (itemModel.WeightPerUnit ?? 0m) * quantity;
-        if (volumeDelta <= 0m && weightDelta <= 0m)
+        var volumeDelta = (itemModel.VolumePerUnit ?? 0m) * quantityDelta;
+        var weightDelta = (itemModel.WeightPerUnit ?? 0m) * quantityDelta;
+        if (volumeDelta == 0m && weightDelta == 0m)
             return;
 
         var depotEntity = await _unitOfWork.SetTracked<Depot>()
@@ -2478,18 +2452,10 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
         if (depotEntity is null)
             return;
 
-        if (volumeDelta > 0m)
-            depotEntity.CurrentUtilization = Math.Max(0m, (depotEntity.CurrentUtilization ?? 0m) - volumeDelta);
-        if (weightDelta > 0m)
-            depotEntity.CurrentWeightUtilization = Math.Max(0m, (depotEntity.CurrentWeightUtilization ?? 0m) - weightDelta);
-    }
-
-    private static string BuildMissionReturnNote(string baseNote, string? discrepancyNote)
-    {
-        if (string.IsNullOrWhiteSpace(discrepancyNote))
-            return baseNote;
-
-        return $"{baseNote}. Ghi chú chênh lệch: {discrepancyNote}";
+        if (volumeDelta != 0m)
+            depotEntity.CurrentUtilization = Math.Max(0m, (depotEntity.CurrentUtilization ?? 0m) + volumeDelta);
+        if (weightDelta != 0m)
+            depotEntity.CurrentWeightUtilization = Math.Max(0m, (depotEntity.CurrentWeightUtilization ?? 0m) + weightDelta);
     }
 
     private static List<int> ResolveRequestedReusableUnitIds(

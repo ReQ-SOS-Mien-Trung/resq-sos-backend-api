@@ -79,6 +79,10 @@ public class GetInventoryLogsQueryHandler(
             InvoiceFileUrl = log.InvoiceFileUrl,
             LotDetails = log.LotDetails.Select(detail => new InventoryLogLotDetailDto
             {
+                ItemModelId = detail.ItemModelId,
+                ItemModelName = detail.ItemModelName,
+                ActionType = detail.ActionType,
+                Note = detail.Note,
                 LotId = detail.LotId,
                 ReceivedDate = detail.ReceivedDate.ToVietnamTime(),
                 ExpiredDate = detail.ExpiredDate.ToVietnamTime(),
@@ -86,6 +90,10 @@ public class GetInventoryLogsQueryHandler(
             }).ToList(),
             ReusableDetails = log.ReusableDetails.Select(detail => new InventoryLogReusableDetailDto
             {
+                ItemModelId = detail.ItemModelId,
+                ItemModelName = detail.ItemModelName,
+                ActionType = detail.ActionType,
+                Note = detail.Note,
                 ReusableItemId = detail.ReusableItemId,
                 SerialNumber = detail.SerialNumber,
                 QuantityChange = detail.QuantityChange

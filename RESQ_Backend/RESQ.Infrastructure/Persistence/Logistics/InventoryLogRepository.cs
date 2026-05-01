@@ -407,18 +407,32 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .OrderBy(x => x.CreatedAt)
             .ThenBy(x => x.Id)
             .First();
+        var isMissionReturnActivityGroup = group.Any(IsMissionReturnActivityLog);
         var itemModel = ResolveItemModel(first);
+        var groupNote = group
+            .OrderBy(x => string.Equals(x.ActionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
+            .Select(x => NormalizeMultilineText(x.Note))
+            .FirstOrDefault(note => !string.IsNullOrWhiteSpace(note));
         var lotDetails = group
             .Where(x => x.SupplyInventoryLotId.HasValue)
             .GroupBy(x => new
             {
                 LotId = x.SupplyInventoryLotId,
                 x.ReceivedDate,
-                x.ExpiredDate
+                x.ExpiredDate,
+                ActionType = x.ActionType ?? string.Empty,
+                Note = NormalizeMultilineText(x.Note)
             })
             .OrderBy(x => x.Key.LotId)
+            .ThenBy(x => x.Key.ActionType)
             .Select(x => new InventoryLogLotDetailModel
             {
+                ItemModelId = x.Select(log => ResolveItemModelId(log)).FirstOrDefault(id => id.HasValue),
+                ItemModelName = ResolveItemModelName(x.First()),
+                ActionType = x.Key.ActionType,
+                Note = x.Key.Note,
                 LotId = x.Key.LotId,
                 ReceivedDate = x.Key.ReceivedDate,
                 ExpiredDate = x.Key.ExpiredDate,
@@ -431,12 +445,19 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             .GroupBy(x => new
             {
                 x.ReusableItemId,
-                SerialNumber = x.ReusableItem != null ? x.ReusableItem.SerialNumber : null
+                SerialNumber = x.ReusableItem != null ? x.ReusableItem.SerialNumber : null,
+                ActionType = x.ActionType ?? string.Empty,
+                Note = NormalizeMultilineText(x.Note)
             })
             .OrderBy(x => x.Key.SerialNumber)
             .ThenBy(x => x.Key.ReusableItemId)
+            .ThenBy(x => x.Key.ActionType)
             .Select(x => new InventoryLogReusableDetailModel
             {
+                ItemModelId = x.Select(log => ResolveItemModelId(log)).FirstOrDefault(id => id.HasValue),
+                ItemModelName = ResolveItemModelName(x.First()),
+                ActionType = x.Key.ActionType,
+                Note = x.Key.Note,
                 ReusableItemId = x.Key.ReusableItemId,
                 SerialNumber = x.Key.SerialNumber,
                 QuantityChange = x.Sum(log => log.QuantityChange ?? 0)
@@ -446,27 +467,27 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         return new InventoryLogModel
         {
             Id = group.Min(x => x.Id),
-            DepotSupplyInventoryId = first.DepotSupplyInventoryId,
-            SupplyInventoryLotId = lotDetails.Count == 1 ? lotDetails[0].LotId : null,
-            ActionType = first.ActionType ?? string.Empty,
+            DepotSupplyInventoryId = isMissionReturnActivityGroup ? null : first.DepotSupplyInventoryId,
+            SupplyInventoryLotId = !isMissionReturnActivityGroup && lotDetails.Count == 1 ? lotDetails[0].LotId : null,
+            ActionType = isMissionReturnActivityGroup ? group.Key.ActionType : first.ActionType ?? string.Empty,
             QuantityChange = group.Sum(x => x.QuantityChange ?? 0),
             SourceType = first.SourceType ?? string.Empty,
             SourceId = first.SourceId,
-            Note = NormalizeMultilineText(first.Note),
+            Note = groupNote,
             CreatedAt = first.CreatedAt,
-            ReceivedDate = lotDetails.Count == 1 ? lotDetails[0].ReceivedDate : first.ReceivedDate,
-            ExpiredDate = lotDetails.Count == 1 ? lotDetails[0].ExpiredDate : first.ExpiredDate,
+            ReceivedDate = !isMissionReturnActivityGroup && lotDetails.Count == 1 ? lotDetails[0].ReceivedDate : first.ReceivedDate,
+            ExpiredDate = !isMissionReturnActivityGroup && lotDetails.Count == 1 ? lotDetails[0].ExpiredDate : first.ExpiredDate,
             PerformedByName = first.PerformedByUser != null
                 ? $"{first.PerformedByUser.LastName} {first.PerformedByUser.FirstName}".Trim()
                 : string.Empty,
             DepotId = group.Key.DepotId,
             DepotName = first.SupplyInventory?.Depot?.Name ?? first.ReusableItem?.Depot?.Name ?? string.Empty,
-            ItemModelId = group.Key.ItemModelId,
-            ItemModelName = itemModel?.Name ?? string.Empty,
-            RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, first),
-            SerialNumber = reusableDetails.Count == 1 ? reusableDetails[0].SerialNumber : null,
-            LotId = lotDetails.Count == 1 ? lotDetails[0].LotId : null,
-            ReusableItemId = reusableDetails.Count == 1 ? reusableDetails[0].ReusableItemId : null,
+            ItemModelId = isMissionReturnActivityGroup || group.Key.ItemModelId == 0 ? null : group.Key.ItemModelId,
+            ItemModelName = isMissionReturnActivityGroup ? string.Empty : itemModel?.Name ?? string.Empty,
+            RemainingQuantity = isMissionReturnActivityGroup ? null : TryGetRemainingQuantity(currentQuantityMap, first),
+            SerialNumber = !isMissionReturnActivityGroup && reusableDetails.Count == 1 ? reusableDetails[0].SerialNumber : null,
+            LotId = !isMissionReturnActivityGroup && lotDetails.Count == 1 ? lotDetails[0].LotId : null,
+            ReusableItemId = !isMissionReturnActivityGroup && reusableDetails.Count == 1 ? reusableDetails[0].ReusableItemId : null,
             VatInvoiceId = first.VatInvoiceId,
             InvoiceSerial = first.VatInvoice?.InvoiceSerial,
             InvoiceNumber = first.VatInvoice?.InvoiceNumber,
@@ -482,10 +503,19 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
     private static StockMovementGroupKey BuildStockMovementGroupKey(InventoryLog log)
     {
-        var itemModelId = log.ItemModelId
-                          ?? log.SupplyInventory?.ItemModelId
-                          ?? log.ReusableItem?.ItemModelId
-                          ?? 0;
+        if (IsMissionReturnActivityLog(log))
+        {
+            return new StockMovementGroupKey(
+                ResolveDepotId(log),
+                nameof(InventoryActionType.Return),
+                log.SourceType ?? string.Empty,
+                log.SourceId,
+                log.VatInvoiceId,
+                0,
+                TruncateToSecond(log.CreatedAt));
+        }
+
+        var itemModelId = ResolveItemModelId(log) ?? 0;
 
         return new StockMovementGroupKey(
             ResolveDepotId(log),
@@ -495,6 +525,27 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             log.VatInvoiceId,
             itemModelId,
             TruncateToSecond(log.CreatedAt));
+    }
+
+    private static bool IsMissionReturnActivityLog(InventoryLog log)
+    {
+        var actionType = log.ActionType ?? string.Empty;
+        return log.SourceId.HasValue
+            && string.Equals(log.SourceType, nameof(InventorySourceType.Mission), StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(actionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(actionType, nameof(InventoryActionType.Adjust), StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int? ResolveItemModelId(InventoryLog log)
+    {
+        return log.ItemModelId
+               ?? log.SupplyInventory?.ItemModelId
+               ?? log.ReusableItem?.ItemModelId;
+    }
+
+    private static string? ResolveItemModelName(InventoryLog log)
+    {
+        return ResolveItemModel(log)?.Name;
     }
 
     private static DateTime TruncateToSecond(DateTime? value)
