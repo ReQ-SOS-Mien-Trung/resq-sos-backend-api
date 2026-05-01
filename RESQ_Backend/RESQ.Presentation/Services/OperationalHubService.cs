@@ -18,6 +18,7 @@ public sealed class OperationalHubService(
     private const string EventApListUpdate = "ReceiveAssemblyPointListUpdate";
     private const string EventAssemblyEventCheckedInRescuersUpdate = "ReceiveAssemblyEventCheckedInRescuersUpdate";
     private const string EventDepotInventory = "ReceiveDepotInventoryUpdate";
+    private const string EventInventoryLotsUpdate = "ReceiveInventoryLotsUpdate";
     private const string EventLogisticsUpdate = "ReceiveLogisticsUpdate";
     private const string EventSupplyRequestUpdate = "ReceiveSupplyRequestUpdate";
     private const string EventDepotActivityUpdate = "ReceiveDepotActivityUpdate";
@@ -127,6 +128,45 @@ public sealed class OperationalHubService(
                 "[OperationalHub] Failed to push {Event} for DepotId={DepotId}",
                 EventDepotInventory,
                 depotId);
+        }
+    }
+
+    public async Task PushInventoryLotsUpdateAsync(
+        int depotId,
+        int itemModelId,
+        string operation,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var changedAt = DateTime.UtcNow;
+            var payload = new
+            {
+                depotId,
+                itemModelId,
+                operation,
+                endpoint = $"/logistics/inventory/{itemModelId}/lots",
+                query = new { depotId },
+                changedAt
+            };
+
+            await SendToGroupsAsync(
+                [
+                    OperationalHub.InventoryLotsGroup(depotId, itemModelId),
+                    OperationalHub.DepotGroup(depotId)
+                ],
+                EventInventoryLotsUpdate,
+                payload,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "[OperationalHub] Failed to push {Event} for DepotId={DepotId} ItemModelId={ItemModelId}",
+                EventInventoryLotsUpdate,
+                depotId,
+                itemModelId);
         }
     }
 

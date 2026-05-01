@@ -486,6 +486,9 @@ public class InventoryController(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
+        if (depotId <= 0)
+            return BadRequest("depotId là bắt buộc. Vui lòng truyền depotId hợp lệ qua query string.");
+
         var userId = GetCurrentUserId();
 
         var query = new GetInventoryLotsQuery
@@ -862,6 +865,7 @@ public class InventoryController(
             request.Quantity,
             request.Note));
         await _operationalHubService.PushDepotInventoryUpdateAsync(request.DepotId, "ManualExport", HttpContext.RequestAborted);
+        await _operationalHubService.PushInventoryLotsUpdateAsync(request.DepotId, request.ItemModelId, "ManualExport", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -884,6 +888,7 @@ public class InventoryController(
             request.ExpiredDate,
             depotId));
         await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ManualAdjust", HttpContext.RequestAborted);
+        await _operationalHubService.PushInventoryLotsUpdateAsync(depotId, request.ItemModelId, "ManualAdjust", HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -906,6 +911,10 @@ public class InventoryController(
 
         var result = await _mediator.Send(command);
         await _operationalHubService.PushDepotInventoryUpdateAsync(request.DepotId, "ImportReliefItems", HttpContext.RequestAborted);
+        foreach (var itemModelId in request.Items.Select(item => item.ItemModelId).OfType<int>().Distinct())
+        {
+            await _operationalHubService.PushInventoryLotsUpdateAsync(request.DepotId, itemModelId, "ImportReliefItems", HttpContext.RequestAborted);
+        }
         return Ok(result);
     }
 
@@ -926,6 +935,15 @@ public class InventoryController(
 
         var result = await _mediator.Send(command);
         await _operationalHubService.PushDepotInventoryUpdateAsync(request.DepotId, "ImportPurchasedItems", HttpContext.RequestAborted);
+        var purchasedItemModelIds = request.Invoices
+            .SelectMany(invoice => invoice.Items)
+            .Select(item => item.ItemModelId)
+            .OfType<int>()
+            .Distinct();
+        foreach (var itemModelId in purchasedItemModelIds)
+        {
+            await _operationalHubService.PushInventoryLotsUpdateAsync(request.DepotId, itemModelId, "ImportPurchasedItems", HttpContext.RequestAborted);
+        }
         return Ok(result);
     }
 

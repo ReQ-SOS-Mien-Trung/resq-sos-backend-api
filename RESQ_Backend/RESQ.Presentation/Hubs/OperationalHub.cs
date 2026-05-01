@@ -29,6 +29,12 @@ public class OperationalHub : Hub
     public Task UnsubscribeDepot(int depotId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotGroup(depotId));
 
+    public Task SubscribeInventoryLots(int depotId, int itemModelId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, InventoryLotsGroup(depotId, itemModelId));
+
+    public Task UnsubscribeInventoryLots(int depotId, int itemModelId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, InventoryLotsGroup(depotId, itemModelId));
+
     public Task SubscribeDepotCharts(int depotId) =>
         Groups.AddToGroupAsync(Context.ConnectionId, DepotChartsGroup(depotId));
 
@@ -102,6 +108,7 @@ public class OperationalHub : Hub
         Groups.RemoveFromGroupAsync(Context.ConnectionId, TransferGroup(transferId));
 
     internal static string DepotGroup(int depotId) => $"operational:depot:{depotId}";
+    internal static string InventoryLotsGroup(int depotId, int itemModelId) => $"operational:inventory-lots:depot:{depotId}:item:{itemModelId}";
     internal static string DepotChartsGroup(int depotId) => $"operational:depot-charts:{depotId}";
     internal static string ClusterGroup(int clusterId) => $"operational:cluster:{clusterId}";
     internal static string SupplyRequestsDepotGroup(int depotId) => $"operational:supply-requests:depot:{depotId}";

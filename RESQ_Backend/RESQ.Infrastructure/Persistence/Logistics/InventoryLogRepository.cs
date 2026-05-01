@@ -239,7 +239,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                         ItemId = resolvedItemModelId,
                         ItemModelId = resolvedItemModelId,
                         ActionType = item.ActionType ?? string.Empty,
-                        Note = NormalizeMultilineText(item.Note),
+                        Note = ResolveTransactionItemNote(item),
                         RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, item),
                         SupplyInventoryLotId = item.SupplyInventoryLotId,
                         LotId = item.SupplyInventoryLotId,
@@ -404,6 +404,17 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                && Math.Abs(log.QuantityChange ?? 0) == 1;
     }
 
+    private static string? ResolveTransactionItemNote(InventoryLog log)
+    {
+        if (IsMissionReturnActivityLog(log)
+            && string.Equals(log.ActionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return NormalizeMultilineText(log.Note);
+    }
+
     private static InventoryLogModel MapStockMovementGroup(
         IGrouping<StockMovementGroupKey, InventoryLog> group,
         IReadOnlyDictionary<(int DepotId, int ItemModelId), int> currentQuantityMap)
@@ -428,7 +439,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 x.ReceivedDate,
                 x.ExpiredDate,
                 ActionType = x.ActionType ?? string.Empty,
-                Note = NormalizeMultilineText(x.Note)
+                Note = ResolveStockMovementDetailNote(x)
             })
             .OrderBy(x => x.Key.LotId)
             .ThenBy(x => x.Key.ActionType)
@@ -452,7 +463,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                 x.ReusableItemId,
                 SerialNumber = x.ReusableItem != null ? x.ReusableItem.SerialNumber : null,
                 ActionType = x.ActionType ?? string.Empty,
-                Note = NormalizeMultilineText(x.Note)
+                Note = ResolveStockMovementDetailNote(x)
             })
             .OrderBy(x => x.Key.SerialNumber)
             .ThenBy(x => x.Key.ReusableItemId)
@@ -551,6 +562,17 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
     private static string? ResolveItemModelName(InventoryLog log)
     {
         return ResolveItemModel(log)?.Name;
+    }
+
+    private static string? ResolveStockMovementDetailNote(InventoryLog log)
+    {
+        if (IsMissionReturnActivityLog(log)
+            && string.Equals(log.ActionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return NormalizeMultilineText(log.Note);
     }
 
     private static DateTime TruncateToSecond(DateTime? value)
