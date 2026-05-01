@@ -25,7 +25,7 @@ public class SosPriorityEvaluationServiceTests
         var breakdown = JsonSerializer.Deserialize<SosPriorityEvaluationDetails>(evaluation.BreakdownJson!)!;
         Assert.True(breakdown.CriticalSeverityFlag);
         Assert.True(breakdown.UrgentMedicineFlag);
-        Assert.Equal(40, breakdown.RequestTypeScore);
+        Assert.Equal(10, breakdown.RequestTypeScore);
         Assert.False(breakdown.AreBlanketsEnough);
         Assert.Equal(3, breakdown.BlanketRequestCount);
         Assert.Equal(3, breakdown.BlanketUrgencyScore);

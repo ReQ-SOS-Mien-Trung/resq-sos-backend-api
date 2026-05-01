@@ -23,9 +23,9 @@ public class SosPriorityRuleConfigDocument
     [JsonPropertyName("request_type_scores")]
     public Dictionary<string, double> RequestTypeScores { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["RESCUE"] = 30,
-        ["RELIEF"] = 20,
-        ["BOTH"] = 40,
+        ["RESCUE"] = 10,
+        ["RELIEF"] = 10,
+        ["BOTH"] = 10,
         ["OTHER"] = 10
     };
 
@@ -66,7 +66,7 @@ public class SosPriorityRuleConfigDocument
 public class SosPriorityScoreConfig
 {
     [JsonPropertyName("formula")]
-    public string Formula { get; set; } = "MIN(100, ROUND(((medical_score * 3) + (relief_score * 1.1) + (request_type_score * 0.15)) * situation_multiplier * relief_pressure_multiplier))";
+    public string Formula { get; set; } = "MIN(100, ROUND(((medical_score * 2) + (relief_score * 1.1) + (request_type_score * 0.15)) * situation_multiplier * relief_pressure_multiplier))";
 
     [JsonPropertyName("use_request_type_score")]
     public bool UseRequestTypeScore { get; set; } = true;
@@ -88,7 +88,7 @@ public class SosPriorityScoreConfig
                             SosExpressionNode.Binary(
                                 "MUL",
                                 SosExpressionNode.VarRef("medical_score"),
-                                SosExpressionNode.Constant(3)),
+                                SosExpressionNode.Constant(2)),
                             SosExpressionNode.Binary(
                                 "MUL",
                                 SosExpressionNode.VarRef("relief_score"),
