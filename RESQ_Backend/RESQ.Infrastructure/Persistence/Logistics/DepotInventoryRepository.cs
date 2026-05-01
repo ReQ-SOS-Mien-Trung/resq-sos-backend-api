@@ -1982,14 +1982,12 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
             unit.SupplyRequestId = null;
             unit.UpdatedAt = now;
 
-            string? reusableReturnNote = discrepancyNote;
             if (reusableUpdateLookup.TryGetValue(unit.Id, out var updateInfo))
             {
                 if (!string.IsNullOrWhiteSpace(updateInfo.Condition))
                     unit.Condition = updateInfo.Condition;
                 if (updateInfo.Note != null)
                     unit.Note = updateInfo.Note;
-                reusableReturnNote = updateInfo.Note ?? discrepancyNote;
             }
 
             await _unitOfWork.GetRepository<InventoryLog>().AddAsync(new InventoryLog
@@ -2001,7 +1999,7 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
                 SourceId = activityId,
                 MissionId = missionId,
                 PerformedBy = performedBy,
-                Note = reusableReturnNote,
+                Note = discrepancyNote,
                 CreatedAt = now
             });
 
