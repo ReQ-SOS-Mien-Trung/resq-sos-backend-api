@@ -68,7 +68,7 @@ public class InventoryLogRepositoryTests
             detail.ItemModelId == 101
             && detail.ActionType == nameof(InventoryActionType.Return)
             && detail.QuantityChange == 3
-            && detail.Note == "Tra thieu bang ca nhan");
+            && detail.Note == null);
         Assert.Contains(log.LotDetails, detail =>
             detail.ItemModelId == 101
             && detail.ActionType == nameof(InventoryActionType.Adjust)
@@ -81,7 +81,7 @@ public class InventoryLogRepositoryTests
             && detail.ReusableItemId == 2001
             && detail.ActionType == nameof(InventoryActionType.Return)
             && detail.QuantityChange == 1
-            && detail.Note == "Bo dam tot");
+            && detail.Note == null);
         Assert.Contains(log.ReusableDetails, detail =>
             detail.ItemModelId == 201
             && detail.ReusableItemId == 2002
@@ -117,9 +117,20 @@ public class InventoryLogRepositoryTests
         Assert.Equal(4, transaction.Items.Count);
         Assert.Contains(transaction.Items, item =>
             item.ItemModelId == 101
+            && item.ActionType == nameof(InventoryActionType.Return)
+            && item.QuantityChange == 3
+            && item.Note == null);
+        Assert.Contains(transaction.Items, item =>
+            item.ItemModelId == 101
             && item.ActionType == nameof(InventoryActionType.Adjust)
             && item.QuantityChange == -2
             && item.Note == "Mat 2 bang ca nhan");
+        Assert.Contains(transaction.Items, item =>
+            item.ItemModelId == 201
+            && item.ReusableItemId == 2001
+            && item.ActionType == nameof(InventoryActionType.Return)
+            && item.QuantityChange == 1
+            && item.Note == null);
         Assert.Contains(transaction.Items, item =>
             item.ItemModelId == 201
             && item.ReusableItemId == 2002

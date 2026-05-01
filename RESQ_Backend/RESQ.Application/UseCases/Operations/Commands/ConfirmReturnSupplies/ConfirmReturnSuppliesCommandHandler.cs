@@ -435,6 +435,15 @@ public class ConfirmReturnSuppliesCommandHandler(
             request.ActivityId, depotId, validItems.Count);
 
         await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "ConfirmReturn", cancellationToken);
+        var affectedConsumableItemModelIds = actualConsumables
+            .Select(item => item.ItemModelId)
+            .Concat(lostConsumables.Select(item => item.ItemModelId))
+            .Distinct();
+
+        foreach (var itemModelId in affectedConsumableItemModelIds)
+        {
+            await _operationalHubService.PushInventoryLotsUpdateAsync(depotId, itemModelId, "ConfirmReturn", cancellationToken);
+        }
 
         return new ConfirmReturnSuppliesResponse
         {
