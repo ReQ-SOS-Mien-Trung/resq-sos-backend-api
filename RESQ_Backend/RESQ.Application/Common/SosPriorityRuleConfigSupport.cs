@@ -46,6 +46,7 @@ public static class SosPriorityRuleConfigSupport
         "MEDICAL_SCORE",
         "RELIEF_SCORE",
         "SITUATION_MULTIPLIER",
+        "RELIEF_PRESSURE_MULTIPLIER",
         "REQUEST_TYPE_SCORE"
     };
 
