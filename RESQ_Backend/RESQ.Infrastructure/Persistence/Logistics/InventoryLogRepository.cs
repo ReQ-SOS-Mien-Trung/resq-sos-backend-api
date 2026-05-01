@@ -199,21 +199,24 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
 
         var result = paginatedGroups.Select(g =>
         {
-            var firstItem = g.First();
+            var firstItem = SelectTransactionRepresentative(g);
             var createdAt = g.Min(x => x.CreatedAt);
             var transactionId = FormatReadableTransactionId(firstItem, createdAt);
+            var transactionNote = ResolveTransactionGroupNote(g);
 
             return new InventoryTransactionDto
             {
                 TransactionId = transactionId,
-                ActionType = firstItem.ActionType ?? string.Empty,
+                ActionType = IsMissionReturnActivityLog(firstItem)
+                    ? nameof(InventoryActionType.Return)
+                    : firstItem.ActionType ?? string.Empty,
                 SourceType = firstItem.SourceType ?? string.Empty,
                 SourceId = firstItem.SourceId,
                 SourceName = GetSourceName(firstItem.SourceType, firstItem.SourceId),
                 PerformedByName = firstItem.PerformedByUser != null
                     ? $"{firstItem.PerformedByUser.LastName} {firstItem.PerformedByUser.FirstName}".Trim()
                     : string.Empty,
-                Note = NormalizeMultilineText(firstItem.Note),
+                Note = transactionNote,
                 CreatedAt = createdAt ?? DateTime.MinValue,
                 VatInvoiceId = firstItem.VatInvoiceId,
                 InvoiceSerial = firstItem.VatInvoice?.InvoiceSerial,
@@ -235,6 +238,8 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
                     {
                         ItemId = resolvedItemModelId,
                         ItemModelId = resolvedItemModelId,
+                        ActionType = item.ActionType ?? string.Empty,
+                        Note = NormalizeMultilineText(item.Note),
                         RemainingQuantity = TryGetRemainingQuantity(currentQuantityMap, item),
                         SupplyInventoryLotId = item.SupplyInventoryLotId,
                         LotId = item.SupplyInventoryLotId,
@@ -396,7 +401,7 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
     private static bool IsUnitLevelReusableAction(InventoryLog log)
     {
         return log.ReusableItemId.HasValue
-               && (log.QuantityChange ?? 0) == 1;
+               && Math.Abs(log.QuantityChange ?? 0) == 1;
     }
 
     private static InventoryLogModel MapStockMovementGroup(
@@ -580,7 +585,49 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
         }
 
         var createdAtBucket = log.CreatedAt?.ToUniversalTime().ToString("yyyyMMddHHmmss") ?? "no-created-at";
+
+        if (IsMissionReturnActivityLog(log))
+        {
+            return $"return|mission|activity:{log.SourceId!.Value}|by:{performedBy}|created:{createdAtBucket}";
+        }
+
         return $"{actionType}|{sourceType}|source:{log.SourceId?.ToString() ?? "none"}|by:{performedBy}|created:{createdAtBucket}";
+    }
+
+    private static InventoryLog SelectTransactionRepresentative(IEnumerable<InventoryLog> logs)
+    {
+        return logs
+            .OrderBy(log => IsMissionReturnActivityLog(log)
+                && string.Equals(log.ActionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase)
+                    ? 0
+                    : 1)
+            .ThenBy(log => log.CreatedAt)
+            .ThenBy(log => log.Id)
+            .First();
+    }
+
+    private static string? ResolveTransactionGroupNote(IEnumerable<InventoryLog> logs)
+    {
+        var orderedLogs = logs
+            .OrderBy(log => IsMissionReturnActivityLog(log)
+                && string.Equals(log.ActionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase)
+                    ? 0
+                    : 1)
+            .ThenBy(log => log.CreatedAt)
+            .ThenBy(log => log.Id)
+            .ToList();
+
+        if (orderedLogs.Any(IsMissionReturnActivityLog))
+        {
+            return orderedLogs
+                .Where(log => string.Equals(log.ActionType, nameof(InventoryActionType.Return), StringComparison.OrdinalIgnoreCase))
+                .Select(log => NormalizeMultilineText(log.Note))
+                .FirstOrDefault(note => !string.IsNullOrWhiteSpace(note));
+        }
+
+        return orderedLogs
+            .Select(log => NormalizeMultilineText(log.Note))
+            .FirstOrDefault(note => !string.IsNullOrWhiteSpace(note));
     }
 
     /// <inheritdoc/>

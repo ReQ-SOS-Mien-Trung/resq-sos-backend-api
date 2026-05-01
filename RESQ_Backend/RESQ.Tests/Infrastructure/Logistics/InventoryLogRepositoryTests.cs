@@ -90,6 +90,44 @@ public class InventoryLogRepositoryTests
             && detail.Note == "Mat bo dam BD-002");
     }
 
+    [Fact]
+    public async Task GetTransactionHistoryAsync_GroupsMissionReturnActivityLogsAcrossReturnedAndLostItems()
+    {
+        await using var context = CreateContext();
+        SeedMissionReturnActivityLogs(context);
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetTransactionHistoryAsync(
+            depotId: 3,
+            itemModelId: null,
+            actionTypes: null,
+            sourceTypes: null,
+            fromDate: null,
+            toDate: null,
+            pageNumber: 1,
+            pageSize: 10);
+
+        var transaction = Assert.Single(result.Items);
+
+        Assert.Equal(nameof(InventoryActionType.Return), transaction.ActionType);
+        Assert.Equal(nameof(InventorySourceType.Mission), transaction.SourceType);
+        Assert.Equal(77, transaction.SourceId);
+        Assert.Equal("Tra thieu bang ca nhan", transaction.Note);
+        Assert.Equal(4, transaction.Items.Count);
+        Assert.Contains(transaction.Items, item =>
+            item.ItemModelId == 101
+            && item.ActionType == nameof(InventoryActionType.Adjust)
+            && item.QuantityChange == -2
+            && item.Note == "Mat 2 bang ca nhan");
+        Assert.Contains(transaction.Items, item =>
+            item.ItemModelId == 201
+            && item.ReusableItemId == 2002
+            && item.ActionType == nameof(InventoryActionType.Adjust)
+            && item.QuantityChange == -1
+            && item.Note == "Mat bo dam BD-002");
+    }
+
     private static ResQDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ResQDbContext>()
