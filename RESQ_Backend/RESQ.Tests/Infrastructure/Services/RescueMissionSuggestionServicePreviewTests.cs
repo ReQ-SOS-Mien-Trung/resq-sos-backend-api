@@ -20,6 +20,44 @@ namespace RESQ.Tests.Infrastructure.Services;
 public class RescueMissionSuggestionServicePreviewTests
 {
     private const string ValidStructuredData = """{"incident":{"people_count":{"adult":1,"child":0,"elderly":0}}}""";
+    private const string StructuredElderlySupplyData =
+        """
+        {
+          "incident": {
+            "situation": "TRAPPED",
+            "people_count": { "adult": 0, "child": 0, "elderly": 1 },
+            "has_injured": true,
+            "need_medical": true
+          },
+          "group_needs": {
+            "supplies": ["WATER", "FOOD", "CLOTHES", "BLANKET", "MEDICINE", "OTHER"],
+            "water": { "duration": "6_TO_12H" },
+            "food": { "duration": "12_TO_24H" },
+            "blanket": {
+              "availability": "NOT_ENOUGH",
+              "request_count": null
+            },
+            "medicine": {
+              "needs_urgent_medicine": true,
+              "medical_needs": ["COMMON_MEDICINE", "FIRST_AID"]
+            },
+            "clothing": {
+              "status": "PARTIALLY_LACKING",
+              "needed_people_count": null
+            },
+            "other_supply_description": "Pin sạc dự phòng"
+          },
+          "victims": [
+            {
+              "person_id": "elderly_1",
+              "person_type": "ELDERLY",
+              "personal_needs": {
+                "clothing": { "needed": false }
+              }
+            }
+          ]
+        }
+        """;
 
     [Fact]
     public async Task PreviewSuggestionAsync_MissionPlanningPrompt_DoesNotPersistSuggestion()
@@ -267,6 +305,127 @@ public class RescueMissionSuggestionServicePreviewTests
         Assert.Equal(15, deliverySupply.ItemId);
         Assert.Equal("Nuoc khoang Lavie 500ml", deliverySupply.ItemName);
         Assert.Equal("chai", deliverySupply.Unit);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_AddsStructuredBlanketAndClothesFromSelectedDepot()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationResponseOverride: """
+            {
+              "mission_title": "Structured supply coverage",
+              "mission_type": "SUPPLY",
+              "priority_score": 9,
+              "severity_level": "Critical",
+              "overall_assessment": "Need urgent delivery",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Collect supplies from Kho Hue",
+                  "priority": "Critical",
+                  "estimated_time": "30 phut",
+                  "sos_request_id": 1,
+                  "depot_id": 1,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Le Loi",
+                  "supplies_to_collect": [
+                    { "item_id": 15, "item_name": "Nước khoáng thiên nhiên 500ml", "quantity": 2, "unit": "chai" },
+                    { "item_id": 3, "item_name": "Lương khô", "quantity": 1, "unit": "thanh" },
+                    { "item_id": 26, "item_name": "Bộ sơ cứu cơ bản", "quantity": 1, "unit": "bộ" },
+                    { "item_id": 102, "item_name": "Pin sạc dự phòng", "quantity": 1, "unit": "chiếc" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Nearby",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                },
+                {
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Deliver supplies to SOS 1",
+                  "priority": "Critical",
+                  "estimated_time": "45 phut",
+                  "sos_request_id": 1,
+                  "supplies_to_collect": [
+                    { "item_id": 15, "item_name": "Nước khoáng thiên nhiên 500ml", "quantity": 2, "unit": "chai" },
+                    { "item_id": 3, "item_name": "Lương khô", "quantity": 1, "unit": "thanh" },
+                    { "item_id": 26, "item_name": "Bộ sơ cứu cơ bản", "quantity": 1, "unit": "bộ" },
+                    { "item_id": 102, "item_name": "Pin sạc dự phòng", "quantity": 1, "unit": "chiếc" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Continue",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "75 phut",
+              "special_notes": "Chăn giữ ấm không có sẵn trong kho, cần bổ sung nguồn khác.",
+              "needs_additional_depot": false,
+              "supply_shortages": []
+            }
+            """);
+        var service = BuildPipelineService(
+            aiClient,
+            suggestionRepository,
+            CreateMandatoryStructuredSupplyDepotRepository(),
+            CreateMandatoryStructuredSupplyItemMetadataRepository());
+
+        var result = await service.GenerateSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 1,
+                    RawMessage = "SOS trapped elderly needs water food medicine blanket clothes",
+                    StructuredData = StructuredElderlySupplyData,
+                    PriorityLevel = "Critical",
+                    Latitude = 16.469621,
+                    Longitude = 107.592778
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi",
+                    Latitude = 16.4545,
+                    Longitude = 107.5680
+                }
+            ],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        var collect = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "COLLECT_SUPPLIES");
+        var delivery = Assert.Single(result.SuggestedActivities, activity => activity.ActivityType == "DELIVER_SUPPLIES");
+
+        Assert.Contains(collect.SuppliesToCollect!, supply => supply.ItemName == "Chăn ấm giữ nhiệt" && supply.Quantity == 1);
+        Assert.Contains(collect.SuppliesToCollect!, supply => supply.ItemName == "Bộ quần áo người cao tuổi" && supply.Quantity == 1);
+        Assert.Contains(delivery.SuppliesToCollect!, supply => supply.ItemName == "Chăn ấm giữ nhiệt" && supply.Quantity == 1);
+        Assert.Contains(delivery.SuppliesToCollect!, supply => supply.ItemName == "Bộ quần áo người cao tuổi" && supply.Quantity == 1);
+        Assert.Equal(1, delivery.DepotId);
+        Assert.Empty(result.SupplyShortages);
+        Assert.False(result.NeedsAdditionalDepot);
+        Assert.DoesNotContain("thiếu depot hợp lệ", result.SpecialNotes ?? string.Empty);
+        Assert.DoesNotContain("không có sẵn", result.SpecialNotes ?? string.Empty);
     }
 
     [Fact]
@@ -820,6 +979,170 @@ public class RescueMissionSuggestionServicePreviewTests
                         })),
                 _ => throw new NotImplementedException(method?.Name ?? typeof(IItemModelMetadataRepository).Name)
             });
+    }
+
+    private static IDepotInventoryRepository CreateMandatoryStructuredSupplyDepotRepository()
+    {
+        var inventory = CreateMandatoryStructuredSupplyInventoryItems();
+
+        return ThrowingProxy<IDepotInventoryRepository>.Create((method, args) =>
+            method?.Name switch
+            {
+                nameof(IDepotInventoryRepository.SearchForAgentAsync) => Task.FromResult((inventory, inventory.Count)),
+                nameof(IDepotInventoryRepository.PreviewReserveSuppliesAsync) => Task.FromResult(
+                    BuildReservationPreview(
+                        inventory,
+                        (List<(int ItemModelId, int Quantity)>)args![1]!)),
+                nameof(IDepotInventoryRepository.GetDepotLocationAsync) => Task.FromResult<(double Latitude, double Longitude)?>((16.4545, 107.5680)),
+                _ => throw new NotImplementedException(method?.Name ?? typeof(IDepotInventoryRepository).Name)
+            });
+    }
+
+    private static IItemModelMetadataRepository CreateMandatoryStructuredSupplyItemMetadataRepository()
+    {
+        var inventory = CreateMandatoryStructuredSupplyInventoryItems()
+            .ToDictionary(item => item.ItemId);
+
+        return ThrowingProxy<IItemModelMetadataRepository>.Create((method, args) =>
+            method?.Name switch
+            {
+                nameof(IItemModelMetadataRepository.GetByIdsAsync) => Task.FromResult(
+                    ((IReadOnlyList<int>)args![0]!)
+                    .Where(inventory.ContainsKey)
+                    .Distinct()
+                    .ToDictionary(
+                        id => id,
+                        id => new ItemModelRecord
+                        {
+                            Id = id,
+                            CategoryId = 20,
+                            Name = inventory[id].ItemName,
+                            Unit = inventory[id].Unit,
+                            ItemType = inventory[id].ItemType
+                        })),
+                _ => throw new NotImplementedException(method?.Name ?? typeof(IItemModelMetadataRepository).Name)
+            });
+    }
+
+    private static List<AgentInventoryItem> CreateMandatoryStructuredSupplyInventoryItems() =>
+    [
+        new()
+        {
+            ItemId = 15,
+            ItemName = "Nước khoáng thiên nhiên 500ml",
+            CategoryName = "Nước uống",
+            ItemType = "Consumable",
+            Unit = "chai",
+            AvailableQuantity = 100,
+            DepotId = 1,
+            DepotName = "Kho Hue",
+            DepotAddress = "1 Le Loi",
+            DepotLatitude = 16.4545,
+            DepotLongitude = 107.5680
+        },
+        new()
+        {
+            ItemId = 3,
+            ItemName = "Lương khô",
+            CategoryName = "Thực phẩm",
+            ItemType = "Consumable",
+            Unit = "thanh",
+            AvailableQuantity = 50,
+            DepotId = 1,
+            DepotName = "Kho Hue",
+            DepotAddress = "1 Le Loi",
+            DepotLatitude = 16.4545,
+            DepotLongitude = 107.5680
+        },
+        new()
+        {
+            ItemId = 26,
+            ItemName = "Bộ sơ cứu cơ bản",
+            CategoryName = "Y tế",
+            ItemType = "Consumable",
+            Unit = "bộ",
+            AvailableQuantity = 20,
+            DepotId = 1,
+            DepotName = "Kho Hue",
+            DepotAddress = "1 Le Loi",
+            DepotLatitude = 16.4545,
+            DepotLongitude = 107.5680
+        },
+        new()
+        {
+            ItemId = 102,
+            ItemName = "Pin sạc dự phòng",
+            CategoryName = "Khác",
+            ItemType = "Consumable",
+            Unit = "chiếc",
+            AvailableQuantity = 20,
+            DepotId = 1,
+            DepotName = "Kho Hue",
+            DepotAddress = "1 Le Loi",
+            DepotLatitude = 16.4545,
+            DepotLongitude = 107.5680
+        },
+        new()
+        {
+            ItemId = 40,
+            ItemName = "Chăn ấm giữ nhiệt",
+            CategoryName = "Sưởi ấm",
+            ItemType = "Consumable",
+            Unit = "chiếc",
+            AvailableQuantity = 12,
+            DepotId = 1,
+            DepotName = "Kho Hue",
+            DepotAddress = "1 Le Loi",
+            DepotLatitude = 16.4545,
+            DepotLongitude = 107.5680
+        },
+        new()
+        {
+            ItemId = 48,
+            ItemName = "Bộ quần áo người cao tuổi",
+            CategoryName = "Quần áo",
+            ItemType = "Consumable",
+            Unit = "bộ",
+            AvailableQuantity = 10,
+            DepotId = 1,
+            DepotName = "Kho Hue",
+            DepotAddress = "1 Le Loi",
+            DepotLatitude = 16.4545,
+            DepotLongitude = 107.5680
+        }
+    ];
+
+    private static MissionSupplyReservationResult BuildReservationPreview(
+        IReadOnlyCollection<AgentInventoryItem> inventory,
+        IReadOnlyCollection<(int ItemModelId, int Quantity)> requests)
+    {
+        var byId = inventory.ToDictionary(item => item.ItemId);
+        return new MissionSupplyReservationResult
+        {
+            Items = requests
+                .Where(request => byId.ContainsKey(request.ItemModelId))
+                .Select(request =>
+                {
+                    var item = byId[request.ItemModelId];
+                    return new SupplyExecutionItemDto
+                    {
+                        ItemModelId = item.ItemId,
+                        ItemName = item.ItemName,
+                        Unit = item.Unit,
+                        Quantity = request.Quantity,
+                        LotAllocations =
+                        [
+                            new SupplyExecutionLotDto
+                            {
+                                LotId = 9000 + item.ItemId,
+                                QuantityTaken = request.Quantity,
+                                RemainingQuantityAfterExecution = Math.Max(item.AvailableQuantity - request.Quantity, 0)
+                            }
+                        ]
+                    };
+                })
+                .ToList()
+        };
     }
 
     private sealed class StubAiProviderClientFactory(IAiProviderClient client) : IAiProviderClientFactory

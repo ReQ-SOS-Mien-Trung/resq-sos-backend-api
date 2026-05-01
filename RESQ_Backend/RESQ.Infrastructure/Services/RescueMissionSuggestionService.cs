@@ -100,6 +100,21 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         bool RequiresEvacuationTransport,
         bool RequiresRescueEquipment);
 
+    private sealed record StructuredPeopleCounts(int Adult, int Child, int Elderly)
+    {
+        public int Total => Adult + Child + Elderly;
+    }
+
+    private sealed record MandatoryStructuredSupplyNeed(
+        int SosRequestId,
+        string Code,
+        string ItemName,
+        int Quantity,
+        string? Unit,
+        string? Category,
+        string? Notes,
+        IReadOnlyList<string> SearchTerms);
+
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -280,6 +295,471 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             WriteIndented = true,
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         });
+    }
+
+    private static List<MandatoryStructuredSupplyNeed> BuildMandatoryStructuredSupplyNeeds(
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var needs = new List<MandatoryStructuredSupplyNeed>();
+
+        foreach (var sos in sosRequests)
+        {
+            if (string.IsNullOrWhiteSpace(sos.StructuredData))
+                continue;
+
+            try
+            {
+                using var document = JsonDocument.Parse(sos.StructuredData);
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var counts = ResolveStructuredPeopleCounts(root);
+                var totalPeople = Math.Clamp(counts.Total > 0 ? counts.Total : CountStructuredVictims(root), 1, MaxPeoplePerSosRequest);
+                var supplyCodes = ExtractStructuredSupplyCodes(root);
+                var groupNeeds = TryGetObject(root, "group_needs");
+
+                if (HasStructuredSupply(supplyCodes, "WATER") || HasWaterNeed(groupNeeds))
+                {
+                    AddMandatoryNeed(
+                        needs,
+                        sos.Id,
+                        "WATER",
+                        "Nước uống",
+                        Math.Max(totalPeople * 2, 1),
+                        "chai",
+                        "Water",
+                        "Nhu cầu WATER từ structuredData.",
+                        ["Nước khoáng thiên nhiên 500ml", "nước uống", "nuoc uong", "water"]);
+                }
+
+                if (HasStructuredSupply(supplyCodes, "FOOD") || HasFoodNeed(groupNeeds))
+                {
+                    AddMandatoryNeed(
+                        needs,
+                        sos.Id,
+                        "FOOD",
+                        "Lương khô",
+                        totalPeople,
+                        "thanh",
+                        "Food",
+                        "Nhu cầu FOOD từ structuredData.",
+                        ["Lương khô", "thực phẩm", "thuc pham", "food"]);
+                }
+
+                if (HasStructuredSupply(supplyCodes, "BLANKET") || HasBlanketNeed(groupNeeds))
+                {
+                    var blanket = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "blanket") : null;
+                    var requestCount = blanket.HasValue ? ReadJsonInt(blanket.Value, "request_count") : null;
+                    AddMandatoryNeed(
+                        needs,
+                        sos.Id,
+                        "BLANKET",
+                        "Chăn ấm giữ nhiệt",
+                        Math.Clamp(requestCount.GetValueOrDefault(totalPeople), 1, MaxPeoplePerSosRequest),
+                        "chiếc",
+                        "Heating",
+                        "Nhu cầu BLANKET/giữ ấm từ structuredData.",
+                        ["Chăn ấm giữ nhiệt", "chăn màn", "chăn", "giữ ấm", "blanket"]);
+                }
+
+                if (HasStructuredSupply(supplyCodes, "MEDICINE") || HasMedicineNeed(groupNeeds, root))
+                {
+                    var medicineName = SelectStructuredMedicineNeedName(groupNeeds);
+                    AddMandatoryNeed(
+                        needs,
+                        sos.Id,
+                        "MEDICINE",
+                        medicineName,
+                        1,
+                        medicineName.Contains("sơ cứu", StringComparison.OrdinalIgnoreCase) ? "bộ" : null,
+                        "Medical",
+                        "Nhu cầu MEDICINE từ structuredData.",
+                        [medicineName, "sơ cứu", "thuốc men", "y tế", "medical"]);
+                }
+
+                if (HasStructuredSupply(supplyCodes, "CLOTHES") || HasClothingNeed(groupNeeds))
+                {
+                    AddStructuredClothingNeeds(needs, sos.Id, counts, totalPeople, groupNeeds);
+                }
+
+                if (HasStructuredSupply(supplyCodes, "OTHER"))
+                {
+                    var otherDescription = ReadJsonString(groupNeeds, "other_supply_description");
+                    if (!string.IsNullOrWhiteSpace(otherDescription))
+                    {
+                        AddMandatoryNeed(
+                            needs,
+                            sos.Id,
+                            "OTHER",
+                            otherDescription,
+                            1,
+                            null,
+                            "Others",
+                            "Nhu cầu OTHER từ structuredData.",
+                            [otherDescription, "pin", "sạc", "sac", "power bank"]);
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Invalid structured data is already handled by SOS validation elsewhere.
+            }
+            catch (InvalidOperationException)
+            {
+                // Keep mission suggestion resilient to unexpected structured-data shapes.
+            }
+        }
+
+        return needs;
+    }
+
+    private static void AddStructuredClothingNeeds(
+        List<MandatoryStructuredSupplyNeed> needs,
+        int sosRequestId,
+        StructuredPeopleCounts counts,
+        int totalPeople,
+        JsonElement? groupNeeds)
+    {
+        var clothing = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "clothing") : null;
+        var requestedPeople = clothing.HasValue ? ReadJsonInt(clothing.Value, "needed_people_count") : null;
+        var remaining = Math.Clamp(requestedPeople.GetValueOrDefault(totalPeople), 1, MaxPeoplePerSosRequest);
+
+        void AddClothingForGroup(string itemName, int groupCount, string note)
+        {
+            if (remaining <= 0 || groupCount <= 0)
+                return;
+
+            var quantity = Math.Min(groupCount, remaining);
+            remaining -= quantity;
+            AddMandatoryNeed(
+                needs,
+                sosRequestId,
+                "CLOTHES",
+                itemName,
+                quantity,
+                "bộ",
+                "Clothing",
+                note,
+                [itemName, "quần áo", "quan ao", "clothes", "clothing"]);
+        }
+
+        AddClothingForGroup("Bộ quần áo người cao tuổi", counts.Elderly, "Nhu cầu CLOTHES cấp nhóm cho người cao tuổi.");
+        AddClothingForGroup("Bộ quần áo trẻ em", counts.Child, "Nhu cầu CLOTHES cấp nhóm cho trẻ em.");
+        AddClothingForGroup("Bộ quần áo người lớn", counts.Adult, "Nhu cầu CLOTHES cấp nhóm cho người lớn.");
+
+        if (remaining > 0)
+        {
+            AddMandatoryNeed(
+                needs,
+                sosRequestId,
+                "CLOTHES",
+                "Bộ quần áo người lớn",
+                remaining,
+                "bộ",
+                "Clothing",
+                "Nhu cầu CLOTHES cấp nhóm từ structuredData.",
+                ["Bộ quần áo người lớn", "quần áo", "quan ao", "clothes", "clothing"]);
+        }
+    }
+
+    private static void AddMandatoryNeed(
+        ICollection<MandatoryStructuredSupplyNeed> needs,
+        int sosRequestId,
+        string code,
+        string itemName,
+        int quantity,
+        string? unit,
+        string? category,
+        string? notes,
+        IReadOnlyList<string> searchTerms)
+    {
+        var safeQuantity = Math.Clamp(quantity, 1, MaxPeoplePerSosRequest * 4);
+        var normalizedItemName = NormalizeItemName(itemName);
+
+        if (needs.Any(need => need.SosRequestId == sosRequestId
+            && string.Equals(need.Code, code, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(NormalizeItemName(need.ItemName), normalizedItemName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        needs.Add(new MandatoryStructuredSupplyNeed(
+            sosRequestId,
+            code,
+            itemName.Trim(),
+            safeQuantity,
+            unit,
+            category,
+            notes,
+            searchTerms
+                .Where(term => !string.IsNullOrWhiteSpace(term))
+                .Select(term => term.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()));
+    }
+
+    private static HashSet<string> ExtractStructuredSupplyCodes(JsonElement root)
+    {
+        var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (root.TryGetProperty("group_needs", out var groupNeeds)
+            && groupNeeds.ValueKind == JsonValueKind.Object
+            && groupNeeds.TryGetProperty("supplies", out var supplies)
+            && supplies.ValueKind == JsonValueKind.Array)
+        {
+            AddStructuredSupplyCodes(codes, supplies);
+        }
+
+        if (root.TryGetProperty("supplies", out var flatSupplies)
+            && flatSupplies.ValueKind == JsonValueKind.Array)
+        {
+            AddStructuredSupplyCodes(codes, flatSupplies);
+        }
+
+        return codes;
+    }
+
+    private static void AddStructuredSupplyCodes(ISet<string> codes, JsonElement supplies)
+    {
+        foreach (var item in supplies.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                continue;
+
+            var normalized = NormalizeStructuredSupplyCode(item.GetString());
+            if (!string.IsNullOrWhiteSpace(normalized))
+                codes.Add(normalized);
+        }
+    }
+
+    private static string NormalizeStructuredSupplyCode(string? code)
+    {
+        var normalized = (code ?? string.Empty).Trim().ToUpperInvariant();
+        var mapped = normalized switch
+        {
+            "CLOTHING" or "DRY_CLOTHES" or "CLOTHES" => "CLOTHES",
+            "BLANKETS" or "HYPOTHERMIA_BLANKET" or "BLANKET" => "BLANKET",
+            "DRINKING_WATER" or "WATER" => "WATER",
+            "READY_TO_EAT_FOOD" or "FOOD" => "FOOD",
+            "MEDICAL" or "MEDICINE" => "MEDICINE",
+            "OTHER" or "POWER_BANK" => "OTHER",
+            _ => null
+        };
+
+        if (!string.IsNullOrWhiteSpace(mapped))
+            return mapped;
+
+        var folded = NormalizeItemName(code ?? string.Empty);
+        if (ContainsOperationalKeyword(folded, "chan", "chan man", "giu am", "blanket"))
+            return "BLANKET";
+        if (ContainsOperationalKeyword(folded, "quan ao", "clothes", "clothing"))
+            return "CLOTHES";
+        if (ContainsOperationalKeyword(folded, "nuoc", "water"))
+            return "WATER";
+        if (ContainsOperationalKeyword(folded, "thuc pham", "luong thuc", "do an", "food"))
+            return "FOOD";
+        if (ContainsOperationalKeyword(folded, "thuoc", "y te", "medical", "so cuu"))
+            return "MEDICINE";
+        if (ContainsOperationalKeyword(folded, "khac", "pin", "sac", "power bank"))
+            return "OTHER";
+
+        return normalized;
+    }
+
+    private static bool HasStructuredSupply(IReadOnlySet<string> codes, string code) =>
+        codes.Contains(code);
+
+    private static bool HasWaterNeed(JsonElement? groupNeeds)
+    {
+        var water = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "water") : null;
+        return water.HasValue
+            && (!string.IsNullOrWhiteSpace(ReadJsonString(water.Value, "duration"))
+                || !string.IsNullOrWhiteSpace(ReadJsonString(water.Value, "remaining")));
+    }
+
+    private static bool HasFoodNeed(JsonElement? groupNeeds)
+    {
+        var food = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "food") : null;
+        return food.HasValue && !string.IsNullOrWhiteSpace(ReadJsonString(food.Value, "duration"));
+    }
+
+    private static bool HasBlanketNeed(JsonElement? groupNeeds)
+    {
+        var blanket = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "blanket") : null;
+        if (!blanket.HasValue)
+            return false;
+
+        return ReadJsonInt(blanket.Value, "request_count") is > 0
+            || ReadJsonBool(blanket.Value, "are_blankets_enough") == false
+            || IsNegativeStructuredStatus(ReadJsonString(blanket.Value, "availability"));
+    }
+
+    private static bool HasClothingNeed(JsonElement? groupNeeds)
+    {
+        var clothing = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "clothing") : null;
+        if (!clothing.HasValue)
+            return false;
+
+        return ReadJsonInt(clothing.Value, "needed_people_count") is > 0
+            || IsNegativeStructuredStatus(ReadJsonString(clothing.Value, "status"));
+    }
+
+    private static bool HasMedicineNeed(JsonElement? groupNeeds, JsonElement root)
+    {
+        var medicine = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "medicine") : null;
+        if (medicine.HasValue
+            && (ReadJsonBool(medicine.Value, "needs_urgent_medicine") == true
+                || JsonArrayHasAny(medicine.Value, "medical_needs")
+                || !string.IsNullOrWhiteSpace(ReadJsonString(medicine.Value, "medical_description"))))
+        {
+            return true;
+        }
+
+        var incident = TryGetObject(root, "incident");
+        return incident.HasValue
+            && (ReadJsonBool(incident.Value, "need_medical") == true
+                || ReadJsonBool(incident.Value, "has_injured") == true);
+    }
+
+    private static string SelectStructuredMedicineNeedName(JsonElement? groupNeeds)
+    {
+        var medicine = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "medicine") : null;
+        if (medicine.HasValue && JsonArrayContains(medicine.Value, "medical_needs", "FIRST_AID"))
+            return "Bộ sơ cứu cơ bản";
+
+        if (medicine.HasValue && JsonArrayContains(medicine.Value, "medical_needs", "COMMON_MEDICINE"))
+            return "Thuốc thông dụng";
+
+        return "Bộ sơ cứu cơ bản";
+    }
+
+    private static StructuredPeopleCounts ResolveStructuredPeopleCounts(JsonElement root)
+    {
+        var incident = TryGetObject(root, "incident");
+        var peopleCount = incident.HasValue ? TryGetObject(incident.Value, "people_count") : null;
+        if (!peopleCount.HasValue)
+            return new StructuredPeopleCounts(0, 0, 0);
+
+        return new StructuredPeopleCounts(
+            Math.Max(ReadJsonInt(peopleCount.Value, "adult") ?? 0, 0),
+            Math.Max(ReadJsonInt(peopleCount.Value, "child") ?? 0, 0),
+            Math.Max(ReadJsonInt(peopleCount.Value, "elderly") ?? 0, 0));
+    }
+
+    private static int CountStructuredVictims(JsonElement root)
+    {
+        if (!root.TryGetProperty("victims", out var victims) || victims.ValueKind != JsonValueKind.Array)
+            return 1;
+
+        return Math.Max(victims.GetArrayLength(), 1);
+    }
+
+    private static JsonElement? TryGetObject(JsonElement source, string propertyName)
+    {
+        return source.ValueKind == JsonValueKind.Object
+            && source.TryGetProperty(propertyName, out var property)
+            && property.ValueKind == JsonValueKind.Object
+                ? property
+                : null;
+    }
+
+    private static string? ReadJsonString(JsonElement? source, string propertyName) =>
+        source.HasValue ? ReadJsonString(source.Value, propertyName) : null;
+
+    private static string? ReadJsonString(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object
+            || !source.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind == JsonValueKind.String
+            ? property.GetString()?.Trim()
+            : null;
+    }
+
+    private static int? ReadJsonInt(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object
+            || !source.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetInt32(out var value) => value,
+            JsonValueKind.String when int.TryParse(property.GetString(), out var value) => value,
+            _ => null
+        };
+    }
+
+    private static bool? ReadJsonBool(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object
+            || !source.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(property.GetString(), out var value) => value,
+            _ => null
+        };
+    }
+
+    private static bool JsonArrayHasAny(JsonElement source, string propertyName) =>
+        source.ValueKind == JsonValueKind.Object
+        && source.TryGetProperty(propertyName, out var property)
+        && property.ValueKind == JsonValueKind.Array
+        && property.GetArrayLength() > 0;
+
+    private static bool JsonArrayContains(JsonElement source, string propertyName, string expected)
+    {
+        if (source.ValueKind != JsonValueKind.Object
+            || !source.TryGetProperty(propertyName, out var property)
+            || property.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        return property.EnumerateArray().Any(item =>
+            item.ValueKind == JsonValueKind.String
+            && string.Equals(item.GetString(), expected, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsNegativeStructuredStatus(string? value)
+    {
+        var normalized = NormalizeItemName(value ?? string.Empty);
+        return ContainsOperationalKeyword(
+            normalized,
+            "not enough",
+            "not enough",
+            "lack",
+            "lacking",
+            "partially lacking",
+            "not enough",
+            "khong du",
+            "thieu");
+    }
+
+    private static bool NeedCodeMatchesSupplyText(string code, string normalizedText)
+    {
+        return code.ToUpperInvariant() switch
+        {
+            "WATER" => ContainsOperationalKeyword(normalizedText, "nuoc", "water", "uống", "uong"),
+            "FOOD" => ContainsOperationalKeyword(normalizedText, "food", "thuc pham", "luong kho", "do an", "khau phan"),
+            "MEDICINE" => ContainsOperationalKeyword(normalizedText, "thuoc", "y te", "medical", "so cuu", "first aid"),
+            "BLANKET" => ContainsOperationalKeyword(normalizedText, "chan", "men", "giu am", "blanket", "heating"),
+            "CLOTHES" => ContainsOperationalKeyword(normalizedText, "quan ao", "clothes", "clothing", "ao am", "bo quan ao"),
+            "OTHER" => ContainsOperationalKeyword(normalizedText, "khac", "pin", "sac", "power bank"),
+            _ => false
+        };
     }
 
     private static string BuildAgentInstructions(bool isMultiDepotRecommended = false)
@@ -920,8 +1400,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ["blanket"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
             ["blankets"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
             ["giu am"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
-            ["quan ao"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"],
-            ["clothing"] = ["ao", "quan", "chan", "men", "giu nhiet", "ao am"]
+            ["quan ao"] = ["ao", "quan", "bo quan ao", "ao am", "ung", "tat", "mu"],
+            ["clothes"] = ["ao", "quan", "bo quan ao", "ao am", "ung", "tat", "mu"],
+            ["clothing"] = ["ao", "quan", "bo quan ao", "ao am", "ung", "tat", "mu"]
         };
 
     private static readonly HashSet<string> GenericShortageLabels =
@@ -938,6 +1419,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         "blankets",
         "giu am",
         "quan ao",
+        "clothes",
         "clothing"
     ];
 
@@ -3159,6 +3641,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             AddSupplyInventorySearchTerm(terms, "y te");
         if (ContainsOperationalKeyword(normalizedName, "chan", "giu am", "blanket"))
             AddSupplyInventorySearchTerm(terms, "chan");
+        if (ContainsOperationalKeyword(normalizedName, "quan ao", "clothes", "clothing", "ao am", "bo quan ao"))
+            AddSupplyInventorySearchTerm(terms, "quan ao");
         if (ContainsOperationalKeyword(normalizedName, "pin", "sac", "power bank"))
             AddSupplyInventorySearchTerm(terms, "pin");
         if (ContainsOperationalKeyword(normalizedName, "xuong", "thuyen", "ca no", "cano", "boat"))
@@ -3267,6 +3751,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (ContainsOperationalKeyword(normalizedSupplyName, "chan", "giu am", "blanket")
             && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "chan", "giu am", "blanket"))
             score += 80;
+        if (ContainsOperationalKeyword(normalizedSupplyName, "quan ao", "clothes", "clothing", "ao am", "bo quan ao")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "quan ao", "clothes", "clothing", "ao", "bo quan ao"))
+            score += 80;
         if (ContainsOperationalKeyword(normalizedSupplyName, "pin", "sac", "power bank")
             && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "pin", "sac", "power bank"))
             score += 80;
@@ -3327,6 +3814,593 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             activity.DestinationLatitude = item.DepotLatitude;
             activity.DestinationLongitude = item.DepotLongitude;
         }
+    }
+
+    private async Task EnsureMandatoryStructuredSupplyCoverageAsync(
+        RescueMissionSuggestionResult result,
+        List<SosRequestSummary> sosRequests,
+        List<DepotSummary> nearbyDepots,
+        CancellationToken cancellationToken)
+    {
+        var mandatoryNeeds = BuildMandatoryStructuredSupplyNeeds(sosRequests)
+            .Where(need => need.Quantity > 0)
+            .OrderBy(need => need.SosRequestId)
+            .ThenBy(need => need.Code, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(need => need.ItemName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (mandatoryNeeds.Count == 0)
+            return;
+
+        var selectedDepot = ResolveMandatoryStructuredSupplyDepot(result, nearbyDepots);
+        if (selectedDepot is null)
+        {
+            foreach (var need in mandatoryNeeds)
+            {
+                AddOrMergeMandatoryStructuredSupplyShortage(
+                    result,
+                    need,
+                    null,
+                    itemId: null,
+                    availableQuantity: 0,
+                    note: "Chưa có kho hợp lệ để cấp vật tư bắt buộc từ structuredData.");
+            }
+
+            return;
+        }
+
+        var searchCache = new Dictionary<(int DepotId, string SearchTerm), List<AgentInventoryItem>>();
+
+        foreach (var need in mandatoryNeeds)
+        {
+            var targetQuantity = Math.Max(need.Quantity, 1);
+            var collectCoverage = GetMandatoryStructuredSupplyCoverage(
+                result.SuggestedActivities
+                    .Where(IsCollectActivity)
+                    .Where(activity => activity.DepotId == selectedDepot.Id),
+                need);
+            var deliveryCoverage = GetMandatoryStructuredSupplyCoverage(
+                result.SuggestedActivities
+                    .Where(IsDeliverActivity)
+                    .Where(activity => ReferencesSos(activity, need.SosRequestId)),
+                need);
+
+            if (collectCoverage >= targetQuantity && deliveryCoverage >= targetQuantity)
+                continue;
+
+            var inventoryMatch = await FindMandatoryStructuredSupplyMatchAsync(
+                selectedDepot.Id,
+                need,
+                searchCache,
+                cancellationToken);
+
+            if (inventoryMatch is null)
+            {
+                if (TryBackfillMandatorySupplyFromExistingActivity(result, need, selectedDepot, targetQuantity))
+                    continue;
+
+                AddOrMergeMandatoryStructuredSupplyShortage(
+                    result,
+                    need,
+                    selectedDepot,
+                    itemId: null,
+                    availableQuantity: 0,
+                    note: $"Kho {selectedDepot.Name ?? $"#{selectedDepot.Id}"} không có item phù hợp với nhu cầu {need.Code} từ structuredData.");
+                continue;
+            }
+
+            var effectiveAvailableQuantity = Math.Max(
+                inventoryMatch.AvailableQuantity,
+                Math.Max(collectCoverage, deliveryCoverage));
+            var coveredQuantity = Math.Min(targetQuantity, effectiveAvailableQuantity);
+
+            if (coveredQuantity > 0)
+            {
+                var deliverActivity = FindOrCreateMandatoryDeliverActivity(
+                    result,
+                    need,
+                    selectedDepot,
+                    sosRequests);
+                var collectActivity = FindOrCreateMandatoryCollectActivity(
+                    result,
+                    need,
+                    selectedDepot,
+                    deliverActivity);
+
+                AddOrUpdateMandatoryStructuredSupply(
+                    collectActivity,
+                    CreateMandatorySupply(inventoryMatch, coveredQuantity),
+                    need,
+                    coveredQuantity);
+                AddOrUpdateMandatoryStructuredSupply(
+                    deliverActivity,
+                    CreateMandatorySupply(inventoryMatch, coveredQuantity),
+                    need,
+                    coveredQuantity);
+            }
+
+            if (effectiveAvailableQuantity < targetQuantity)
+            {
+                AddOrMergeMandatoryStructuredSupplyShortage(
+                    result,
+                    need,
+                    selectedDepot,
+                    inventoryMatch.ItemId,
+                    effectiveAvailableQuantity,
+                    note: $"Kho {selectedDepot.Name ?? $"#{selectedDepot.Id}"} chỉ còn {effectiveAvailableQuantity}/{targetQuantity} {need.Unit ?? "đơn vị"} cho {need.ItemName}.");
+            }
+        }
+
+        RemoveCoveredMandatorySupplyAbsenceNotes(result, mandatoryNeeds);
+    }
+
+    private static DepotSummary? ResolveMandatoryStructuredSupplyDepot(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<DepotSummary> nearbyDepots)
+    {
+        var selectedDepot = GetSingleDepotSelection(result.SuggestedActivities);
+        if (selectedDepot.HasValue)
+        {
+            return nearbyDepots.FirstOrDefault(depot => depot.Id == selectedDepot.Value.DepotId)
+                ?? new DepotSummary
+                {
+                    Id = selectedDepot.Value.DepotId,
+                    Name = selectedDepot.Value.DepotName ?? string.Empty
+                };
+        }
+
+        if (nearbyDepots.Count == 1)
+            return nearbyDepots.First();
+
+        return null;
+    }
+
+    private async Task<AgentInventoryItem?> FindMandatoryStructuredSupplyMatchAsync(
+        int depotId,
+        MandatoryStructuredSupplyNeed need,
+        Dictionary<(int DepotId, string SearchTerm), List<AgentInventoryItem>> searchCache,
+        CancellationToken cancellationToken)
+    {
+        var searchTerms = BuildMandatoryStructuredSupplySearchTerms(need);
+        var candidates = await SearchSupplyInventoryCandidatesAsync(
+            depotId,
+            searchTerms,
+            searchCache,
+            cancellationToken);
+
+        var probeActivity = new SuggestedActivityDto
+        {
+            ActivityType = DeliverSuppliesActivityType,
+            DepotId = depotId
+        };
+        var probeSupply = new SupplyToCollectDto
+        {
+            ItemName = need.ItemName,
+            Quantity = Math.Max(need.Quantity, 1),
+            Unit = need.Unit
+        };
+
+        return candidates
+            .Where(item => item.DepotId == depotId)
+            .Where(item => item.AvailableQuantity > 0)
+            .Where(item => !string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase))
+            .Where(item => MandatoryInventoryItemMatchesNeed(item, need))
+            .OrderByDescending(item => ScoreSupplyInventoryMatch(item, probeActivity, probeSupply, null))
+            .ThenByDescending(item => item.AvailableQuantity >= Math.Max(need.Quantity, 1))
+            .ThenByDescending(item => item.AvailableQuantity)
+            .ThenBy(item => item.ItemName)
+            .FirstOrDefault();
+    }
+
+    private static List<string> BuildMandatoryStructuredSupplySearchTerms(MandatoryStructuredSupplyNeed need)
+    {
+        var terms = new List<string>();
+        AddSupplyInventorySearchTerm(terms, need.ItemName);
+        AddSupplyInventorySearchTerm(terms, need.Category);
+        foreach (var term in need.SearchTerms)
+            AddSupplyInventorySearchTerm(terms, term);
+
+        switch (need.Code.ToUpperInvariant())
+        {
+            case "WATER":
+                AddSupplyInventorySearchTerm(terms, "nuoc");
+                break;
+            case "FOOD":
+                AddSupplyInventorySearchTerm(terms, "thuc pham");
+                break;
+            case "MEDICINE":
+                AddSupplyInventorySearchTerm(terms, "y te");
+                AddSupplyInventorySearchTerm(terms, "so cuu");
+                break;
+            case "BLANKET":
+                AddSupplyInventorySearchTerm(terms, "chan");
+                AddSupplyInventorySearchTerm(terms, "giu am");
+                break;
+            case "CLOTHES":
+                AddSupplyInventorySearchTerm(terms, "quan ao");
+                break;
+            case "OTHER":
+                AddSupplyInventorySearchTerm(terms, "khac");
+                break;
+        }
+
+        return terms;
+    }
+
+    private static bool MandatoryInventoryItemMatchesNeed(
+        AgentInventoryItem item,
+        MandatoryStructuredSupplyNeed need)
+    {
+        var normalizedItemName = NormalizeItemName(item.ItemName);
+        var normalizedCategoryName = NormalizeItemName(item.CategoryName);
+        var searchableText = $"{normalizedItemName} {normalizedCategoryName}";
+
+        if (MandatorySupplyNameMatchesNeed(normalizedItemName, need))
+            return true;
+
+        return need.SearchTerms
+            .Select(NormalizeItemName)
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Any(term => normalizedItemName.Contains(term, StringComparison.Ordinal)
+                || term.Contains(normalizedItemName, StringComparison.Ordinal))
+            || NeedCodeMatchesSupplyText(need.Code, searchableText);
+    }
+
+    private static SuggestedActivityDto FindOrCreateMandatoryCollectActivity(
+        RescueMissionSuggestionResult result,
+        MandatoryStructuredSupplyNeed need,
+        DepotSummary selectedDepot,
+        SuggestedActivityDto deliverActivity)
+    {
+        var deliverRouteKey = BuildSupplyRouteKey(deliverActivity);
+        var collectActivity = result.SuggestedActivities
+            .Where(IsCollectActivity)
+            .Where(activity => activity.DepotId == selectedDepot.Id)
+            .OrderByDescending(activity =>
+                string.Equals(BuildSupplyRouteKey(activity), deliverRouteKey, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .FirstOrDefault();
+
+        if (collectActivity is not null)
+        {
+            ApplyMandatoryDepotDefaults(collectActivity, selectedDepot);
+            collectActivity.SuggestedTeam ??= CloneSuggestedTeam(deliverActivity.SuggestedTeam);
+            collectActivity.Priority = SelectHigherPriority(collectActivity.Priority, deliverActivity.Priority);
+            collectActivity.CoordinationGroupKey ??= deliverActivity.CoordinationGroupKey;
+            collectActivity.CoordinationNotes ??= "Lấy đủ vật tư bắt buộc từ structuredData trước khi giao cho SOS.";
+            return collectActivity;
+        }
+
+        collectActivity = new SuggestedActivityDto
+        {
+            Step = 0,
+            ActivityType = CollectSuppliesActivityType,
+            Description = $"Di chuyển đến kho {selectedDepot.Name ?? $"#{selectedDepot.Id}"} và lấy vật tư bắt buộc cho SOS {need.SosRequestId}.",
+            Priority = deliverActivity.Priority,
+            EstimatedTime = DefaultInventoryBackedCollectEstimatedTime,
+            ExecutionMode = SingleTeamExecutionMode,
+            RequiredTeamCount = 1,
+            CoordinationGroupKey = deliverActivity.CoordinationGroupKey,
+            CoordinationNotes = "Lấy đủ vật tư bắt buộc từ structuredData trước khi giao cho SOS.",
+            SosRequestId = need.SosRequestId,
+            SuggestedTeam = CloneSuggestedTeam(deliverActivity.SuggestedTeam),
+            SuppliesToCollect = []
+        };
+
+        ApplyMandatoryDepotDefaults(collectActivity, selectedDepot);
+        result.SuggestedActivities.Add(collectActivity);
+        return collectActivity;
+    }
+
+    private static SuggestedActivityDto FindOrCreateMandatoryDeliverActivity(
+        RescueMissionSuggestionResult result,
+        MandatoryStructuredSupplyNeed need,
+        DepotSummary selectedDepot,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var deliverActivity = result.SuggestedActivities
+            .Where(IsDeliverActivity)
+            .Where(activity => ReferencesSos(activity, need.SosRequestId))
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .FirstOrDefault();
+
+        if (deliverActivity is not null)
+        {
+            ApplyMandatoryDepotDefaults(deliverActivity, selectedDepot);
+            deliverActivity.SosRequestId ??= need.SosRequestId;
+            deliverActivity.SuppliesToCollect ??= [];
+            return deliverActivity;
+        }
+
+        var referenceActivity = result.SuggestedActivities
+            .Where(activity => ReferencesSos(activity, need.SosRequestId))
+            .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+            .FirstOrDefault()
+            ?? result.SuggestedActivities
+                .Where(activity => activity.SuggestedTeam is not null)
+                .OrderBy(activity => activity.Step > 0 ? activity.Step : int.MaxValue)
+                .FirstOrDefault();
+        var sosPriority = sosRequests.FirstOrDefault(sos => sos.Id == need.SosRequestId)?.PriorityLevel;
+
+        deliverActivity = new SuggestedActivityDto
+        {
+            Step = 0,
+            ActivityType = DeliverSuppliesActivityType,
+            Description = $"Giao vật tư bắt buộc theo structuredData đến SOS {need.SosRequestId}.",
+            Priority = SelectHigherPriority(referenceActivity?.Priority, sosPriority) ?? "High",
+            EstimatedTime = "45 phút",
+            ExecutionMode = SingleTeamExecutionMode,
+            RequiredTeamCount = 1,
+            CoordinationGroupKey = referenceActivity?.CoordinationGroupKey ?? $"route-sos-{need.SosRequestId}",
+            CoordinationNotes = "Giao đủ vật tư bắt buộc đã khai báo trong structuredData.",
+            SosRequestId = need.SosRequestId,
+            SuggestedTeam = CloneSuggestedTeam(referenceActivity?.SuggestedTeam),
+            SuppliesToCollect = []
+        };
+
+        ApplyMandatoryDepotDefaults(deliverActivity, selectedDepot);
+        result.SuggestedActivities.Add(deliverActivity);
+        return deliverActivity;
+    }
+
+    private static void ApplyMandatoryDepotDefaults(SuggestedActivityDto activity, DepotSummary selectedDepot)
+    {
+        activity.DepotId = selectedDepot.Id;
+        activity.DepotName = string.IsNullOrWhiteSpace(selectedDepot.Name)
+            ? activity.DepotName
+            : selectedDepot.Name;
+        activity.DepotAddress = string.IsNullOrWhiteSpace(selectedDepot.Address)
+            ? activity.DepotAddress
+            : selectedDepot.Address;
+
+        if (IsCollectActivity(activity) || IsReturnActivity(activity))
+        {
+            activity.DestinationName ??= selectedDepot.Name;
+            activity.DestinationLatitude ??= selectedDepot.Latitude;
+            activity.DestinationLongitude ??= selectedDepot.Longitude;
+        }
+    }
+
+    private static bool TryBackfillMandatorySupplyFromExistingActivity(
+        RescueMissionSuggestionResult result,
+        MandatoryStructuredSupplyNeed need,
+        DepotSummary selectedDepot,
+        int targetQuantity)
+    {
+        var existingCollectSupply = FindMandatoryStructuredSupply(result.SuggestedActivities
+            .Where(IsCollectActivity)
+            .Where(activity => activity.DepotId == selectedDepot.Id), need);
+        var existingDeliverySupply = FindMandatoryStructuredSupply(result.SuggestedActivities
+            .Where(IsDeliverActivity)
+            .Where(activity => ReferencesSos(activity, need.SosRequestId)), need);
+
+        if (existingCollectSupply is null && existingDeliverySupply is null)
+            return false;
+
+        var deliverActivity = FindOrCreateMandatoryDeliverActivity(result, need, selectedDepot, []);
+        var collectActivity = FindOrCreateMandatoryCollectActivity(result, need, selectedDepot, deliverActivity);
+        var sourceSupply = existingCollectSupply ?? existingDeliverySupply!;
+
+        AddOrUpdateMandatoryStructuredSupply(collectActivity, sourceSupply, need, targetQuantity);
+        AddOrUpdateMandatoryStructuredSupply(deliverActivity, sourceSupply, need, targetQuantity);
+        return true;
+    }
+
+    private static SupplyToCollectDto? FindMandatoryStructuredSupply(
+        IEnumerable<SuggestedActivityDto> activities,
+        MandatoryStructuredSupplyNeed need)
+    {
+        return activities
+            .SelectMany(activity => activity.SuppliesToCollect ?? [])
+            .Where(supply => supply.Quantity > 0)
+            .FirstOrDefault(supply => MandatorySupplyMatchesNeed(supply, need));
+    }
+
+    private static int GetMandatoryStructuredSupplyCoverage(
+        IEnumerable<SuggestedActivityDto> activities,
+        MandatoryStructuredSupplyNeed need)
+    {
+        return activities
+            .SelectMany(activity => activity.SuppliesToCollect ?? [])
+            .Where(supply => MandatorySupplyMatchesNeed(supply, need))
+            .Sum(supply => Math.Max(supply.Quantity, 0));
+    }
+
+    private static bool MandatorySupplyMatchesNeed(
+        SupplyToCollectDto supply,
+        MandatoryStructuredSupplyNeed need)
+    {
+        var normalizedSupplyName = NormalizeItemName(supply.ItemName);
+        if (MandatorySupplyNameMatchesNeed(normalizedSupplyName, need))
+            return true;
+
+        if (string.Equals(need.Code, "CLOTHES", StringComparison.OrdinalIgnoreCase))
+            return IsGenericClothingSupplyLabel(normalizedSupplyName);
+
+        var normalizedUnit = NormalizeItemName(supply.Unit ?? string.Empty);
+        return !string.Equals(need.Code, "OTHER", StringComparison.OrdinalIgnoreCase)
+            && NeedCodeMatchesSupplyText(need.Code, $"{normalizedSupplyName} {normalizedUnit}");
+    }
+
+    private static bool MandatorySupplyNameMatchesNeed(
+        string normalizedSupplyName,
+        MandatoryStructuredSupplyNeed need)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedSupplyName))
+            return false;
+
+        var normalizedNeedName = NormalizeItemName(need.ItemName);
+        if (string.Equals(normalizedSupplyName, normalizedNeedName, StringComparison.Ordinal)
+            || normalizedSupplyName.Contains(normalizedNeedName, StringComparison.Ordinal)
+            || normalizedNeedName.Contains(normalizedSupplyName, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.Equals(need.Code, "CLOTHES", StringComparison.OrdinalIgnoreCase))
+            return IsGenericClothingSupplyLabel(normalizedSupplyName);
+
+        return need.SearchTerms
+            .Select(NormalizeItemName)
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Any(term => string.Equals(normalizedSupplyName, term, StringComparison.Ordinal)
+                || normalizedSupplyName.Contains(term, StringComparison.Ordinal)
+                || term.Contains(normalizedSupplyName, StringComparison.Ordinal));
+    }
+
+    private static bool IsGenericClothingSupplyLabel(string normalizedSupplyName) =>
+        normalizedSupplyName is "quan ao" or "clothes" or "clothing" or "bo quan ao";
+
+    private static SupplyToCollectDto CreateMandatorySupply(AgentInventoryItem item, int quantity) =>
+        new()
+        {
+            ItemId = item.ItemId,
+            ItemName = item.ItemName,
+            Quantity = quantity,
+            Unit = item.Unit
+        };
+
+    private static void AddOrUpdateMandatoryStructuredSupply(
+        SuggestedActivityDto activity,
+        SupplyToCollectDto sourceSupply,
+        MandatoryStructuredSupplyNeed need,
+        int targetQuantity)
+    {
+        activity.SuppliesToCollect ??= [];
+        var normalizedSourceName = NormalizeItemName(sourceSupply.ItemName);
+        var existingSupply = activity.SuppliesToCollect.FirstOrDefault(supply =>
+            (sourceSupply.ItemId.HasValue && supply.ItemId == sourceSupply.ItemId)
+            || (!string.IsNullOrWhiteSpace(normalizedSourceName)
+                && string.Equals(NormalizeItemName(supply.ItemName), normalizedSourceName, StringComparison.Ordinal))
+            || MandatorySupplyMatchesNeed(supply, need));
+
+        if (existingSupply is null)
+        {
+            var supply = CloneSupply(sourceSupply);
+            supply.Quantity = Math.Max(targetQuantity, 1);
+            activity.SuppliesToCollect.Add(supply);
+            return;
+        }
+
+        existingSupply.ItemId ??= sourceSupply.ItemId;
+        if (!string.IsNullOrWhiteSpace(sourceSupply.ItemName))
+            existingSupply.ItemName = sourceSupply.ItemName;
+        if (!string.IsNullOrWhiteSpace(sourceSupply.Unit))
+            existingSupply.Unit = sourceSupply.Unit;
+        if (string.IsNullOrWhiteSpace(existingSupply.ImageUrl))
+            existingSupply.ImageUrl = sourceSupply.ImageUrl;
+        existingSupply.Quantity = Math.Max(existingSupply.Quantity, targetQuantity);
+    }
+
+    private static void AddOrMergeMandatoryStructuredSupplyShortage(
+        RescueMissionSuggestionResult result,
+        MandatoryStructuredSupplyNeed need,
+        DepotSummary? selectedDepot,
+        int? itemId,
+        int availableQuantity,
+        string note)
+    {
+        var normalizedNeedName = NormalizeItemName(need.ItemName);
+        var shortage = result.SupplyShortages.FirstOrDefault(existing =>
+            existing.SosRequestId == need.SosRequestId
+            && existing.SelectedDepotId == selectedDepot?.Id
+            && ((itemId.HasValue && existing.ItemId == itemId)
+                || string.Equals(NormalizeItemName(existing.ItemName), normalizedNeedName, StringComparison.Ordinal)));
+
+        if (shortage is null)
+        {
+            shortage = new SupplyShortageDto
+            {
+                SosRequestId = need.SosRequestId,
+                ItemId = itemId,
+                ItemName = need.ItemName,
+                Unit = need.Unit,
+                SelectedDepotId = selectedDepot?.Id,
+                SelectedDepotName = selectedDepot?.Name,
+                NeededQuantity = need.Quantity,
+                AvailableQuantity = Math.Max(availableQuantity, 0),
+                MissingQuantity = Math.Max(need.Quantity - Math.Max(availableQuantity, 0), 1),
+                Notes = note
+            };
+            result.SupplyShortages.Add(shortage);
+            return;
+        }
+
+        shortage.ItemId ??= itemId;
+        shortage.ItemName = string.IsNullOrWhiteSpace(shortage.ItemName) ? need.ItemName : shortage.ItemName;
+        shortage.Unit ??= need.Unit;
+        shortage.SelectedDepotId ??= selectedDepot?.Id;
+        shortage.SelectedDepotName ??= selectedDepot?.Name;
+        shortage.NeededQuantity = Math.Max(shortage.NeededQuantity, need.Quantity);
+        shortage.AvailableQuantity = Math.Max(shortage.AvailableQuantity, availableQuantity);
+        shortage.MissingQuantity = Math.Max(shortage.NeededQuantity - shortage.AvailableQuantity, 1);
+        shortage.Notes = string.IsNullOrWhiteSpace(shortage.Notes)
+            ? note
+            : $"{shortage.Notes.TrimEnd()}; {note}";
+    }
+
+    private static void RemoveCoveredMandatorySupplyAbsenceNotes(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<MandatoryStructuredSupplyNeed> mandatoryNeeds)
+    {
+        if (string.IsNullOrWhiteSpace(result.SpecialNotes))
+            return;
+
+        var coveredNeeds = mandatoryNeeds
+            .Where(need => GetMandatoryStructuredSupplyCoverage(
+                    result.SuggestedActivities.Where(IsDeliverActivity).Where(activity => ReferencesSos(activity, need.SosRequestId)),
+                    need) >= need.Quantity)
+            .Where(need => !result.SupplyShortages.Any(shortage =>
+                shortage.SosRequestId == need.SosRequestId
+                && shortage.MissingQuantity > 0
+                && MandatorySupplyNameMatchesNeed(NormalizeItemName(shortage.ItemName), need)))
+            .ToList();
+
+        if (coveredNeeds.Count == 0)
+            return;
+
+        var segments = Regex.Split(result.SpecialNotes.Trim(), @"(?<=[.!?])\s+|\r?\n")
+            .Where(segment => !string.IsNullOrWhiteSpace(segment))
+            .ToList();
+        if (segments.Count == 0)
+            return;
+
+        var keptSegments = segments
+            .Where(segment => !ShouldRemoveCoveredMandatorySupplyAbsenceNote(segment, coveredNeeds))
+            .ToList();
+
+        result.SpecialNotes = keptSegments.Count == 0
+            ? null
+            : string.Join(Environment.NewLine, keptSegments);
+    }
+
+    private static bool ShouldRemoveCoveredMandatorySupplyAbsenceNote(
+        string segment,
+        IReadOnlyCollection<MandatoryStructuredSupplyNeed> coveredNeeds)
+    {
+        var normalizedSegment = NormalizeItemName(segment);
+        if (string.IsNullOrWhiteSpace(normalizedSegment)
+            || normalizedSegment.Contains("can review thu cong", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!ContainsOperationalKeyword(
+            normalizedSegment,
+            "khong co",
+            "khong san",
+            "khong du",
+            "thieu",
+            "can bo sung",
+            "bo sung nguon",
+            "nguon khac"))
+        {
+            return false;
+        }
+
+        return coveredNeeds.Any(need =>
+            MandatorySupplyNameMatchesNeed(normalizedSegment, need)
+            || NeedCodeMatchesSupplyText(need.Code, normalizedSegment));
     }
 
     private async Task CanonicalizeSupplyItemMetadataAsync(

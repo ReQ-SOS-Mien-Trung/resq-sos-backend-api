@@ -103,6 +103,10 @@ public static class RescueMissionSuggestionReviewHelper
 
         var depotAssignmentErrors = new List<string>();
         var unassignedDepotSteps = new List<int>();
+        var singleCanonicalDepot = ResolveSingleCanonicalDepotSelection(
+            result.SuggestedActivities,
+            nearbyDepotLookup,
+            nearbyDepotNameLookup);
 
         foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
         {
@@ -118,6 +122,15 @@ public static class RescueMissionSuggestionReviewHelper
                 activity.DepotName,
                 nearbyDepotLookup,
                 nearbyDepotNameLookup);
+
+            if (canonicalDepot is null
+                && singleCanonicalDepot is not null
+                && RequiresDepotAssignment(activity)
+                && !activity.DepotId.HasValue
+                && string.IsNullOrWhiteSpace(activity.DepotName))
+            {
+                canonicalDepot = singleCanonicalDepot;
+            }
 
             if (canonicalDepot is null)
             {
@@ -376,6 +389,26 @@ public static class RescueMissionSuggestionReviewHelper
         }
 
         return null;
+    }
+
+    private static DepotSummary? ResolveSingleCanonicalDepotSelection(
+        IEnumerable<SuggestedActivityDto> activities,
+        IReadOnlyDictionary<int, DepotSummary> nearbyDepotLookup,
+        IReadOnlyDictionary<string, DepotSummary> nearbyDepotNameLookup)
+    {
+        var canonicalDepots = activities
+            .Select(activity => ResolveCanonicalDepot(
+                activity.DepotId,
+                activity.DepotName,
+                nearbyDepotLookup,
+                nearbyDepotNameLookup))
+            .Where(depot => depot is not null)
+            .Select(depot => depot!)
+            .GroupBy(depot => depot.Id)
+            .Select(group => group.First())
+            .ToList();
+
+        return canonicalDepots.Count == 1 ? canonicalDepots[0] : null;
     }
 
     private static bool RequiresDepotAssignment(SuggestedActivityDto activity) =>

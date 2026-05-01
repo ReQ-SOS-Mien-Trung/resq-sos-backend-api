@@ -366,6 +366,77 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void AugmentRequirementsFromStructuredData_AddsGroupBlanketAndElderlyClothes()
+    {
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 23,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 23,
+                StructuredData =
+                    """
+                    {
+                      "incident": {
+                        "people_count": { "adult": 0, "child": 0, "elderly": 1 },
+                        "has_injured": true,
+                        "need_medical": true
+                      },
+                      "group_needs": {
+                        "supplies": ["WATER", "FOOD", "CLOTHES", "BLANKET", "MEDICINE", "OTHER"],
+                        "water": { "duration": "6_TO_12H" },
+                        "food": { "duration": "12_TO_24H" },
+                        "blanket": {
+                          "availability": "NOT_ENOUGH",
+                          "request_count": null
+                        },
+                        "medicine": {
+                          "needs_urgent_medicine": true,
+                          "medical_needs": ["COMMON_MEDICINE", "FIRST_AID"]
+                        },
+                        "clothing": {
+                          "status": "PARTIALLY_LACKING",
+                          "needed_people_count": null
+                        },
+                        "other_supply_description": "Pin sạc dự phòng"
+                      },
+                      "victims": [
+                        {
+                          "person_id": "elderly_1",
+                          "person_type": "ELDERLY",
+                          "personal_needs": {
+                            "clothing": { "needed": false }
+                          }
+                        }
+                      ]
+                    }
+                    """
+            }
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "AugmentRequirementsFromStructuredData",
+            requirements,
+            sosRequests);
+
+        var supplies = Assert.Single(requirements.SosRequirements).RequiredSupplies;
+        Assert.Contains(supplies, supply => supply.ItemName == "Chăn ấm giữ nhiệt" && supply.Quantity == 1);
+        Assert.Contains(supplies, supply => supply.ItemName == "Bộ quần áo người cao tuổi" && supply.Quantity == 1);
+    }
+
+    [Fact]
     public void BackfillItemIds_CanonicalizesGenericSupplyNameToInventoryName()
     {
         var activities = new List<SuggestedActivityDto>
