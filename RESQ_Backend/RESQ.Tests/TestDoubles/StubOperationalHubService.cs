@@ -20,6 +20,9 @@ internal sealed class StubOperationalHubService : IOperationalHubService
     public Task PushDepotInventoryUpdateAsync(int depotId, string operation, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
+    public Task PushInventoryLotsUpdateAsync(int depotId, int itemModelId, string operation, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
     public Task PushLogisticsUpdateAsync(string resourceType, int? clusterId = null, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 

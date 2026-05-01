@@ -18,6 +18,12 @@ public interface IOperationalHubService
         string operation,
         CancellationToken cancellationToken = default);
 
+    Task PushInventoryLotsUpdateAsync(
+        int depotId,
+        int itemModelId,
+        string operation,
+        CancellationToken cancellationToken = default);
+
     Task PushLogisticsUpdateAsync(
         string resourceType,
         int? clusterId = null,
