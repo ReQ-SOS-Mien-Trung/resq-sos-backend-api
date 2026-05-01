@@ -4907,7 +4907,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         activity.EstimatedTime ??= DefaultInventoryBackedCollectEstimatedTime;
         activity.ExecutionMode ??= SingleTeamExecutionMode;
         activity.RequiredTeamCount ??= 1;
-        activity.CoordinationNotes ??= "Lay phuong tien/thiet bi huu hinh tu kho de ho tro hien truong.";
+        activity.CoordinationNotes ??= "Lấy phương tiện/thiết bị hữu hình từ kho để hỗ trợ hiện trường.";
         activity.DestinationName ??= item.DepotName;
         activity.DestinationLatitude ??= item.DepotLatitude;
         activity.DestinationLongitude ??= item.DepotLongitude;
