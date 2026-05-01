@@ -653,7 +653,7 @@ public class DatabaseSeederTests
             .Select(application => application.UserId!.Value)
             .ToListAsync();
 
-        Assert.Equal(160, eligibleRescuerIds.Count);
+        Assert.Equal(168, eligibleRescuerIds.Count);
         Assert.Equal(
             eligibleRescuerIds.OrderBy(id => id),
             approvedApplicationUserIds.OrderBy(id => id));
@@ -682,6 +682,25 @@ public class DatabaseSeederTests
 
         Assert.Equal(5, await context.RescuerApplications.CountAsync(application => application.Status == "Pending"));
         Assert.Equal(5, await context.RescuerApplications.CountAsync(application => application.Status == "Rejected"));
+
+        var activeTeamMembersWithoutApprovedProfile = await context.RescueTeamMembers
+            .Where(member => member.Status == "Accepted")
+            .Where(member => member.Team != null && member.Team.Status != "Disbanded")
+            .Where(member => !context.RescuerProfiles.Any(profile =>
+                profile.UserId == member.UserId
+                && profile.IsEligibleRescuer
+                && profile.Step == 3))
+            .Select(member => member.UserId)
+            .ToListAsync();
+        Assert.Empty(activeTeamMembersWithoutApprovedProfile);
+
+        var rescuer181 = await context.Users.SingleAsync(user => user.Email == "rescuer181@resq.vn");
+        var rescuer181Team = await context.RescueTeamMembers
+            .Where(member => member.UserId == rescuer181.Id && member.Status == "Accepted")
+            .Where(member => member.Team != null && member.Team.Status != "Disbanded")
+            .Select(member => member.Team!.Name)
+            .SingleAsync();
+        Assert.Equal("Đội Hương Giang 1", rescuer181Team);
     }
 
     [Fact]

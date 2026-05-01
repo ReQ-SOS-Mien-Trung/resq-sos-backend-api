@@ -36,6 +36,10 @@ public class InventoryLogDto
 
 public class InventoryLogLotDetailDto
 {
+    public int? ItemModelId { get; set; }
+    public string? ItemModelName { get; set; }
+    public string ActionType { get; set; } = string.Empty;
+    public string? Note { get; set; }
     public int? LotId { get; set; }
     public DateTime? ReceivedDate { get; set; }
     public DateTime? ExpiredDate { get; set; }
@@ -44,6 +48,10 @@ public class InventoryLogLotDetailDto
 
 public class InventoryLogReusableDetailDto
 {
+    public int? ItemModelId { get; set; }
+    public string? ItemModelName { get; set; }
+    public string ActionType { get; set; } = string.Empty;
+    public string? Note { get; set; }
     public int? ReusableItemId { get; set; }
     public string? SerialNumber { get; set; }
     public int QuantityChange { get; set; }
