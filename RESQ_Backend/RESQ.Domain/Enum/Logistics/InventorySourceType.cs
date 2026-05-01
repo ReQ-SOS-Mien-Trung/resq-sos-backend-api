@@ -13,6 +13,5 @@ public enum InventorySourceType
     Maintenance,
     Expired,
     Damaged,
-    Disposed,
-    Lost
+    Disposed
 }
