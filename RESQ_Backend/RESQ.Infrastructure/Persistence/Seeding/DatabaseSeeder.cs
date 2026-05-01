@@ -32,7 +32,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
     private const int TotalRescuerCount = 200;
     private const int RecentRescuerCount = 20;
     private const int UnassignedRescuerCount = 40;
-    private const int EligibleAssignedRescuerCount = 120;
+    private const int EligibleAssignedRescuerCount = 128;
     private const int HueStadiumUnclusteredSosCount = 10;
     private const int HueStadiumSosClusterCount = 11;
     private const int HueStadiumSosRequestCount = 20;
@@ -1159,7 +1159,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedRescueTeamsAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
-        var deployableRescuers = GetDeployableRescuers(seed);
+        var teamRescuers = GetTeamRosterRescuers(seed);
         var statuses = new[]
         {
             "Available", "Available", "Gathering", "Available", "Gathering",
@@ -1199,8 +1199,8 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             for (var i = 0; i < count; i++)
             {
                 var rescuer = teamIndex < 18
-                    ? deployableRescuers[memberIndex++ % deployableRescuers.Count]
-                    : deployableRescuers[(teamIndex * 13 + i) % deployableRescuers.Count];
+                    ? teamRescuers[memberIndex++ % teamRescuers.Count]
+                    : teamRescuers[(teamIndex * 13 + i) % teamRescuers.Count];
                 var invitedAt = (team.CreatedAt ?? seed.StartUtc).AddHours(2 + i);
                 seed.RescueTeamMembers.Add(new RescueTeamMember
                 {
@@ -1216,7 +1216,7 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             }
         }
 
-        await AddHueStadiumAvailableReserveTeamsAsync(seed, deployableRescuers, memberIndex, cancellationToken);
+        await AddHueStadiumAvailableReserveTeamsAsync(seed, teamRescuers, memberIndex, cancellationToken);
 
         _db.RescueTeamMembers.AddRange(seed.RescueTeamMembers);
     }
@@ -4958,6 +4958,23 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
 
     private static List<User> GetDeployableRescuers(DemoSeedContext seed) =>
         seed.Rescuers.Take(seed.Rescuers.Count - UnassignedRescuerCount).ToList();
+
+    private static List<User> GetTeamRosterRescuers(DemoSeedContext seed)
+    {
+        var hueLeadRescuers = seed.Rescuers
+            .Skip(180)
+            .Take(8);
+        var approvedAssignedRescuers = seed.Rescuers
+            .Take(EligibleAssignedRescuerCount);
+        var activeStandbyRescuers = seed.Rescuers
+            .Skip(170);
+
+        return hueLeadRescuers
+            .Concat(approvedAssignedRescuers)
+            .Concat(activeStandbyRescuers)
+            .DistinctBy(rescuer => rescuer.Id)
+            .ToList();
+    }
 
     private static bool IsHueStadiumReserveTeam(RescueTeam team) =>
         team.Code?.StartsWith(HueStadiumReserveTeamCodePrefix, StringComparison.Ordinal) == true;

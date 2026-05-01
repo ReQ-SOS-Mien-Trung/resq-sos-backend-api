@@ -328,6 +328,24 @@ public sealed class DemoSeedValidator
                 + ".");
         }
 
+        var activeTeamMembersWithoutApprovedProfile = await db.RescueTeamMembers
+            .Where(member => member.Status == "Accepted")
+            .Where(member => member.Team != null && member.Team.Status != "Disbanded")
+            .Where(member => !db.RescuerProfiles.Any(profile =>
+                profile.UserId == member.UserId
+                && profile.IsEligibleRescuer
+                && profile.Step == 3))
+            .Select(member => member.UserId)
+            .Take(20)
+            .ToListAsync(cancellationToken);
+        if (activeTeamMembersWithoutApprovedProfile.Count > 0)
+        {
+            errors.Add(
+                "Active rescue team members must have approved eligible rescuer profiles at step 3: "
+                + string.Join(", ", activeTeamMembersWithoutApprovedProfile)
+                + ".");
+        }
+
         var approvedRequestsMissingDepotFunds = await db.FundingRequests
             .Where(request => request.Status == "Approved" && request.ApprovedCampaignId.HasValue)
             .Where(request => !db.DepotFunds.Any(fund =>
