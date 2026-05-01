@@ -91,6 +91,64 @@ public class RescueMissionSuggestionReviewHelperTests
     }
 
     [Fact]
+    public void ApplyNearbyDepotConstraints_InheritsDepotForDeliverFromCollectRoute()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    DepotId = 1,
+                    DepotName = "Kho Hue",
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemName = "Nuoc sach",
+                            Quantity = 1
+                        }
+                    ]
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 2,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    SosRequestId = 23,
+                    SuppliesToCollect =
+                    [
+                        new SupplyToCollectDto
+                        {
+                            ItemName = "Nuoc sach",
+                            Quantity = 1
+                        }
+                    ]
+                }
+            ]
+        };
+
+        RescueMissionSuggestionReviewHelper.ApplyNearbyDepotConstraints(
+            result,
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi"
+                }
+            ]);
+
+        var deliver = result.SuggestedActivities.Single(activity => activity.ActivityType == "DELIVER_SUPPLIES");
+        Assert.Equal(1, deliver.DepotId);
+        Assert.Equal("Kho Hue", deliver.DepotName);
+        Assert.Equal("1 Le Loi", deliver.DepotAddress);
+        Assert.False(result.NeedsManualReview);
+        Assert.DoesNotContain("depot", result.SpecialNotes ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ApplyNearbyDepotConstraints_ClearsDepotOutsideScope_AndFlagsManualReview()
     {
         var result = new RescueMissionSuggestionResult

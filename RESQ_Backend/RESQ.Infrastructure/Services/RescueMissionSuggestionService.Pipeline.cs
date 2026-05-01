@@ -80,6 +80,7 @@ public partial class RescueMissionSuggestionService
 
             requirements = DeserializePipelineFragment<MissionRequirementsFragment>(stage.ResponseText);
             ValidateRequirementsFragment(requirements, sosRequests);
+            AugmentRequirementsFromStructuredData(requirements, sosRequests);
 
             await SavePipelineStageSnapshotAsync(
                 suggestionId,
@@ -1449,6 +1450,66 @@ public partial class RescueMissionSuggestionService
             fragment.SplitClusterReason = "AI recommended cluster split but did not provide a specific reason.";
     }
 
+    private static void AugmentRequirementsFromStructuredData(
+        MissionRequirementsFragment fragment,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var structuredNeeds = BuildMandatoryStructuredSupplyNeeds(sosRequests);
+        if (structuredNeeds.Count == 0)
+            return;
+
+        var requirementLookup = fragment.SosRequirements
+            .GroupBy(requirement => requirement.SosRequestId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        foreach (var need in structuredNeeds)
+        {
+            if (!requirementLookup.TryGetValue(need.SosRequestId, out var requirement))
+            {
+                requirement = new MissionSosRequirementFragment
+                {
+                    SosRequestId = need.SosRequestId,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                };
+                fragment.SosRequirements.Add(requirement);
+                requirementLookup[need.SosRequestId] = requirement;
+            }
+
+            requirement.RequiredSupplies ??= [];
+            if (requirement.RequiredSupplies.Any(existing => RequirementSupplyMatchesMandatoryNeed(existing, need)))
+                continue;
+
+            requirement.RequiredSupplies.Add(new MissionRequiredSupplyFragment
+            {
+                ItemName = need.ItemName,
+                Quantity = need.Quantity,
+                Unit = need.Unit,
+                Category = need.Category,
+                Notes = need.Notes
+            });
+        }
+    }
+
+    private static bool RequirementSupplyMatchesMandatoryNeed(
+        MissionRequiredSupplyFragment supply,
+        MandatoryStructuredSupplyNeed need)
+    {
+        var normalizedName = NormalizeItemName(supply.ItemName ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            return false;
+
+        if (MandatorySupplyNameMatchesNeed(normalizedName, need))
+            return true;
+
+        if (string.Equals(need.Code, "CLOTHES", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var normalizedCategory = NormalizeItemName(supply.Category ?? string.Empty);
+        var searchableText = $"{normalizedName} {normalizedCategory}";
+        return NeedCodeMatchesSupplyText(need.Code, searchableText);
+    }
+
     private static void ValidateDepotFragment(MissionDepotFragment fragment)
     {
         var selectedDepotId = fragment.Activities
@@ -1942,12 +2003,15 @@ public partial class RescueMissionSuggestionService
     {
         var sosLookup = sosRequests.ToDictionary(sos => sos.Id);
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
+        ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         RescueMissionSuggestionReviewHelper.ApplyNearbyDepotConstraints(result, nearbyDepots ?? []);
         ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
         await EnsureInventoryBackedTransportSuppliesAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);
+        ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
+        await EnsureMandatoryStructuredSupplyCoverageAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);
         await ReconcileInventoryBackedSuppliesAsync(result, cancellationToken);
         await CanonicalizeSupplyItemMetadataAsync(result.SuggestedActivities, cancellationToken);
         NormalizeActivitySequence(result.SuggestedActivities, sosLookup);

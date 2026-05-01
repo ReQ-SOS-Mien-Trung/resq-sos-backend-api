@@ -290,7 +290,11 @@ public class MissionContextService(
                         if (groupNeeds.TryGetProperty("blanket", out var blanket) && blanket.ValueKind == JsonValueKind.Object)
                         {
                             if (blanket.TryGetProperty("request_count", out var rc) && rc.ValueKind == JsonValueKind.Number && rc.GetInt32() > 0)
-                                needed.Add("CLOTHING");
+                                needed.Add("BLANKET");
+                            if (blanket.TryGetProperty("availability", out var ba) && ba.ValueKind == JsonValueKind.String && IsNegativeNeedStatus(ba.GetString()))
+                                needed.Add("BLANKET");
+                            if (blanket.TryGetProperty("are_blankets_enough", out var be) && be.ValueKind == JsonValueKind.False)
+                                needed.Add("BLANKET");
                         }
 
                         if (groupNeeds.TryGetProperty("medicine", out var medicine) && medicine.ValueKind == JsonValueKind.Object)
@@ -303,8 +307,10 @@ public class MissionContextService(
 
                         if (groupNeeds.TryGetProperty("clothing", out var clothing) && clothing.ValueKind == JsonValueKind.Object)
                         {
-                            if (clothing.TryGetProperty("status", out var cs) && cs.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(cs.GetString()))
-                                needed.Add("CLOTHING");
+                            if (clothing.TryGetProperty("status", out var cs) && cs.ValueKind == JsonValueKind.String && IsNegativeNeedStatus(cs.GetString()))
+                                needed.Add("CLOTHES");
+                            if (clothing.TryGetProperty("needed_people_count", out var cn) && cn.ValueKind == JsonValueKind.Number && cn.GetInt32() > 0)
+                                needed.Add("CLOTHES");
                         }
                     }
                     else
@@ -324,11 +330,11 @@ public class MissionContextService(
                         if (root.TryGetProperty("supply_details", out var supplyDetails) && supplyDetails.ValueKind == JsonValueKind.Object)
                         {
                             if (supplyDetails.TryGetProperty("are_blankets_enough", out var blanketsEnough) && blanketsEnough.ValueKind == JsonValueKind.False)
-                                needed.Add("CLOTHING");
+                                needed.Add("BLANKET");
                             if (supplyDetails.TryGetProperty("blanket_request_count", out var blanketCount) && blanketCount.ValueKind == JsonValueKind.Number && blanketCount.GetInt32() > 0)
-                                needed.Add("CLOTHING");
+                                needed.Add("BLANKET");
                             if (supplyDetails.TryGetProperty("clothing_persons", out var clothingArr) && clothingArr.ValueKind == JsonValueKind.Array && clothingArr.GetArrayLength() > 0)
-                                needed.Add("CLOTHING");
+                                needed.Add("CLOTHES");
 
                             if (supplyDetails.TryGetProperty("food_duration", out var foodDur) && foodDur.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(foodDur.GetString()))
                                 needed.Add("FOOD");
@@ -479,6 +485,21 @@ public class MissionContextService(
             JsonValueKind.Number => property.TryGetInt32(out var number) && number != 0,
             _ => false
         };
+    }
+
+    private static bool IsNegativeNeedStatus(string? value)
+    {
+        var normalized = NormalizeSupplyText(value);
+        return ContainsAny(
+            normalized,
+            "not enough",
+            "not_enough",
+            "lack",
+            "lacking",
+            "partially lacking",
+            "partially_lacking",
+            "khong du",
+            "thieu");
     }
 
     private static bool MentionsColdExposure(string value)
@@ -637,6 +658,8 @@ public class MissionContextService(
             ["RESCUE_EQUIPMENT"] = ["rescue", "cuu ho", "day", "phao", "xuong", "thuyen", "boat", "cano", "canoe", "ca no", "cang", "ao phao"],
             ["HYGIENE"]          = ["hygiene", "ve sinh", "xa phong", "khan", "giay ve sinh"],
             ["SHELTER"]          = ["shelter", "leu", "bat", "tam che"],
+            ["BLANKET"]          = ["blanket", "chan", "men", "giu am", "suoi", "giu nhiet", "chan man"],
+            ["CLOTHES"]          = ["clothes", "clothing", "quan ao", "ao", "quan", "ao am", "bo quan ao"],
             ["CLOTHING"]         = ["clothing", "quan ao", "ao", "chan", "men", "giu am"],
             ["TRANSPORTATION"]   = ["transportation", "transport", "vehicle", "xe", "phuong tien", "boat", "cano", "canoe", "ca no", "xuong", "thuyen", "ambulance", "truck"],
         };
