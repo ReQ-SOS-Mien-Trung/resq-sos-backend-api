@@ -46,9 +46,9 @@ public class ReturnSupplyActivityRepository(IUnitOfWork unitOfWork) : IReturnSup
                   && activity.Status != null
                   && (EF.Functions.ILike(activity.Status, statusPredicates.Current)
                       || EF.Functions.ILike(activity.Status, statusPredicates.Legacy))
-            orderby activity.AssignedAt ?? activity.Mission!.StartTime ?? DateTime.MaxValue,
+            orderby activity.AssignedAt ?? activity.Mission!.StartTime ?? DateTime.MinValue descending,
                 activity.Step ?? int.MaxValue,
-                activity.Id
+                activity.Id descending
             select new UpcomingReturnActivityProjection
             {
                 DepotId = activity.DepotId ?? depotId,

@@ -8,6 +8,27 @@ public static class RescueMissionSuggestionReviewHelper
 {
     private const string SingleTeamMode = "SingleTeam";
     private const string SplitAcrossTeamsMode = "SplitAcrossTeams";
+    private static readonly string[] TechnicalTeamReasonTerms =
+    [
+        "activity",
+        "assembly point",
+        "assembly_point",
+        "available",
+        "backend",
+        "cluster",
+        "depot",
+        "distance",
+        "distance_km",
+        "medical",
+        "mission",
+        "nearby",
+        "pool",
+        "rescue",
+        "team id",
+        "team_id",
+        "team type",
+        "team_type"
+    ];
 
     public static void ApplyNearbyTeamConstraints(
         RescueMissionSuggestionResult result,
@@ -25,7 +46,7 @@ public static class RescueMissionSuggestionReviewHelper
 
         if (nearbyTeamLookup.Count == 0)
         {
-            warnings.Add("Không có đội Available nào nằm trong bán kính cluster hiện tại; điều phối viên cần gán đội thủ công.");
+            warnings.Add("Không có đội nào đang sẵn sàng trong khu vực hiện tại; điều phối viên cần gán đội thủ công.");
         }
 
         NormalizeExecutionMetadata(result.SuggestedActivities, warnings);
@@ -36,7 +57,7 @@ public static class RescueMissionSuggestionReviewHelper
             result.SuggestedTeam,
             nearbyTeamLookup,
             nearbyTeamNameLookup,
-            "Đội tổng thể của mission",
+            "Đội tổng thể của nhiệm vụ",
             teamAssignmentErrors);
 
         var unassignedSteps = new List<int>();
@@ -47,7 +68,7 @@ public static class RescueMissionSuggestionReviewHelper
                 activity.SuggestedTeam,
                 nearbyTeamLookup,
                 nearbyTeamNameLookup,
-                $"Activity step {activity.Step} ({activity.ActivityType})",
+                $"Bước {activity.Step} ({activity.ActivityType})",
                 teamAssignmentErrors);
 
             if (activity.SuggestedTeam is null && nearbyTeamLookup.Count > 0)
@@ -61,7 +82,7 @@ public static class RescueMissionSuggestionReviewHelper
             var uniqueErrors = teamAssignmentErrors.Distinct().ToList();
             if (uniqueErrors.Count > 3)
             {
-                warnings.Add($"AI đã đề xuất đội không hợp lệ cho nhiều bước. Vui lòng kiểm tra lại cấu hình pool nearby teams.");
+                warnings.Add("AI đã đề xuất đội không hợp lệ cho nhiều bước. Vui lòng kiểm tra lại danh sách đội có thể điều phối.");
             }
             else
             {
@@ -228,7 +249,7 @@ public static class RescueMissionSuggestionReviewHelper
                 || activity.RequiredTeamCount.GetValueOrDefault() > 1)
             {
                 warnings.Add(
-                    $"Activity step {activity.Step} ({activity.ActivityType}) đã được backend chuẩn hóa về SingleTeam theo business rule.");
+                    $"Bước {activity.Step} ({activity.ActivityType}) đã được hệ thống chuẩn hóa về một đội phụ trách theo quy tắc nghiệp vụ.");
             }
 
             activity.ExecutionMode = SingleTeamMode;
@@ -237,7 +258,7 @@ public static class RescueMissionSuggestionReviewHelper
                 ? null
                 : activity.CoordinationGroupKey.Trim();
             activity.CoordinationNotes = string.IsNullOrWhiteSpace(activity.CoordinationNotes)
-                ? "Một đội có thể hoàn thành activity này độc lập."
+                ? "Một đội có thể hoàn thành bước này độc lập."
                 : activity.CoordinationNotes.Trim();
         }
     }
@@ -257,11 +278,11 @@ public static class RescueMissionSuggestionReviewHelper
         {
             if (suggestedTeam.TeamId > 0)
             {
-                warnings.Add($"{contextLabel} tham chiếu team_id={suggestedTeam.TeamId} ngoài pool.");
+                warnings.Add($"{contextLabel} tham chiếu đội #{suggestedTeam.TeamId} ngoài danh sách có thể điều phối.");
             }
             else
             {
-                warnings.Add($"{contextLabel} thiếu team_id hợp lệ.");
+                warnings.Add($"{contextLabel} thiếu đội hợp lệ.");
             }
 
             return null;
@@ -272,15 +293,22 @@ public static class RescueMissionSuggestionReviewHelper
             TeamId = canonicalTeam.TeamId,
             TeamName = canonicalTeam.TeamName,
             TeamType = canonicalTeam.TeamType,
-            Reason = string.IsNullOrWhiteSpace(suggestedTeam.Reason)
-                ? BuildDefaultTeamReason(canonicalTeam)
-                : suggestedTeam.Reason!.Trim(),
+            Reason = NormalizeSuggestedTeamReason(suggestedTeam.Reason, canonicalTeam),
             AssemblyPointId = canonicalTeam.AssemblyPointId,
             AssemblyPointName = canonicalTeam.AssemblyPointName,
             Latitude = canonicalTeam.Latitude,
             Longitude = canonicalTeam.Longitude,
             DistanceKm = canonicalTeam.DistanceKm
         };
+    }
+
+    private static string NormalizeSuggestedTeamReason(string? suggestedReason, AgentTeamInfo canonicalTeam)
+    {
+        var reason = suggestedReason?.Trim();
+        if (string.IsNullOrWhiteSpace(reason) || ContainsTechnicalTeamReasonTerm(reason))
+            return BuildDefaultTeamReason(canonicalTeam);
+
+        return reason;
     }
 
     private static string NormalizeExecutionMode(
@@ -323,29 +351,35 @@ public static class RescueMissionSuggestionReviewHelper
     {
         if (activity.DepotId.HasValue)
         {
-            return $"Activity này là một phần của kế hoạch nhiều đội tại depot {(activity.DepotName ?? $"#{activity.DepotId}")}.";
+            return $"Bước này là một phần của kế hoạch nhiều đội tại kho {(activity.DepotName ?? $"#{activity.DepotId}")}.";
         }
 
         if (activity.SosRequestId.HasValue)
         {
-            return $"Activity này là một nhánh trong kế hoạch nhiều đội để xử lý SOS #{activity.SosRequestId}.";
+            return $"Bước này là một nhánh trong kế hoạch nhiều đội để xử lý SOS #{activity.SosRequestId}.";
         }
 
-        return "Activity này là một phần của kế hoạch nhiều đội và cần điều phối cùng các activity khác trong cùng coordination_group_key.";
+        return "Bước này là một phần của kế hoạch nhiều đội và cần điều phối cùng các bước khác trong cùng nhóm phối hợp.";
     }
 
     private static string BuildSameDepotSplitNotes(SuggestedActivityDto activity, int teamCount)
     {
         var depotLabel = activity.DepotName ?? $"#{activity.DepotId}";
-        var teamLabel = activity.SuggestedTeam?.TeamName ?? $"team #{activity.SuggestedTeam?.TeamId}";
-        return $"Kho {depotLabel} đang được chia cho {teamCount} đội; activity này là phần lấy vật phẩm dành cho {teamLabel}.";
+        var teamLabel = activity.SuggestedTeam?.TeamName ?? $"đội #{activity.SuggestedTeam?.TeamId}";
+        return $"Kho {depotLabel} đang được chia cho {teamCount} đội; bước này là phần lấy vật phẩm dành cho {teamLabel}.";
     }
 
     private static string BuildDefaultTeamReason(AgentTeamInfo team)
     {
         return team.DistanceKm.HasValue
-            ? $"Đội nằm trong pool nearby teams của cluster, cách tâm cluster khoảng {team.DistanceKm.Value:0.##} km."
-            : "Đội nằm trong pool nearby teams của cluster hiện tại.";
+            ? $"Đội đang sẵn sàng và ở gần khu vực cần hỗ trợ, cách trung tâm khu vực khoảng {team.DistanceKm.Value:0.##} km."
+            : "Đội đang sẵn sàng và ở gần khu vực cần hỗ trợ.";
+    }
+
+    private static bool ContainsTechnicalTeamReasonTerm(string reason)
+    {
+        return TechnicalTeamReasonTerms.Any(term =>
+            reason.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 
     private static AgentTeamInfo? ResolveCanonicalTeam(

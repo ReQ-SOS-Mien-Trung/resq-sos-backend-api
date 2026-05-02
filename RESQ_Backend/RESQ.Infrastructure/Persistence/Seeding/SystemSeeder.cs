@@ -518,6 +518,7 @@ Quy tắc route:
 
 IMPORTANT JSON RULES FOR suggested_team (STRICT):
 - `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
+- `reason` phải là một câu tiếng Việt ngắn, dễ hiểu cho điều phối viên; không dùng các thuật ngữ kỹ thuật như pool, nearby teams, cluster, backend, team_id, distance_km.
 - Nếu mission dùng nhiều đội khác nhau theo activity, hãy trả top-level `suggested_team = null` exactly. Không trả array, không trả wrapper object.
 - Invalid examples: `""suggested_team"":[]`, `""suggested_team"":[""TEAM""]`, `""suggested_team"":{""teams"":[...]}`.
 
@@ -1056,6 +1057,7 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 
 IMPORTANT JSON RULES FOR suggested_team (STRICT):
 - `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
+- `reason` phải là một câu tiếng Việt ngắn, dễ hiểu cho điều phối viên; không dùng các thuật ngữ kỹ thuật như pool, nearby teams, cluster, backend, team_id, distance_km.
 - Nếu mission dùng nhiều đội khác nhau theo activity, hãy trả top-level `suggested_team = null` exactly. Không trả array, không trả wrapper object.
 - Invalid examples: `""suggested_team"":[]`, `""suggested_team"":[""TEAM""]`, `""suggested_team"":{""teams"":[...]}`.
 
