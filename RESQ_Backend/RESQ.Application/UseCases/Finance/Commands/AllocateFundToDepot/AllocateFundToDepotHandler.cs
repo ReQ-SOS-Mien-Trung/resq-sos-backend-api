@@ -2,6 +2,7 @@ using MediatR;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
@@ -174,6 +175,7 @@ public class AllocateFundToDepotHandler(
         CancellationToken cancellationToken)
     {
         var depotFundId = 0;
+        AdminSystemFundRealtimeUpdate? systemFundUpdate = null;
 
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
@@ -238,7 +240,28 @@ public class AllocateFundToDepotHandler(
 
             await _unitOfWork.SaveAsync();
             depotFundId = depotFund.Id;
+
+            systemFundUpdate = new AdminSystemFundRealtimeUpdate
+            {
+                EntityId = systemFund.Id,
+                EntityType = "SystemFund",
+                SystemFundId = systemFund.Id,
+                Name = systemFund.Name,
+                Balance = systemFund.Balance,
+                LastUpdatedAt = systemFund.LastUpdatedAt == DateTime.MinValue ? null : systemFund.LastUpdatedAt.ToVietnamTime(),
+                Amount = request.Amount,
+                TransactionType = SystemFundTransactionType.AllocationToDepot.ToString(),
+                ReferenceType = DepotFundReferenceType.SystemFund.ToString(),
+                ReferenceId = systemFund.Id,
+                DepotId = request.DepotId,
+                Action = "AllocatedToDepot",
+                Status = FundSourceType.SystemFund.ToString(),
+                ChangedAt = DateTime.UtcNow
+            };
         });
+
+        if (systemFundUpdate is not null)
+            await _adminRealtimeHubService.PushSystemFundUpdateAsync(systemFundUpdate, cancellationToken);
 
         await _adminRealtimeHubService.PushDisbursementUpdateAsync(
             new AdminDisbursementRealtimeUpdate

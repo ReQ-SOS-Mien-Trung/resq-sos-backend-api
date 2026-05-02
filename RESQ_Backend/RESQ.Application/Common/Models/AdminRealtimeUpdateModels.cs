@@ -28,6 +28,19 @@ public sealed class AdminDisbursementRealtimeUpdate : AdminRealtimeUpdateBase
     public decimal Amount { get; set; }
 }
 
+public sealed class AdminSystemFundRealtimeUpdate : AdminRealtimeUpdateBase
+{
+    public int SystemFundId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Balance { get; set; }
+    public DateTime? LastUpdatedAt { get; set; }
+    public decimal Amount { get; set; }
+    public string? TransactionType { get; set; }
+    public string? ReferenceType { get; set; }
+    public int? ReferenceId { get; set; }
+    public int? DepotId { get; set; }
+}
+
 public sealed class AdminRescuerApplicationRealtimeUpdate : AdminRealtimeUpdateBase
 {
     public int ApplicationId { get; set; }

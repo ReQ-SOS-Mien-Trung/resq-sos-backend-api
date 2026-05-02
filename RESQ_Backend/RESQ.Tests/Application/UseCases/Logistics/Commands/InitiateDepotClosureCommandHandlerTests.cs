@@ -2,14 +2,18 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
 using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
+using RESQ.Domain.Entities.Finance;
 using RESQ.Domain.Entities.Logistics;
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Entities.Logistics.ValueObjects;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Logistics.Commands;
 
@@ -53,7 +57,9 @@ public class InitiateDepotClosureCommandHandlerTests
             new StubDepotInventoryRepository(),
             closureRepository,
             transferRepository,
+            new StubSystemFundRepository(),
             fundDrainService,
+            new StubAdminRealtimeHubService(),
             permissionResolver,
             unitOfWork,
             NullLogger<InitiateDepotClosureCommandHandler>.Instance);
@@ -110,7 +116,9 @@ public class InitiateDepotClosureCommandHandlerTests
             new StubDepotInventoryRepository(),
             closureRepository,
             transferRepository,
+            new StubSystemFundRepository(),
             fundDrainService,
+            new StubAdminRealtimeHubService(),
             permissionResolver,
             unitOfWork,
             NullLogger<InitiateDepotClosureCommandHandler>.Instance);
@@ -179,7 +187,9 @@ public class InitiateDepotClosureCommandHandlerTests
             new StubDepotInventoryRepository(),
             closureRepository,
             transferRepository,
+            new StubSystemFundRepository(),
             fundDrainService,
+            new StubAdminRealtimeHubService(),
             permissionResolver,
             unitOfWork,
             NullLogger<InitiateDepotClosureCommandHandler>.Instance);
@@ -413,6 +423,30 @@ public class InitiateDepotClosureCommandHandlerTests
             LastClosureId = closureId;
             return Task.FromResult(0m);
         }
+    }
+
+    private sealed class StubSystemFundRepository : ISystemFundRepository
+    {
+        public Task<SystemFundModel> GetOrCreateAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(SystemFundModel.Create());
+
+        public Task UpdateAsync(SystemFundModel model, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task CreateTransactionAsync(SystemFundTransactionModel transaction, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<PagedResult<SystemFundTransactionModel>> GetPagedTransactionsAsync(
+            int pageNumber,
+            int pageSize,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null,
+            decimal? minAmount = null,
+            decimal? maxAmount = null,
+            IReadOnlyCollection<SystemFundTransactionType>? transactionTypes = null,
+            string? search = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
     }
 
     private sealed class TrackingUnitOfWork : IUnitOfWork

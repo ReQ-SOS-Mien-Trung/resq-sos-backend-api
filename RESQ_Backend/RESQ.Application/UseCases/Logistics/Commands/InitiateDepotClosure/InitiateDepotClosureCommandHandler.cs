@@ -2,11 +2,15 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
+using RESQ.Application.Extensions;
 using RESQ.Application.Repositories.Base;
+using RESQ.Application.Repositories.Finance;
 using RESQ.Application.Repositories.Logistics;
 using RESQ.Application.Services;
 using RESQ.Domain.Entities.Logistics;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.InitiateDepotClosure;
@@ -17,7 +21,9 @@ public class InitiateDepotClosureCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IDepotClosureRepository closureRepository,
     IDepotClosureTransferRepository transferRepository,
+    ISystemFundRepository systemFundRepository,
     IDepotFundDrainService depotFundDrainService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUserPermissionResolver permissionResolver,
     IUnitOfWork unitOfWork,
     ILogger<InitiateDepotClosureCommandHandler> logger)
@@ -172,6 +178,7 @@ public class InitiateDepotClosureCommandHandler(
 
         DepotClosureRecord closureRecord = latestClosure;
         var isFinalizingResolvedClosure = latestClosure.Status == DepotClosureStatus.Completed;
+        var totalDrainedToSystemFund = 0m;
 
         await unitOfWork.ExecuteInTransactionAsync(async () =>
         {
@@ -184,7 +191,7 @@ public class InitiateDepotClosureCommandHandler(
                 await closureRepository.UpdateAsync(closureRecord, cancellationToken);
             }
 
-            await depotFundDrainService.DrainAllToSystemFundAsync(
+            totalDrainedToSystemFund = await depotFundDrainService.DrainAllToSystemFundAsync(
                 request.DepotId,
                 closureRecord.Id,
                 request.InitiatedBy,
@@ -192,6 +199,28 @@ public class InitiateDepotClosureCommandHandler(
 
             await unitOfWork.SaveAsync();
         });
+
+        if (totalDrainedToSystemFund > 0)
+        {
+            var systemFund = await systemFundRepository.GetOrCreateAsync(cancellationToken);
+            await adminRealtimeHubService.PushSystemFundUpdateAsync(new AdminSystemFundRealtimeUpdate
+            {
+                EntityId = systemFund.Id,
+                EntityType = "SystemFund",
+                SystemFundId = systemFund.Id,
+                Name = systemFund.Name,
+                Balance = systemFund.Balance,
+                LastUpdatedAt = systemFund.LastUpdatedAt == DateTime.MinValue ? null : systemFund.LastUpdatedAt.ToVietnamTime(),
+                Amount = totalDrainedToSystemFund,
+                TransactionType = SystemFundTransactionType.DepotClosureFundReturn.ToString(),
+                ReferenceType = DepotFundReferenceType.DepotClosure.ToString(),
+                ReferenceId = closureRecord.Id,
+                DepotId = request.DepotId,
+                Action = "DepotClosureFundReturn",
+                Status = SystemFundTransactionType.DepotClosureFundReturn.ToString(),
+                ChangedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
 
         logger.LogInformation(
             "Depot closed successfully | DepotId={DepotId} ClosureId={ClosureId} FinalizedResolvedClosure={FinalizedResolvedClosure}",

@@ -407,6 +407,7 @@ public class CreateRescueTeamCommandHandlerTests
         public Task PushFundingRequestUpdateAsync(RESQ.Application.Common.Models.AdminFundingRequestRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushCampaignUpdateAsync(RESQ.Application.Common.Models.AdminCampaignRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushDisbursementUpdateAsync(RESQ.Application.Common.Models.AdminDisbursementRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PushSystemFundUpdateAsync(RESQ.Application.Common.Models.AdminSystemFundRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushRescuerApplicationUpdateAsync(RESQ.Application.Common.Models.AdminRescuerApplicationRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushDepotUpdateAsync(RESQ.Application.Common.Models.AdminDepotRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task PushDepotClosureUpdateAsync(RESQ.Application.Common.Models.AdminDepotClosureRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
