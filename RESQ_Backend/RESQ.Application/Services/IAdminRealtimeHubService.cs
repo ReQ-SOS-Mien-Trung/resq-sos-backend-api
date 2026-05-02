@@ -16,6 +16,10 @@ public interface IAdminRealtimeHubService
         AdminDisbursementRealtimeUpdate update,
         CancellationToken cancellationToken = default);
 
+    Task PushSystemFundUpdateAsync(
+        AdminSystemFundRealtimeUpdate update,
+        CancellationToken cancellationToken = default);
+
     Task PushRescuerApplicationUpdateAsync(
         AdminRescuerApplicationRealtimeUpdate update,
         CancellationToken cancellationToken = default);

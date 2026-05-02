@@ -24,6 +24,7 @@ public sealed class AdminRealtimeHubService(
     private const string FundingRequestEvent = "ReceiveFundingRequestUpdate";
     private const string CampaignEvent = "ReceiveCampaignUpdate";
     private const string DisbursementEvent = "ReceiveDisbursementUpdate";
+    private const string SystemFundEvent = "ReceiveSystemFundUpdate";
     private const string RescuerApplicationEvent = "ReceiveRescuerApplicationUpdate";
     private const string DepotEvent = "ReceiveDepotUpdate";
     private const string DepotClosureEvent = "ReceiveDepotClosureUpdate";
@@ -118,6 +119,28 @@ public sealed class AdminRealtimeHubService(
                 "[AdminFinanceHub] Failed to push {Event} for DisbursementId={DisbursementId}",
                 DisbursementEvent,
                 update.DisbursementId);
+        }
+    }
+
+    public async Task PushSystemFundUpdateAsync(
+        AdminSystemFundRealtimeUpdate update,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
+            await SendToFinanceGroupsAsync(
+                [AdminFinanceHub.SystemFundGroup],
+                SystemFundEvent,
+                update,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "[AdminFinanceHub] Failed to push {Event} for SystemFundId={SystemFundId}",
+                SystemFundEvent,
+                update.SystemFundId);
         }
     }
 
