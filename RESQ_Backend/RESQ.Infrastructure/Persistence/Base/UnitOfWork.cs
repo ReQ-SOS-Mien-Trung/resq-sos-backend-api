@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Infrastructure.Persistence.Context;
@@ -70,7 +71,9 @@ namespace RESQ.Infrastructure.Persistence.Base
                     return $"{e.Entity.GetType().Name} (Key: {keys})";
                 });
                 _logger.LogWarning("Concurrency conflict on SaveAsync. Affected entries: {Entries}", string.Join("; ", entries));
-                throw new ConflictException("Dữ liệu tồn kho đã thay đổi bởi thao tác khác. Vui lòng thử lại.");
+                throw ExceptionCodes.WithCode(
+                    new ConflictException("Dữ liệu tồn kho đã thay đổi bởi thao tác khác. Vui lòng thử lại."),
+                    "CONCURRENCY_CONFLICT");
             }
         }
 
