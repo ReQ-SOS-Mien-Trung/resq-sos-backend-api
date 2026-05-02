@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
@@ -266,11 +267,11 @@ public class AllocateFundToDepotHandler(
             {
                 return await action();
             }
-            catch (ConflictException) when (attempt < MaxConcurrencyRetries)
+            catch (ConflictException ex) when (IsConcurrencyConflict(ex) && attempt < MaxConcurrencyRetries)
             {
                 _unitOfWork.ClearTrackedChanges();
             }
-            catch (ConflictException)
+            catch (ConflictException ex) when (IsConcurrencyConflict(ex))
             {
                 _unitOfWork.ClearTrackedChanges();
                 throw new ConcurrentFinanceMutationException();
@@ -279,6 +280,9 @@ public class AllocateFundToDepotHandler(
 
         throw new ConcurrentFinanceMutationException();
     }
+
+    private static bool IsConcurrencyConflict(ConflictException exception)
+        => ExceptionCodes.TryGet(exception) == "CONCURRENCY_CONFLICT";
 
     private async Task NotifyDepotManager(int depotId, decimal amount, string sourceName, CancellationToken ct)
     {

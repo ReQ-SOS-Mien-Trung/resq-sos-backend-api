@@ -40,6 +40,14 @@ public class SystemFundRepository : ISystemFundRepository
 
     public async Task UpdateAsync(SystemFundModel model, CancellationToken cancellationToken = default)
     {
+        var tracked = _unitOfWork.GetTracked<SystemFund>(e => e.Id == model.Id);
+        if (tracked is not null)
+        {
+            SystemFundMapper.UpdateEntity(tracked, model);
+            await Task.CompletedTask;
+            return;
+        }
+
         var entity = new SystemFund
         {
             Id = model.Id,

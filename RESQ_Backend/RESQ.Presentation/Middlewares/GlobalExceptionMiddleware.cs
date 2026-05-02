@@ -4,6 +4,7 @@ using RESQ.Application.Common.Constants;
 using RESQ.Application.Common.Logistics;
 using RESQ.Application.Exceptions;
 using RESQ.Domain.Entities.Exceptions;
+using RESQ.Domain.Entities.Finance.Exceptions;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -107,8 +108,15 @@ public class GlobalExceptionMiddleware : IMiddleware
             case ConflictException conflictEx:
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
                 response.Message = conflictEx.Message;
-                response.Code ??= "CONCURRENCY_CONFLICT";
+                response.Code ??= "CONFLICT";
                 _logger.LogWarning("Conflict: {Message}", conflictEx.Message);
+                break;
+
+            case ConcurrentFinanceMutationException concurrentFinanceEx:
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                response.Message = concurrentFinanceEx.Message;
+                response.Code ??= "CONCURRENCY_CONFLICT";
+                _logger.LogWarning("Finance concurrency conflict: {Message}", concurrentFinanceEx.Message);
                 break;
 
             case TooManyRequestsException tooManyEx:

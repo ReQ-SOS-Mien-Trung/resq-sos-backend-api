@@ -79,7 +79,7 @@ public static class LogisticsSeeder
         {
             // -- Category 1: Thực phẩm (Food) - 10 items ----------------------
             new ReliefItem { Id = 1,  CategoryId = 1, Name = "Mì tôm",                        Description = "Mì ăn liền đóng gói dùng cứu trợ khẩn cấp", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.8m,    WeightPerUnit = 0.075m,  CreatedAt = now, UpdatedAt = now },
-            new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa bột trẻ em",                Description = "Sữa bột dinh dưỡng dành cho trẻ em dưới 6 tuổi", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
+            new ReliefItem { Id = 7,  CategoryId = 1, Name = "Sữa hộp trẻ em",                Description = "Sữa hộp dinh dưỡng dành cho trẻ em", Unit = "hộp",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.5m,    WeightPerUnit = 0.4m,    CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 8,  CategoryId = 1, Name = "Lương khô",                     Description = "Lương khô năng lượng cao, bảo quản lâu dài", Unit = "thanh", ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.15m,   WeightPerUnit = 0.06m,   CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 11, CategoryId = 1, Name = "Gạo sấy khô",                   Description = "Gạo sấy khô ăn liền, chỉ cần thêm nước nóng", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.6m,    WeightPerUnit = 0.5m,    CreatedAt = now, UpdatedAt = now },
             new ReliefItem { Id = 12, CategoryId = 1, Name = "Cháo ăn liền",                  Description = "Cháo ăn liền đóng gói, dễ tiêu hóa cho mọi lứa tuổi", Unit = "gói",   ItemType = ItemType.Consumable.ToString(), VolumePerUnit = 0.4m,    WeightPerUnit = 0.065m,  CreatedAt = now, UpdatedAt = now },
@@ -800,6 +800,15 @@ public static class LogisticsSeeder
             [226] = 0.55m, // Dried rice: MEDIUM
             [245] = 0.82m, // Antibacterial soap: LOW
         };
+        // -- Remove milk product from Hue depot (DSI 5 = Item 7, Sữa hộp trẻ em)
+        var hueMilkInventory = list.FirstOrDefault(x => x.Id == 5);
+        if (hueMilkInventory != null)
+        {
+            hueMilkInventory.Quantity = 0;
+            hueMilkInventory.MissionReservedQuantity = 0;
+            hueMilkInventory.TransferReservedQuantity = 0;
+        }
+
         foreach (var entry in list)
         {
             if (!lowStockAvailabilityRatios.TryGetValue(entry.Id, out var availableRatio))
@@ -1016,7 +1025,6 @@ public static class LogisticsSeeder
             new() { Id = 2,  SupplyInventoryId = 2,  Quantity = 40000, RemainingQuantity = 40000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  CreatedAt = baseDate },
             new() { Id = 3,  SupplyInventoryId = 3,  Quantity = 80000, RemainingQuantity = 80000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  CreatedAt = baseDate },
             new() { Id = 4,  SupplyInventoryId = 4,  Quantity = 15000, RemainingQuantity = 15000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  CreatedAt = baseDate },
-            new() { Id = 5,  SupplyInventoryId = 5,  Quantity = 8000,  RemainingQuantity = 8000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(6),  SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  CreatedAt = baseDate },
             new() { Id = 6,  SupplyInventoryId = 6,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(24), SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  CreatedAt = baseDate },
             new() { Id = 7,  SupplyInventoryId = 7,  Quantity = 5000,  RemainingQuantity = 5000,  ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(36), SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  CreatedAt = baseDate },
             new() { Id = 8,  SupplyInventoryId = 8,  Quantity = 20000, RemainingQuantity = 20000, ReceivedDate = baseDate, ExpiredDate = baseDate.AddMonths(18), SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, CreatedAt = baseDate },
@@ -1057,8 +1065,6 @@ public static class LogisticsSeeder
             // -- Donation imports --------------------------------------------
             // Log 36: thuốc, Jun 2025
             new() { Id = 32, SupplyInventoryId = 3,  Quantity = 30000, RemainingQuantity = 30000, ReceivedDate = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2027, 6, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 1, CreatedAt = new DateTime(2025, 6, 5, 8, 0, 0, DateTimeKind.Utc) },
-            // Log 38: sữa bột, Oct 2025
-            new() { Id = 33, SupplyInventoryId = 5,  Quantity = 1000,  RemainingQuantity = 1000,  ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc), SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
 
             // -- Purchase imports (Jan & Feb 2026) ---------------------------
             // Log 40: Invoice 2, thuốc, Jan 2026
@@ -1086,7 +1092,7 @@ public static class LogisticsSeeder
     {
         // DSI layout: 44 consumable items per depot, sequential IDs
         // Depot 1: DSI 1-44, Depot 2: DSI 45-88, Depot 3: DSI 89-132, Depot 4: DSI 133-176
-        // Index 0=mì tôm(1), 1=nước(2), 2=thuốc(3), 3=băng VS(5), 4=sữa bột(7), 5=lương khô(8), 6=dầu gió(9), 7=vitamin(10)
+        // Index 0=mì tôm(1), 1=nước(2), 2=thuốc(3), 3=băng VS(5), 4=sữa hộp(7)[0 tại Huế], 5=lương khô(8), 6=dầu gió(9), 7=vitamin(10)
 
         var now = new DateTime(2024, 10, 14, 0, 0, 0, DateTimeKind.Utc);
 
@@ -1109,7 +1115,6 @@ public static class LogisticsSeeder
             new InventoryLog { Id = 2,  DepotSupplyInventoryId = 2,  SupplyInventoryLotId = 2,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 40000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 1,  PerformedBy = mgr1, Note = "Nhập nước uống kho Huế",                        ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
             new InventoryLog { Id = 3,  DepotSupplyInventoryId = 3,  SupplyInventoryLotId = 3,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 80000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 3,  PerformedBy = mgr1, Note = "Nhập thuốc Paracetamol kho Huế",                 ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
             new InventoryLog { Id = 4,  DepotSupplyInventoryId = 4,  SupplyInventoryLotId = 4,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 15000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 5,  PerformedBy = mgr1, Note = "Nhập băng vệ sinh kho Huế",                     ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
-            new InventoryLog { Id = 5,  DepotSupplyInventoryId = 5,  SupplyInventoryLotId = 5,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 8000,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 7,  PerformedBy = mgr1, Note = "Nhập sữa bột trẻ em kho Huế",                   ReceivedDate = now, ExpiredDate = exp06, CreatedAt = now },
             new InventoryLog { Id = 6,  DepotSupplyInventoryId = 6,  SupplyInventoryLotId = 6,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 30000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 8,  PerformedBy = mgr1, Note = "Nhập lương khô kho Huế",                        ReceivedDate = now, ExpiredDate = exp24, CreatedAt = now },
             new InventoryLog { Id = 7,  DepotSupplyInventoryId = 7,  SupplyInventoryLotId = 7,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 5000,   SourceType = InventorySourceType.Donation.ToString(), SourceId = 9,  PerformedBy = mgr1, Note = "Nhập dầu gió kho Huế",                          ReceivedDate = now, ExpiredDate = exp36, CreatedAt = now },
             new InventoryLog { Id = 8,  DepotSupplyInventoryId = 8,  SupplyInventoryLotId = 8,  ActionType = InventoryActionType.Import.ToString(), QuantityChange = 20000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 10, PerformedBy = mgr1, Note = "Nhập Vitamin tổng hợp kho Huế",                 ReceivedDate = now, ExpiredDate = exp18, CreatedAt = now },
@@ -1157,7 +1162,6 @@ public static class LogisticsSeeder
             new InventoryLog { Id = 37, DepotSupplyInventoryId = 4,                    ActionType = InventoryActionType.Adjust.ToString(), QuantityChange = -500,  SourceType = InventorySourceType.Adjustment.ToString(),             PerformedBy = mgr1, Note = "Điều chỉnh giảm băng vệ sinh do hết hạn sử dụng",      CreatedAt = new DateTime(2025, 6, 20, 10, 0, 0, DateTimeKind.Utc) },
 
             // Oct 2025
-            new InventoryLog { Id = 38, DepotSupplyInventoryId = 5,                    SupplyInventoryLotId = 33, ActionType = InventoryActionType.Import.ToString(), QuantityChange = 1000,  SourceType = InventorySourceType.Donation.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Nhận sữa bột từ MTTQ Quảng Bình hỗ trợ",              ReceivedDate = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc), ExpiredDate = new DateTime(2026, 4, 5, 0, 0, 0, DateTimeKind.Utc),   CreatedAt = new DateTime(2025, 10, 5, 7, 0, 0, DateTimeKind.Utc) },
             new InventoryLog { Id = 39, DepotSupplyInventoryId = 2,                    ActionType = InventoryActionType.TransferOut.ToString(), QuantityChange = 5000, SourceType = InventorySourceType.Transfer.ToString(), SourceId = 2, PerformedBy = mgr1, Note = "Chuyển nước uống sang kho Đà Nẵng hỗ trợ bão số 4", CreatedAt = new DateTime(2025, 10, 10, 6, 0, 0, DateTimeKind.Utc) },
 
             // Jan 2026
