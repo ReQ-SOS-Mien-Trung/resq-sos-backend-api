@@ -102,6 +102,17 @@ public sealed partial class DatabaseSeeder
         IReadOnlyList<HueStadiumVictimScenario> Victims,
         IReadOnlyList<string> GroupNeeds);
 
+    private sealed record HueStadiumSeedAiAnalysis(
+        string Priority,
+        string SeverityLevel,
+        double Score,
+        bool AgreesWithRuleBase,
+        bool NeedsImmediateSafeTransfer,
+        bool CanWaitForCombinedMission,
+        string HandlingReason,
+        string Explanation,
+        IReadOnlyList<string> RuleConfigBasis);
+
     private sealed record HueStadiumVictimScenario(
         string PersonId,
         string PersonType,

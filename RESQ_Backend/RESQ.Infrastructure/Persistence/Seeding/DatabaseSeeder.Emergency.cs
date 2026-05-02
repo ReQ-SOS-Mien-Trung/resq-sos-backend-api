@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
@@ -175,30 +176,20 @@ public sealed partial class DatabaseSeeder
 
         foreach (var sos in seed.SosRequests)
         {
+            var aiAnalysis = BuildHueStadiumSeedAiAnalysis(sos);
             _db.SosAiAnalyses.Add(new SosAiAnalysis
             {
                 SosRequestId = sos.Id,
-                ModelName = "GeminiPro",
-                ModelVersion = "v1.0",
-                AnalysisType = "SosAssessment",
-                SuggestedSeverityLevel = sos.PriorityLevel,
-                SuggestedPriority = sos.PriorityLevel,
-                SuggestedPriorityScore = sos.PriorityLevel == "Critical"
-                    ? 9.0
-                    : sos.PriorityLevel == "High"
-                        ? 7.0
-                        : sos.PriorityLevel == "Medium"
-                            ? 5.0
-                            : 2.0,
-                AgreesWithRuleBase = true,
-                Explanation = $"Đề xuất {sos.PriorityLevel} dựa trên vị trí, khả năng di chuyển và nhóm dễ tổn thương.",
-                SuggestionScope = "DemoSeed",
-                Metadata = Json(new
-                {
-                    seed_area = "Sân vận động Tự Do, Huế",
-                    risk_factors = new[] { "flood", "vulnerable_people", "limited_access" },
-                    mobile_packet = true
-                }),
+                ModelName = "DemoSeed.SosPriorityAnalysis",
+                ModelVersion = "v3.1",
+                AnalysisType = "SosPriorityAnalysis",
+                SuggestedSeverityLevel = aiAnalysis.SeverityLevel,
+                SuggestedPriority = aiAnalysis.Priority,
+                SuggestedPriorityScore = aiAnalysis.Score,
+                AgreesWithRuleBase = aiAnalysis.AgreesWithRuleBase,
+                Explanation = aiAnalysis.Explanation,
+                SuggestionScope = "DemoSeed:SosPriorityAnalysis v3.1",
+                Metadata = BuildHueStadiumSeedAiMetadata(sos, aiAnalysis),
                 CreatedAt = ClampHistoricalUtc(
                     (sos.CreatedAt ?? seed.StartUtc).AddMinutes(2),
                     sos.CreatedAt ?? seed.StartUtc,
@@ -214,6 +205,221 @@ public sealed partial class DatabaseSeeder
 
         await _db.SaveChangesAsync(cancellationToken);
     }
+
+    private static HueStadiumSeedAiAnalysis BuildHueStadiumSeedAiAnalysis(SosRequest sos)
+    {
+        var priority = NormalizeHueStadiumAiPriority(sos.PriorityLevel);
+        var score = Math.Round(sos.PriorityScore ?? HueStadiumFallbackPriorityScore(priority), 2);
+        var severityLevel = HueStadiumSeverityForPriority(priority);
+        var isClosed = IsHueStadiumClosedSos(sos);
+        var needsImmediateSafeTransfer = !isClosed && HueStadiumNeedsImmediateSafeTransfer(sos, priority);
+        var canWaitForCombinedMission = !needsImmediateSafeTransfer;
+        var ruleConfigBasis = BuildHueStadiumSeedAiRuleBasis(sos, score, priority);
+        var handlingReason = BuildHueStadiumSeedAiHandlingReason(sos, needsImmediateSafeTransfer, isClosed);
+        var explanation = BuildHueStadiumSeedAiExplanation(score, priority, ruleConfigBasis);
+
+        return new HueStadiumSeedAiAnalysis(
+            Priority: priority,
+            SeverityLevel: severityLevel,
+            Score: score,
+            AgreesWithRuleBase: true,
+            NeedsImmediateSafeTransfer: needsImmediateSafeTransfer,
+            CanWaitForCombinedMission: canWaitForCombinedMission,
+            HandlingReason: handlingReason,
+            Explanation: explanation,
+            RuleConfigBasis: ruleConfigBasis);
+    }
+
+    private static string BuildHueStadiumSeedAiMetadata(SosRequest sos, HueStadiumSeedAiAnalysis analysis)
+    {
+        var analysisResult = new Dictionary<string, object?>
+        {
+            ["priority"] = analysis.Priority,
+            ["suggested_priority"] = analysis.Priority,
+            ["severity_level"] = analysis.SeverityLevel,
+            ["suggested_severity_level"] = analysis.SeverityLevel,
+            ["suggested_priority_score"] = analysis.Score,
+            ["agrees_with_rule_base"] = analysis.AgreesWithRuleBase,
+            ["score_adjustment_delta"] = 0.0,
+            ["adjustment_direction"] = "none",
+            ["uncovered_factors"] = Array.Empty<string>(),
+            ["rule_config_basis"] = analysis.RuleConfigBasis,
+            ["additional_severe_flag"] = false,
+            ["guardrail_override_reason"] = null,
+            ["needs_immediate_safe_transfer"] = analysis.NeedsImmediateSafeTransfer,
+            ["can_wait_for_combined_mission"] = analysis.CanWaitForCombinedMission,
+            ["handling_reason"] = analysis.HandlingReason,
+            ["explanation"] = analysis.Explanation
+        };
+
+        return Json(new Dictionary<string, object?>
+        {
+            ["rawResponse"] = Json(analysisResult),
+            ["analysisResult"] = analysisResult,
+            ["promptType"] = "SosPriorityAnalysis",
+            ["promptVersion"] = "v3.1",
+            ["provider"] = "DemoSeed",
+            ["contentFingerprint"] = $"demo-seed-sos-{sos.Id}-sos-priority-analysis-v3.1",
+            ["adjustmentContract"] = new Dictionary<string, object?>
+            {
+                ["scoreScale"] = "0-100",
+                ["defaultAdjustmentLimit"] = 15,
+                ["ruleBasedBaselineRequired"] = true
+            },
+            ["ruleBaseContext"] = new Dictionary<string, object?>
+            {
+                ["score"] = sos.PriorityScore,
+                ["priority"] = sos.PriorityLevel,
+                ["ruleVersion"] = "v1.0",
+                ["configVersion"] = "SOS_PRIORITY_DEMO_V1",
+                ["baselineSource"] = "sos_requests.priority_score"
+            },
+            ["seedArea"] = "Huế demo SOS",
+            ["mobilePacket"] = true
+        });
+    }
+
+    private static string NormalizeHueStadiumAiPriority(string? priority) => priority switch
+    {
+        "Critical" => "Critical",
+        "High" => "High",
+        "Medium" => "Medium",
+        "Low" => "Low",
+        _ => "Medium"
+    };
+
+    private static double HueStadiumFallbackPriorityScore(string priority) => priority switch
+    {
+        "Critical" => 90,
+        "High" => 75,
+        "Medium" => 55,
+        "Low" => 30,
+        _ => 50
+    };
+
+    private static string HueStadiumSeverityForPriority(string priority) => priority switch
+    {
+        "Critical" => "Critical",
+        "High" => "Severe",
+        "Medium" => "Moderate",
+        "Low" => "Minor",
+        _ => "Moderate"
+    };
+
+    private static bool IsHueStadiumClosedSos(SosRequest sos)
+    {
+        if (sos.Status is "Resolved" or "Cancelled")
+        {
+            return true;
+        }
+
+        return HueStadiumSosTextContains(sos, "đã được", "hiện an toàn", "xin hủy", "không còn yêu cầu", "đã nhận");
+    }
+
+    private static bool HueStadiumNeedsImmediateSafeTransfer(SosRequest sos, string priority)
+    {
+        if (priority == "Critical")
+        {
+            return true;
+        }
+
+        if (!HueStadiumIsRescueLike(sos.SosType))
+        {
+            return false;
+        }
+
+        return HueStadiumSosTextContains(
+            sos,
+            "mắc kẹt",
+            "không thể",
+            "dây điện",
+            "khó thở",
+            "mang thai",
+            "bị cô lập",
+            "cửa cuốn",
+            "nước chảy mạnh",
+            "vùng nguy hiểm",
+            "hạ thân nhiệt",
+            "gãy tay",
+            "cần xuồng",
+            "nước xoáy");
+    }
+
+    private static bool HueStadiumIsRescueLike(string? sosType) =>
+        string.Equals(sosType, "Rescue", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(sosType, "Both", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HueStadiumSosTextContains(SosRequest sos, params string[] tokens)
+    {
+        var text = $"{sos.RawMessage} {sos.StructuredData}".ToLowerInvariant();
+        return tokens.Any(token => text.Contains(token.ToLowerInvariant(), StringComparison.Ordinal));
+    }
+
+    private static List<string> BuildHueStadiumSeedAiRuleBasis(SosRequest sos, double score, string priority)
+    {
+        var basis = new List<string>
+        {
+            $"Điểm rule-base hiện tại là {FormatHueStadiumScore(score)}/100 và mức ưu tiên hiện tại là {priority}."
+        };
+
+        if (HueStadiumSosTextContains(sos, "bị thương", "gãy tay", "khó thở", "hạ thân nhiệt", "mang thai", "thuốc"))
+        {
+            basis.Add("Nội dung SOS có yếu tố y tế hoặc nhóm dễ tổn thương nên không hạ thấp mức đánh giá.");
+        }
+
+        if (HueStadiumSosTextContains(sos, "mắc kẹt", "bị cô lập", "không thể", "cửa cuốn", "cần xuồng", "dây điện", "nước xoáy"))
+        {
+            basis.Add("Tin nhắn có dấu hiệu hạn chế tự di chuyển hoặc đường tiếp cận nguy hiểm.");
+        }
+
+        if (HueStadiumSosTextContains(sos, "nước", "cháo", "thuốc", "đèn pin", "mì", "chăn"))
+        {
+            basis.Add("Nhu cầu cứu trợ được ghi rõ trong raw_message và structured_data.");
+        }
+
+        if (IsHueStadiumClosedSos(sos))
+        {
+            basis.Add("Trạng thái hoặc nội dung cho thấy yêu cầu đã được xử lý/hủy, nhận định AI chỉ giữ mục đích hậu kiểm demo.");
+        }
+
+        return basis;
+    }
+
+    private static string BuildHueStadiumSeedAiHandlingReason(
+        SosRequest sos,
+        bool needsImmediateSafeTransfer,
+        bool isClosed)
+    {
+        if (isClosed)
+        {
+            return "Yêu cầu đã được xử lý hoặc hủy trong nội dung SOS nên không cần điều phối khẩn mới; có thể dùng cho theo dõi và hậu kiểm.";
+        }
+
+        if (needsImmediateSafeTransfer)
+        {
+            return "Không nên chờ ghép mission vì nội dung có dấu hiệu mắc kẹt, nguy cơ y tế hoặc đường tiếp cận nguy hiểm; cần đội tiếp cận sớm để đưa người về nơi an toàn.";
+        }
+
+        if (string.Equals(sos.SosType, "Relief", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Có thể chờ ghép mission cứu trợ vì nhu cầu chính là nước, thực phẩm, thuốc hoặc vật tư và chưa có dấu hiệu phải di chuyển ngay.";
+        }
+
+        return "Có thể ghép mission mixed nếu cùng khu vực vì nhóm đang ở vị trí tạm ổn định và chưa có bằng chứng đe dọa tính mạng tức thời.";
+    }
+
+    private static string BuildHueStadiumSeedAiExplanation(
+        double score,
+        string priority,
+        IReadOnlyList<string> ruleConfigBasis)
+    {
+        var scoreText = FormatHueStadiumScore(score);
+        var basisText = string.Join(" ", ruleConfigBasis);
+        return $"Điểm AI đề xuất {scoreText}/100, giữ nguyên mức {priority}. {basisText} AI đồng ý với điểm rule-base {scoreText}/100 và không điều chỉnh thêm vì không có yếu tố ngoài rule_config cần tăng hoặc giảm điểm theo prompt SosPriorityAnalysis v3.1.";
+    }
+
+    private static string FormatHueStadiumScore(double score) =>
+        score.ToString("0.##", CultureInfo.InvariantCulture);
 
     private static string BuildHueStadiumStructuredData(HueStadiumSosScenario scenario)
     {

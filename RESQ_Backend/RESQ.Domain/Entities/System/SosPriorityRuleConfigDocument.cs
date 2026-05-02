@@ -23,8 +23,9 @@ public class SosPriorityRuleConfigDocument
     [JsonPropertyName("request_type_scores")]
     public Dictionary<string, double> RequestTypeScores { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["RESCUE"] = 30,
-        ["RELIEF"] = 20,
+        ["RESCUE"] = 10,
+        ["RELIEF"] = 10,
+        ["BOTH"] = 10,
         ["OTHER"] = 10
     };
 
@@ -65,27 +66,45 @@ public class SosPriorityRuleConfigDocument
 public class SosPriorityScoreConfig
 {
     [JsonPropertyName("formula")]
-    public string Formula { get; set; } = "ROUND((medical_score + relief_score) * situation_multiplier)";
+    public string Formula { get; set; } = "MIN(100, ROUND(((medical_score * 2) + (relief_score * 1.1) + (request_type_score * 0.15)) * situation_multiplier * relief_pressure_multiplier))";
 
     [JsonPropertyName("use_request_type_score")]
-    public bool UseRequestTypeScore { get; set; } = false;
+    public bool UseRequestTypeScore { get; set; } = true;
 
     [JsonPropertyName("expression")]
-    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Unary(
-        "ROUND",
-        SosExpressionNode.Binary(
-            "MUL",
+    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Binary(
+        "MIN",
+        SosExpressionNode.Constant(100),
+        SosExpressionNode.Unary(
+            "ROUND",
             SosExpressionNode.Binary(
-                "ADD",
-                SosExpressionNode.VarRef("medical_score"),
-                SosExpressionNode.VarRef("relief_score")),
-            SosExpressionNode.VarRef("situation_multiplier")));
+                "MUL",
+                SosExpressionNode.Binary(
+                    "MUL",
+                    SosExpressionNode.Binary(
+                        "ADD",
+                        SosExpressionNode.Binary(
+                            "ADD",
+                            SosExpressionNode.Binary(
+                                "MUL",
+                                SosExpressionNode.VarRef("medical_score"),
+                                SosExpressionNode.Constant(2)),
+                            SosExpressionNode.Binary(
+                                "MUL",
+                                SosExpressionNode.VarRef("relief_score"),
+                                SosExpressionNode.Constant(1.1))),
+                        SosExpressionNode.Binary(
+                            "MUL",
+                            SosExpressionNode.VarRef("request_type_score"),
+                            SosExpressionNode.Constant(0.15))),
+                    SosExpressionNode.VarRef("situation_multiplier")),
+                SosExpressionNode.VarRef("relief_pressure_multiplier"))));
 }
 
 public class SosMedicalScoreConfig
 {
     [JsonPropertyName("formula")]
-    public string Formula { get; set; } = "SUM(issue_weight_sum_per_injured_person * age_weight)";
+    public string Formula { get; set; } = "SUM(issue_weight_sum_per_injured_person * age_weight + victim_severity_score) + medicine_urgency_score";
 
     [JsonPropertyName("age_weights")]
     public Dictionary<string, double> AgeWeights { get; set; } = new(StringComparer.OrdinalIgnoreCase)
@@ -117,6 +136,53 @@ public class SosMedicalScoreConfig
         ["NEEDS_MEDICAL_DEVICE"] = 2,
         ["OTHER"] = 1
     };
+
+    [JsonPropertyName("victim_severity_score")]
+    public Dictionary<string, double> VictimSeverityScore { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["CRITICAL"] = 8,
+        ["SEVERE"] = 5,
+        ["HIGH"] = 5,
+        ["MEDIUM"] = 3,
+        ["MODERATE"] = 3,
+        ["LOW"] = 1,
+        ["MILD"] = 1,
+        ["STABLE"] = 0,
+        ["OTHER"] = 0
+    };
+
+    [JsonPropertyName("medicine_urgency_score")]
+    public SosMedicineUrgencyScoreConfig MedicineUrgencyScore { get; set; } = new();
+}
+
+public class SosMedicineUrgencyScoreConfig
+{
+    [JsonPropertyName("needs_urgent_medicine_score")]
+    public double NeedsUrgentMedicineScore { get; set; } = 4;
+
+    [JsonPropertyName("condition_scores")]
+    public Dictionary<string, double> ConditionScores { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["INJURED"] = 1.5,
+        ["CHRONIC_DISEASE"] = 2,
+        ["HIGH_FEVER"] = 2,
+        ["OTHER"] = 1
+    };
+
+    [JsonPropertyName("medical_need_scores")]
+    public Dictionary<string, double> MedicalNeedScores { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["FIRST_AID"] = 2,
+        ["COMMON_MEDICINE"] = 1,
+        ["CHRONIC_MAINTENANCE"] = 2,
+        ["MINOR_INJURY"] = 1,
+        ["OXYGEN"] = 4,
+        ["MEDICAL_DEVICE"] = 3,
+        ["OTHER"] = 1
+    };
+
+    [JsonPropertyName("max_score")]
+    public double MaxScore { get; set; } = 8;
 }
 
 public class SosReliefScoreConfig
@@ -234,19 +300,19 @@ public class SosVulnerabilityScoreConfig
     public SosVulnerabilityRawConfig VulnerabilityRaw { get; set; } = new();
 
     [JsonPropertyName("cap_ratio")]
-    public double CapRatio { get; set; } = 0.10;
+    public double CapRatio { get; set; } = 0.50;
 }
 
 public class SosVulnerabilityRawConfig
 {
     [JsonPropertyName("CHILD_PER_PERSON")]
-    public double ChildPerPerson { get; set; } = 1;
+    public double ChildPerPerson { get; set; } = 3;
 
     [JsonPropertyName("ELDERLY_PER_PERSON")]
-    public double ElderlyPerPerson { get; set; } = 1;
+    public double ElderlyPerPerson { get; set; } = 3;
 
     [JsonPropertyName("HAS_PREGNANT_ANY")]
-    public double HasPregnantAny { get; set; } = 2;
+    public double HasPregnantAny { get; set; } = 4;
 }
 
 public class SosPriorityLevelConfig

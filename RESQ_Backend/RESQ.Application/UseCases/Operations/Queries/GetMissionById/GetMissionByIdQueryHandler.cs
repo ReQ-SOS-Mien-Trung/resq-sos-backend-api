@@ -133,6 +133,7 @@ public class GetMissionByIdQueryHandler(
             ManualOverride = MissionManualOverrideJsonHelper.Parse(mission.ManualOverrideMetadata)
         };
 
+        MissionSafetyCheckBuilder.Apply(result);
         MissionActivityDtoHelper.EnrichSupplyExecutionContext(mission.Activities, result.Activities);
         await MissionActivityDtoHelper.EnrichVictimContextAsync(
             result.Activities,

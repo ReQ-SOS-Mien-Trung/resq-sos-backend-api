@@ -97,6 +97,71 @@ public class PromptSeederTests
     }
 
     [Fact]
+    public void CreatePrompts_ActiveDepotAndValidationPrompts_ContainDeliverOnlyConsumablesInCollectRule()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Contains("DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)", depot.SystemPrompt);
+        Assert.Contains("COLLECT_SUPPLIES only needs", depot.SystemPrompt);
+        Assert.Contains("Backend will automatically sum DELIVER items", depot.SystemPrompt);
+
+        Assert.Contains("DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)", validation.SystemPrompt);
+        Assert.Contains("Do NOT add Consumable items to COLLECT", validation.SystemPrompt);
+    }
+
+    [Fact]
+    public void CreatePrompts_ActiveDepotTeamAndValidationPrompts_ContainReusableFieldUseBeforeReturnRule()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var team = prompts.Single(item => item.PromptType == "MissionTeamPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Contains("REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)", depot.SystemPrompt);
+        Assert.Contains("REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)", team.SystemPrompt);
+        Assert.Contains("REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)", validation.SystemPrompt);
+        Assert.Contains("RETURN_SUPPLIES is only valid after", team.SystemPrompt);
+        Assert.Contains("explicitly mention using the collected Reusable equipment by name", validation.SystemPrompt);
+    }
+
+    [Fact]
+    public void CreatePrompts_ActivePipelinePrompts_ContainMedicalItemSelectionRule()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var requirements = prompts.Single(item => item.PromptType == "MissionRequirementsAssessment");
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        foreach (var prompt in new[] { requirements, depot, validation })
+        {
+            Assert.Contains("MEDICAL_ITEM_SELECTION (STRICT)", prompt.SystemPrompt);
+            Assert.Contains("Bo so cuu co ban", prompt.SystemPrompt);
+            Assert.Contains("Paracetamol", prompt.SystemPrompt);
+        }
+    }
+
+    [Fact]
+    public void CreatePrompts_ActivePipelinePrompts_ContainRealisticEstimateTimeRule()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var requirements = prompts.Single(item => item.PromptType == "MissionRequirementsAssessment");
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var team = prompts.Single(item => item.PromptType == "MissionTeamPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        foreach (var prompt in new[] { requirements, depot, team, validation })
+        {
+            Assert.Contains("REALISTIC_ESTIMATE_TIME (STRICT)", prompt.SystemPrompt);
+        }
+
+        Assert.Contains("5-15 minutes for collect/deliver/return", depot.SystemPrompt);
+        Assert.Contains("15-35 minutes for rescue/medical/evacuate", depot.SystemPrompt);
+        Assert.Contains("15-35 minutes for rescue/medical/evacuate", team.SystemPrompt);
+    }
+
+    [Fact]
     public void CreatePrompts_ActiveAiPrompts_DoNotRequestDeprecatedScoreField()
     {
         var prompts = SystemSeeder.CreatePrompts()

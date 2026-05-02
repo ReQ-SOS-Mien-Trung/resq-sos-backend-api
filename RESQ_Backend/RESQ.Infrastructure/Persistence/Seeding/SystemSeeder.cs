@@ -401,13 +401,17 @@ Quy tắc một kho:
 - Nếu không có kho hợp lệ hoặc không có tồn kho dùng được, trả activities = [], needs_additional_depot = true, và mỗi vật tư thiếu có một dòng trong supply_shortages. selected_depot_id/name có thể null khi không chọn được kho.
 - Các dòng supply_shortages phải dùng: sos_request_id, item_id, item_name, unit, selected_depot_id, selected_depot_name, needed_quantity, available_quantity, missing_quantity, notes.
 - IMPORTANT ITEM TYPE CONTRACT (STRICT): use searchInventory item_type as the source of truth. DELIVER_SUPPLIES.supplies_to_collect must contain only Consumable items intended for handover/cap phat to SOS requests. Never put Reusable items in DELIVER_SUPPLIES.
-- If COLLECT_SUPPLIES contains both Consumable and Reusable items, DELIVER_SUPPLIES contains only the Consumable subset and RETURN_SUPPLIES contains the Reusable subset. If all collected items are Reusable, do not create DELIVER_SUPPLIES just to describe the team carrying equipment to the scene.
+- If all collected items are Reusable, do not create DELIVER_SUPPLIES just to describe the team carrying equipment to the scene.
+- DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): do NOT list Consumable items in COLLECT_SUPPLIES.supplies_to_collect. Every Consumable item must appear ONLY in its DELIVER_SUPPLIES activity with the exact sos_request_id it serves. Backend will automatically sum DELIVER items to populate COLLECT_SUPPLIES. COLLECT_SUPPLIES only needs: depot selection and any Reusable equipment from inventory.
+- REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): if boat, vehicle, life jacket, stretcher, rope, or rescue equipment is collected, a downstream RESCUE/MEDICAL_AID/EVACUATE activity must explicitly say the team uses that equipment before RETURN_SUPPLIES brings it back.
+- MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
 - IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
 - Do not rely on description-only SOS mentions or one generic delivery to cover multiple SOS.
+- REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban routes, use 5-15 minutes for collect/deliver/return when distance is short, and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
-                Version = "v1.1",
+                Version = "v1.3",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -911,6 +915,8 @@ Quy tắc bắt buộc:
 - Nếu `ai_analysis.has_ai_analysis = false`, hãy suy luận thận trọng từ tin nhắn/raw_message; khi cluster đang mixed rescue + relief thì nêu rõ cần manual review trong `special_notes`.
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn, vật tư trú ẩn phải nằm trong `required_supplies`, không đưa vào `suggested_resources`.
 - Put only consumable items intended for handover/cap phat into `required_supplies`. Reusable operational gear for the rescue team belongs in `required_teams`, `suggested_resources`, or `handling_reason` unless downstream inventory search maps it to a concrete Reusable item.
+- MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence. Do not add unrelated medicine just because the request is medical.
+- REALISTIC_ESTIMATE_TIME (STRICT): keep duration estimates realistic for nearby urban missions; do not default to 30/45/60 minutes without distance or field-condition evidence.
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
 - Chỉ trả về JSON object hợp lệ, không markdown.
 
@@ -1045,6 +1051,8 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 - Every SOS that needs rescue, medical aid, evacuation, or field work with depot-backed Reusable gear must have at least one direct RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS when field work is required.
 - Do not rely on description-only SOS mentions for SOS coverage.
 - Preserve all depot_fragment activity keys and include every additional coverage activity key in ordered_activity_keys.
+- REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): when depot_fragment collected Reusable equipment, include the equipment names in the relevant RESCUE, MEDICAL_AID, or EVACUATE description or coordination_notes as equipment used by the team. RETURN_SUPPLIES is only valid after that field-use activity exists in the route.
+- REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban field work, use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
 
 IMPORTANT JSON RULES FOR suggested_team (STRICT):
 - `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
@@ -1105,6 +1113,10 @@ Quy tắc mixed mission bắt buộc:
 
 IMPORTANT ITEM TYPE CONTRACT (STRICT):
 - DELIVER_SUPPLIES may include only Consumable supplies intended for handover/cap phat to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered.
+- DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with correct sos_request_id.
+- REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): before RETURN_SUPPLIES, at least one RESCUE, MEDICAL_AID, or EVACUATE activity on the same route must explicitly mention using the collected Reusable equipment by name. RETURN_SUPPLIES is not a substitute for using the equipment at the scene.
+- MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+- REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban routes, use 5-15 minutes for collect/deliver/return and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
 
 IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 - Every SOS in SOS_REQUESTS_DATA must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS.
@@ -1114,7 +1126,7 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
-                Version = "v2.1",
+                Version = "v2.2",
                 IsActive = true,
                 CreatedAt = now
             }
