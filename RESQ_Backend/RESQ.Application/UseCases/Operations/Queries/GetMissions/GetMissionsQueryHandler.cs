@@ -158,9 +158,12 @@ public class GetMissionsQueryHandler(
             }).ToList()
         };
 
+        var serverNowUtc = DateTime.UtcNow;
         var missionLookup = missionList.ToDictionary(mission => mission.Id);
         foreach (var missionDto in response.Missions)
         {
+            MissionSafetyCheckBuilder.Apply(missionDto, serverNowUtc);
+
             if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
                 MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
         }

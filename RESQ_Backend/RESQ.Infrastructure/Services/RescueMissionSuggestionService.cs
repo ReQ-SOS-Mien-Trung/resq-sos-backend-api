@@ -3410,6 +3410,79 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
     }
 
+    private static void BackfillCollectSuppliesFromDeliveries(List<SuggestedActivityDto> activities)
+    {
+        var collectActivities = activities
+            .Where(a => string.Equals(a.ActivityType, "COLLECT_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (collectActivities.Count == 0)
+            return;
+
+        var deliveredByKey = new Dictionary<string, SupplyToCollectDto>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var activity in activities)
+        {
+            if (!string.Equals(activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var supply in activity.SuppliesToCollect ?? [])
+            {
+                if (supply.Quantity <= 0 || string.IsNullOrWhiteSpace(supply.ItemName))
+                    continue;
+
+                var key = supply.ItemId is > 0
+                    ? $"id:{supply.ItemId.Value}"
+                    : $"name:{NormalizeItemName(supply.ItemName)}";
+
+                if (deliveredByKey.TryGetValue(key, out var existing))
+                {
+                    existing.Quantity += supply.Quantity;
+                }
+                else
+                {
+                    deliveredByKey[key] = new SupplyToCollectDto
+                    {
+                        ItemId = supply.ItemId,
+                        ItemName = supply.ItemName,
+                        Quantity = supply.Quantity,
+                        Unit = supply.Unit
+                    };
+                }
+            }
+        }
+
+        if (deliveredByKey.Count == 0)
+            return;
+
+        foreach (var collect in collectActivities)
+        {
+            var reusableItems = (collect.SuppliesToCollect ?? [])
+                .Where(s => s.Quantity > 0 && !string.IsNullOrWhiteSpace(s.ItemName))
+                .Where(s =>
+                {
+                    var key = s.ItemId is > 0
+                        ? $"id:{s.ItemId.Value}"
+                        : $"name:{NormalizeItemName(s.ItemName)}";
+                    return !deliveredByKey.ContainsKey(key);
+                })
+                .ToList();
+
+            var merged = deliveredByKey.Values
+                .Select(c => new SupplyToCollectDto
+                {
+                    ItemId = c.ItemId,
+                    ItemName = c.ItemName,
+                    Quantity = c.Quantity,
+                    Unit = c.Unit
+                })
+                .ToList();
+
+            merged.AddRange(reusableItems);
+            collect.SuppliesToCollect = merged;
+        }
+    }
+
     private static void ApplyDepotInventorySupplyMatch(
         SupplyToCollectDto supply,
         DepotInventoryItemDto item)

@@ -52,9 +52,12 @@ public class GetMyTeamMissionsQueryHandler(
             Missions = missions.Select(m => ToMissionDto(m, assignedByMission.TryGetValue(m.Id, out var teams) ? teams : [])).ToList()
         };
 
+        var serverNowUtc = DateTime.UtcNow;
         var missionLookup = missions.ToDictionary(mission => mission.Id);
         foreach (var missionDto in response.Missions)
         {
+            MissionSafetyCheckBuilder.Apply(missionDto, serverNowUtc);
+
             if (missionLookup.TryGetValue(missionDto.Id, out var sourceMission))
                 MissionActivityDtoHelper.EnrichSupplyExecutionContext(sourceMission.Activities, missionDto.Activities);
         }

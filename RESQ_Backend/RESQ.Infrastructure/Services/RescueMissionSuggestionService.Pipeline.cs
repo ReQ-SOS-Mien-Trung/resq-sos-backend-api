@@ -124,7 +124,7 @@ public partial class RescueMissionSuggestionService
                         ["eligible_depot_count"] = (nearbyDepots?.Count ?? 0).ToString()
                     },
                     "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If SOS context mentions flooding, isolation, or evacuation, you must also search transportation/rescue inventory before finalizing the depot plan. Use searchInventory item_type as the source of truth: Consumable items may be collected and delivered to SOS requests; Reusable items are collected for team use and later returned, not delivered. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
-                "Only searchInventory is available. It is already scoped to eligible depots for this cluster and returns only decision fields, not image URLs or raw lot/serial data. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES.supplies_to_collect must contain only items whose item_type is Consumable. Never put a Reusable item in DELIVER_SUPPLIES. If COLLECT_SUPPLIES contains both Consumable and Reusable items, DELIVER_SUPPLIES contains only the Consumable subset, while RETURN_SUPPLIES contains the Reusable subset. If all collected items are Reusable, do not create DELIVER_SUPPLIES just to describe the team carrying equipment to the scene. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must be covered by a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, unless the selected depot cannot supply it; in that case include a supply_shortages row with the exact sos_request_id. Do not rely on description-only mentions or one generic delivery to cover multiple SOS. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. When searchInventory returns a matching boat, vehicle, or rescue equipment item, put that real inventory item into supplies_to_collect instead of leaving it as a generic resource. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Every DELIVER_SUPPLIES that comes from the chosen depot must keep depot_id/depot_name/depot_address and the concrete Consumable supplies_to_collect list. If an urgent rescue route needs depot-backed gear or supplies before field execution, you may create COLLECT_SUPPLIES before the rescue branch. Return JSON only.",
+                "Only searchInventory is available. It is already scoped to eligible depots for this cluster and returns only decision fields, not image URLs or raw lot/serial data. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): do NOT list Consumable items in COLLECT_SUPPLIES.supplies_to_collect. Every Consumable item must appear ONLY in a DELIVER_SUPPLIES activity with the exact sos_request_id it serves; backend will sum DELIVER items automatically to compute the COLLECT list. COLLECT_SUPPLIES only needs: depot_id, depot_name, and any Reusable equipment found via searchInventory. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES.supplies_to_collect must contain only items whose item_type is Consumable. Never put a Reusable item in DELIVER_SUPPLIES; Reusable items belong only in COLLECT_SUPPLIES and RETURN_SUPPLIES. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must be covered by a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, unless the selected depot cannot supply it; in that case include a supply_shortages row with the exact sos_request_id. Do not rely on description-only mentions or one generic delivery to cover multiple SOS. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. When searchInventory returns a matching boat, vehicle, or rescue equipment item, put that real inventory item into supplies_to_collect of COLLECT_SUPPLIES. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Every DELIVER_SUPPLIES that comes from the chosen depot must keep depot_id/depot_name/depot_address and the concrete Consumable supplies_to_collect list. Return JSON only.",
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
                 nearbyTeams,
@@ -277,7 +277,7 @@ public partial class RescueMissionSuggestionService
                         ["mission_draft_body"] = draftJson
                     },
                     "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed Reusable equipment inside COLLECT_SUPPLIES/RETURN_SUPPLIES. Keep the JSON contract unchanged. Every input SOS must appear in at least one final executable activity with exact sos_request_id."),
-                "No tools are available. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES may include only Consumable supplies intended for handover to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS in sos_requests_data must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS. Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage. If the draft misses coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available. Do not invent depot_id, item_id, team_id, or assembly_point_id. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
+                "No tools are available. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with exact sos_request_id. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES may include only Consumable supplies intended for handover to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS in sos_requests_data must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS. Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage. If the draft misses coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available. Do not invent depot_id, item_id, team_id, or assembly_point_id. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
                 aiConfig,
                 options,
                 cancellationToken);
@@ -357,7 +357,9 @@ public partial class RescueMissionSuggestionService
                 Model = settings.Model,
                 ApiUrl = settings.ApiUrl,
                 ApiKey = settings.ApiKey,
-                SystemPrompt = BuildStageSystemPrompt(prompt.SystemPrompt, systemAppendix),
+                SystemPrompt = BuildStageSystemPrompt(
+                    prompt.SystemPrompt,
+                    BuildPipelineStageAppendix(promptType, systemAppendix)),
                 Temperature = settings.Temperature,
                 MaxTokens = Math.Max(settings.MaxTokens, 8192),
                 Timeout = TimeSpan.FromSeconds(120),
@@ -406,7 +408,9 @@ public partial class RescueMissionSuggestionService
                     Model = settings.Model,
                     ApiUrl = settings.ApiUrl,
                     ApiKey = settings.ApiKey,
-                    SystemPrompt = BuildStageSystemPrompt(prompt.SystemPrompt, systemAppendix),
+                    SystemPrompt = BuildStageSystemPrompt(
+                        prompt.SystemPrompt,
+                        BuildPipelineStageAppendix(promptType, systemAppendix)),
                     Temperature = settings.Temperature,
                     MaxTokens = Math.Max(settings.MaxTokens, 16384),
                     Timeout = TimeSpan.FromSeconds(120),
@@ -581,6 +585,78 @@ public partial class RescueMissionSuggestionService
             return systemPrompt.Trim();
 
         return $"{systemPrompt.Trim()}\n\n{appendix.Trim()}";
+    }
+
+    private static string BuildPipelineStageAppendix(PromptType promptType, string appendix)
+    {
+        var guardrails = promptType switch
+        {
+            PromptType.MissionRequirementsAssessment => """
+                MEDICAL_ITEM_SELECTION (STRICT):
+                - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
+                - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+                - Do not add unrelated medicine just because the request is medical.
+
+                REALISTIC_ESTIMATE_TIME (STRICT):
+                - Keep duration estimates realistic for nearby urban missions; do not default to 30/45/60 minutes without distance or field-condition evidence.
+                """,
+            PromptType.MissionDepotPlanning => """
+                DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT):
+                - Do NOT list Consumable items in COLLECT_SUPPLIES.supplies_to_collect.
+                - List ALL Consumable items ONLY in their respective DELIVER_SUPPLIES activities with the exact sos_request_id they serve.
+                - Backend will automatically sum up DELIVER_SUPPLIES items and populate COLLECT_SUPPLIES.supplies_to_collect.
+                - COLLECT_SUPPLIES only needs: depot_id, depot_name, and any Reusable equipment from inventory search.
+
+                REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT):
+                - Reusable items are not delivered to victims.
+                - If boat, vehicle, life jacket, stretcher, rope, or rescue equipment is collected, downstream RESCUE, MEDICAL_AID, or EVACUATE must explicitly say the team uses that equipment before RETURN_SUPPLIES brings it back.
+
+                MEDICAL_ITEM_SELECTION (STRICT):
+                - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
+                - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+
+                REALISTIC_ESTIMATE_TIME (STRICT):
+                - Do not default to 30/45/60 minutes.
+                - For nearby urban routes, use 5-15 minutes for collect/deliver/return when distance is short.
+                - Use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+                """,
+            PromptType.MissionTeamPlanning => """
+                REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT):
+                - When depot_fragment collected Reusable equipment, include the equipment names in the relevant RESCUE, MEDICAL_AID, or EVACUATE description or coordination_notes as equipment used by the team.
+                - RETURN_SUPPLIES is only valid after that field-use activity exists in the route.
+
+                REALISTIC_ESTIMATE_TIME (STRICT):
+                - Do not default to 30/45/60 minutes.
+                - For nearby urban field work, use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+                """,
+            PromptType.MissionPlanValidation => """
+                DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT):
+                - COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT.
+                - All Consumable items must be listed in their respective DELIVER_SUPPLIES activities with correct sos_request_id.
+                - Backend auto-derives COLLECT consumables from the sum of DELIVER items; do not duplicate them in COLLECT.
+
+                REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT):
+                - Before RETURN_SUPPLIES, at least one RESCUE, MEDICAL_AID, or EVACUATE activity on the same route must explicitly mention using the collected Reusable equipment by name.
+                - RETURN_SUPPLIES is not a substitute for using the equipment at the scene.
+
+                MEDICAL_ITEM_SELECTION (STRICT):
+                - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
+                - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+
+                REALISTIC_ESTIMATE_TIME (STRICT):
+                - Do not default to 30/45/60 minutes.
+                - For nearby urban routes, use 5-15 minutes for collect/deliver/return and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+                """,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(guardrails))
+            return appendix;
+
+        if (string.IsNullOrWhiteSpace(appendix))
+            return guardrails.Trim();
+
+        return $"{appendix.Trim()}\n\n{guardrails.Trim()}";
     }
 
     private static IReadOnlyList<AiToolDefinition> BuildAllowedTools(params string[] toolNames)
@@ -1551,7 +1627,12 @@ public partial class RescueMissionSuggestionService
                     .Where(supply => supply.Quantity > 0 && !string.IsNullOrWhiteSpace(supply.ItemName))
                     .ToList();
 
-                if (activity.DepotId is null || activity.SuppliesToCollect is not { Count: > 0 })
+                if (activity.DepotId is null)
+                    continue;
+
+                var isDeliverActivity = string.Equals(
+                    activity.ActivityType, "DELIVER_SUPPLIES", StringComparison.OrdinalIgnoreCase);
+                if (isDeliverActivity && activity.SuppliesToCollect is not { Count: > 0 })
                     continue;
             }
 
@@ -2006,6 +2087,7 @@ public partial class RescueMissionSuggestionService
         ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         RescueMissionSuggestionReviewHelper.ApplyNearbyDepotConstraints(result, nearbyDepots ?? []);
         ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
+        BackfillCollectSuppliesFromDeliveries(result.SuggestedActivities);
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);

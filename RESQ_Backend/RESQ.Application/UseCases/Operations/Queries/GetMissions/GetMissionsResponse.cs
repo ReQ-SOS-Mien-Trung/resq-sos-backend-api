@@ -30,6 +30,7 @@ public class MissionDto
     public int ActivityCount { get; set; }
     public List<MissionActivityDto> Activities { get; set; } = [];
     public List<AssignedTeamDto> Teams { get; set; } = [];
+    public MissionSafetyCheckDto? SafetyCheck { get; set; }
 
     // AI suggestion summary (most recent suggestion linked to this mission's cluster)
     public int? AiSuggestionId { get; set; }
@@ -39,6 +40,34 @@ public class MissionDto
     public string? SuggestedSeverityLevel { get; set; }
     public MissionAiSuggestionSection? AiSuggestion { get; set; }
     public MissionManualOverrideInfo? ManualOverride { get; set; }
+}
+
+public class MissionSafetyCheckDto
+{
+    public string OverallStatus { get; set; } = "Unknown";
+    public bool IsMonitoringActive { get; set; }
+    public int TotalTeams { get; set; }
+    public int SafeTeams { get; set; }
+    public int AtRiskTeams { get; set; }
+    public int SosCreatedTeams { get; set; }
+    public int InactiveTeams { get; set; }
+    public int UnknownTeams { get; set; }
+    public int OverdueTeams { get; set; }
+    public DateTime? NextTimeoutAt { get; set; }
+    public DateTime? LatestCheckInAt { get; set; }
+    public DateTime ServerNowUtc { get; set; }
+}
+
+public class TeamSafetyCheckDto
+{
+    public int MissionTeamId { get; set; }
+    public int RescueTeamId { get; set; }
+    public string Status { get; set; } = "Unknown";
+    public bool IsMonitoringActive { get; set; }
+    public DateTime? LatestCheckInAt { get; set; }
+    public DateTime? TimeoutAt { get; set; }
+    public bool IsOverdue { get; set; }
+    public int? GeneratedSosRequestId { get; set; }
 }
 
 public class MissionActivityDto
@@ -253,6 +282,7 @@ public class AssignedTeamDto
     public DateTime? SafetyTimeoutAt { get; set; }
     public string? SafetyStatus { get; set; }
     public int? GeneratedSosRequestId { get; set; }
+    public TeamSafetyCheckDto? SafetyCheck { get; set; }
     public string? ReportStatus { get; set; }
     public DateTime? ReportLastEditedAt { get; set; }
     public DateTime? ReportSubmittedAt { get; set; }

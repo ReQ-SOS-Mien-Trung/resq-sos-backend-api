@@ -1,6 +1,7 @@
 using System.Reflection;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
+using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Services;
 
 namespace RESQ.Tests.Infrastructure.Services;
@@ -1531,6 +1532,124 @@ public class RescueMissionSuggestionServiceInternalTests
                 Assert.Equal(7002, lot.LotId);
                 Assert.Equal(1, lot.QuantityTaken);
             });
+    }
+
+    [Theory]
+    [InlineData(PromptType.MissionRequirementsAssessment, "MEDICAL_ITEM_SELECTION (STRICT)")]
+    [InlineData(PromptType.MissionRequirementsAssessment, "Bo so cuu co ban")]
+    [InlineData(PromptType.MissionRequirementsAssessment, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "Do NOT list Consumable items in COLLECT_SUPPLIES")]
+    [InlineData(PromptType.MissionDepotPlanning, "Backend will automatically sum up DELIVER_SUPPLIES items")]
+    [InlineData(PromptType.MissionDepotPlanning, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "MEDICAL_ITEM_SELECTION (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "5-15 minutes for collect/deliver/return")]
+    [InlineData(PromptType.MissionDepotPlanning, "15-35 minutes for rescue/medical/evacuate")]
+    [InlineData(PromptType.MissionTeamPlanning, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
+    [InlineData(PromptType.MissionTeamPlanning, "RETURN_SUPPLIES is only valid after")]
+    [InlineData(PromptType.MissionTeamPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionTeamPlanning, "15-35 minutes for rescue/medical/evacuate")]
+    [InlineData(PromptType.MissionPlanValidation, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "Do NOT add Consumable items to COLLECT")]
+    [InlineData(PromptType.MissionPlanValidation, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "explicitly mention using the collected Reusable equipment by name")]
+    [InlineData(PromptType.MissionPlanValidation, "MEDICAL_ITEM_SELECTION (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    public void BuildPipelineStageAppendix_ContainsExpectedGuardrailRule(PromptType promptType, string expectedRule)
+    {
+        var appendix = BuildStageAppendix(promptType, string.Empty);
+
+        Assert.Contains(expectedRule, appendix);
+    }
+
+    [Fact]
+    public void BackfillCollectSuppliesFromDeliveries_AggregatesDeliverItemsIntoCollect()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "COLLECT_SUPPLIES",
+                DepotId = 1,
+                SuppliesToCollect = null
+            },
+            new()
+            {
+                ActivityType = "DELIVER_SUPPLIES",
+                DepotId = 1,
+                SosRequestId = 10,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto { ItemId = 5, ItemName = "Lương khô", Quantity = 2, Unit = "gói" }
+                ]
+            },
+            new()
+            {
+                ActivityType = "DELIVER_SUPPLIES",
+                DepotId = 1,
+                SosRequestId = 11,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto { ItemId = 5, ItemName = "Lương khô", Quantity = 2, Unit = "gói" },
+                    new SupplyToCollectDto { ItemId = 7, ItemName = "Nước uống", Quantity = 6, Unit = "chai" }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "BackfillCollectSuppliesFromDeliveries", activities);
+
+        var collect = activities.Single(a => a.ActivityType == "COLLECT_SUPPLIES");
+        Assert.NotNull(collect.SuppliesToCollect);
+        var luongKho = collect.SuppliesToCollect!.Single(s => s.ItemId == 5);
+        Assert.Equal(4, luongKho.Quantity);
+        var nuoc = collect.SuppliesToCollect!.Single(s => s.ItemId == 7);
+        Assert.Equal(6, nuoc.Quantity);
+    }
+
+    [Fact]
+    public void BackfillCollectSuppliesFromDeliveries_PreservesReusableItemsAlreadyInCollect()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "COLLECT_SUPPLIES",
+                DepotId = 1,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto { ItemId = 99, ItemName = "Xe tải cứu trợ", Quantity = 1, Unit = "xe" }
+                ]
+            },
+            new()
+            {
+                ActivityType = "DELIVER_SUPPLIES",
+                DepotId = 1,
+                SosRequestId = 10,
+                SuppliesToCollect =
+                [
+                    new SupplyToCollectDto { ItemId = 5, ItemName = "Lương khô", Quantity = 3, Unit = "gói" }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "BackfillCollectSuppliesFromDeliveries", activities);
+
+        var collect = activities.Single(a => a.ActivityType == "COLLECT_SUPPLIES");
+        Assert.NotNull(collect.SuppliesToCollect);
+        Assert.Equal(2, collect.SuppliesToCollect!.Count);
+        Assert.Contains(collect.SuppliesToCollect, s => s.ItemId == 99);
+        Assert.Contains(collect.SuppliesToCollect, s => s.ItemId == 5 && s.Quantity == 3);
+    }
+
+    private static string BuildStageAppendix(PromptType promptType, string extraAppendix)
+    {
+        var method = typeof(RescueMissionSuggestionService).GetMethod(
+            "BuildPipelineStageAppendix",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+        return (string)method!.Invoke(null, [promptType, extraAppendix])!;
     }
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
