@@ -48,6 +48,52 @@ public class RescueMissionSuggestionReviewHelperTests
     }
 
     [Fact]
+    public void ApplyNearbyTeamConstraints_RewritesTechnicalSuggestedTeamReason()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "RESCUE",
+                    SuggestedTeam = new SuggestedTeamDto
+                    {
+                        TeamId = 1,
+                        TeamName = "Đội Hương Giang 1",
+                        Reason = "Đội nằm trong pool nearby teams của cluster, cách tâm cluster khoảng 0.57 km."
+                    }
+                }
+            ]
+        };
+
+        RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(
+            result,
+            [
+                new AgentTeamInfo
+                {
+                    TeamId = 1,
+                    TeamName = "Đội Hương Giang 1",
+                    TeamType = "Mixed",
+                    AssemblyPointId = 1,
+                    AssemblyPointName = "Sân vận động Tự Do",
+                    DistanceKm = 0.57
+                }
+            ]);
+
+        var activity = Assert.Single(result.SuggestedActivities);
+        var reason = activity.SuggestedTeam!.Reason;
+
+        Assert.Equal(
+            "Đội đang sẵn sàng và ở gần khu vực cần hỗ trợ, cách trung tâm khu vực khoảng 0.57 km.",
+            reason);
+        Assert.DoesNotContain("pool", reason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("nearby", reason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cluster", reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ApplyNearbyDepotConstraints_RecoversCanonicalDepotByName_WhenIdIsHallucinated()
     {
         var result = new RescueMissionSuggestionResult

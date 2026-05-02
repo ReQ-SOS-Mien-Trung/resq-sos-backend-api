@@ -771,7 +771,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             Bạn có thể gọi ba công cụ để lấy dữ liệu thực trước khi lập kế hoạch:
 
             - **searchInventory(category, type?, page)**: Tìm vật phẩm khả dụng trong **các kho hợp lệ của cluster hiện tại**. Kết quả chỉ chứa các kho backend đã cho phép trong phạm vi lập kế hoạch này. Mỗi dòng là một cặp (vật phẩm, kho) với item_id, item_name, item_type, available_quantity, depot_id, depot_name, depot_address, depot_latitude, depot_longitude. Công cụ này bao gồm cả consumable, reusable, vehicle và các phương tiện/thiết bị nếu tồn kho có sẵn.
-            - **getTeams(ability?, available?, page)**: Trả về nearby teams đang Available trong bán kính cluster hiện tại.
+            - **getTeams(ability?, available?, page)**: Trả về các đội đang sẵn sàng gần khu vực cần điều phối hiện tại.
             - **getAssemblyPoints(page)**: Trả về các assembly point đang hoạt động.
 
             ## QUY TẮC KHO — CHỈ CHỌN MỘT KHO CHO TOÀN BỘ MISSION
@@ -826,6 +826,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ## QUY TẮC TEAM VÀ ASSEMBLY POINT
             - Gọi `getTeams` để lấy `team_id`; không tự bịa team ngoài kết quả công cụ.
             - Nếu lọc theo `ability` mà không thấy team, gọi lại `getTeams` không truyền ability trước khi chấp nhận `suggested_team = null`.
+            - `suggested_team.reason` phải là một câu tiếng Việt ngắn, dễ hiểu cho điều phối viên; không dùng các thuật ngữ kỹ thuật như pool, nearby teams, cluster, backend, team_id, distance_km.
             - Với `RESCUE` hoặc `EVACUATE`, bắt buộc gọi `getAssemblyPoints` và chọn `assembly_point_id` gần nạn nhân nhất.
 
             ## QUY TẮC AN TOÀN MISSION GHÉP CỨU HỘ + CỨU TRỢ
@@ -5789,7 +5790,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         new()
         {
             Name = "getTeams",
-            Description = "Tìm kiếm đội cứu hộ trong pool nearby teams của cluster hiện tại. Có thể lọc theo loại kỹ năng/team_type. Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.",
+            Description = "Tìm kiếm đội cứu hộ đang sẵn sàng gần khu vực cần điều phối hiện tại. Có thể lọc theo loại kỹ năng/team_type. Trả về team_id, tên, loại, trạng thái, số thành viên, vị trí điểm tập kết (assembly_point_name, latitude, longitude) và distance_km.",
             Parameters = ParseJson(
                 """
                 {
