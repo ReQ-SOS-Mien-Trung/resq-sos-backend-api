@@ -210,6 +210,7 @@ public sealed partial class DatabaseSeeder
         var lifeJacketModel = seed.ItemModels.Single(m => m.Name == "Áo phao cứu sinh");
         var blanketModel = seed.ItemModels.Single(m => m.Name == "Chăn ấm giữ nhiệt");
         EnsureEssentialDepotStock(seed, blanketModel);
+        EnsureNewMedicinesInHueDepot(seed);
         EnsureClosureTestDepotsFullInventory(seed);
         ExcludeHueDepotItems(seed);
 
@@ -223,6 +224,7 @@ public sealed partial class DatabaseSeeder
         {
             var received = seed.AnchorUtc.AddDays(-30 - seed.Lots.Count % 300);
             var quantity = Math.Max(0, inventory.Quantity ?? 0);
+            var sourceType = seed.Lots.Count % 3 == 0 ? "Purchase" : "Donation";
             seed.Lots.Add(new SupplyInventoryLot
             {
                 SupplyInventoryId = inventory.Id,
@@ -230,7 +232,7 @@ public sealed partial class DatabaseSeeder
                 RemainingQuantity = quantity,
                 ReceivedDate = received,
                 ExpiredDate = received.AddMonths(6 + seed.Lots.Count % 18),
-                SourceType = seed.Lots.Count % 3 == 0 ? "Purchase" : "Donation",
+                SourceType = sourceType,
                 SourceId = seed.Lots.Count + 1,
                 CreatedAt = received
             });
@@ -390,6 +392,44 @@ public sealed partial class DatabaseSeeder
         {
             var depot = seed.Depots[depotIndex];
             EnsureDepotInventory(seed, depot.Id, blanketModel.Id, EssentialBlanketQuantity(depotIndex), depotIndex);
+        }
+    }
+
+    private static void EnsureNewMedicinesInHueDepot(DemoSeedContext seed)
+    {
+        var hueDepot = FindHueDepot(seed);
+        if (hueDepot is null)
+            return;
+
+        // 14 new medicines added for flood relief
+        var newMedicineNames = new[]
+        {
+            "Thuốc tiêu chảy Loperamide",
+            "Thuốc trị nhiễm khuẩn đường ruột Smecta",
+            "Thuốc chống nôn Domperidone",
+            "Thuốc cảm cúm tổng hợp Decolgen",
+            "Thuốc ho Dextromethorphan",
+            "Thuốc long đờm Acetylcysteine",
+            "Thuốc chống dị ứng Loratadine",
+            "Kem bôi ngoài da Hydrocortisone",
+            "Thuốc chống nấm da Clotrimazole",
+            "Thuốc giảm đau kháng viêm Ibuprofen",
+            "Thuốc nhỏ mắt (viêm kết mạc)",
+            "Thuốc nhỏ mũi (nghẹt mũi do lạnh)",
+            "Vitamin C liều cao",
+            "Thuốc chống say nước"
+        };
+
+        var quantities = new[] { 5000, 3000, 2000, 4000, 3000, 2500, 3500, 1500, 1500, 4000, 2000, 2000, 5000, 1000 };
+
+        for (var i = 0; i < newMedicineNames.Length; i++)
+        {
+            var medicineName = newMedicineNames[i];
+            var medicineModel = seed.ItemModels.FirstOrDefault(m => m.Name == medicineName);
+            if (medicineModel is null)
+                continue;
+
+            EnsureDepotInventory(seed, hueDepot.Id, medicineModel.Id, quantities[i], 0);
         }
     }
 
@@ -881,6 +921,20 @@ public sealed partial class DatabaseSeeder
             new("Medical", "Dung dịch sát khuẩn Betadine", "Dung dịch sát khuẩn Povidone-Iodine rửa vết thương", "chai", "Consumable", 0.15m, 0.12m),
             new("Medical", "Khẩu trang y tế 3 lớp", "Khẩu trang y tế dùng một lần, đóng gói vô khuẩn", "chiếc", "Consumable", 0.04m, 0.005m),
             new("Medical", "Bộ sơ cứu cơ bản", "Bộ sơ cứu gồm băng, gạc, kéo, kẹp và thuốc cơ bản", "bộ", "Consumable", 3.0m, 1.5m),
+            new("Medical", "Thuốc tiêu chảy Loperamide", "Cực kỳ cần vì nước bẩn dễ gây tiêu chảy cấp", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Thuốc trị nhiễm khuẩn đường ruột Smecta", "Bảo vệ niêm mạc ruột, dùng phổ biến cho trẻ em", "gói", "Consumable", 0.02m, 0.015m),
+            new("Medical", "Thuốc chống nôn Domperidone", "Hữu ích khi ngộ độc thực phẩm, say nước", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Thuốc cảm cúm tổng hợp Decolgen", "Giảm triệu chứng cảm lạnh do thời tiết ẩm ướt", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Thuốc ho Dextromethorphan", "Ho do nhiễm lạnh, viêm họng", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Thuốc long đờm Acetylcysteine", "Giúp thông đường hô hấp", "gói", "Consumable", 0.02m, 0.015m),
+            new("Medical", "Thuốc chống dị ứng Loratadine", "Rất cần trong môi trường nhiều muỗi, côn trùng", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Kem bôi ngoài da Hydrocortisone", "Dùng cho viêm da, ngứa, phát ban", "tuýp", "Consumable", 0.08m, 0.05m),
+            new("Medical", "Thuốc chống nấm da Clotrimazole", "Quan trọng vì ngâm nước lâu dễ bị nấm", "tuýp", "Consumable", 0.08m, 0.05m),
+            new("Medical", "Thuốc giảm đau kháng viêm Ibuprofen", "Dùng khi chấn thương nhẹ, đau cơ", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Thuốc nhỏ mắt (viêm kết mạc)", "Điều trị viêm kết mạc do nước bẩn", "chai", "Consumable", 0.05m, 0.04m),
+            new("Medical", "Thuốc nhỏ mũi (nghẹt mũi do lạnh)", "Giảm nghẹt mũi do thời tiết lạnh", "chai", "Consumable", 0.05m, 0.04m),
+            new("Medical", "Vitamin C liều cao", "Tăng cường sức đề kháng", "viên", "Consumable", 0.005m, 0.002m),
+            new("Medical", "Thuốc chống say nước", "Dành cho đội cứu hộ khi làm việc trên nước", "viên", "Consumable", 0.005m, 0.002m),
             new("Hygiene", "Băng vệ sinh", "Băng vệ sinh phụ nữ dùng một lần, đóng gói riêng", "miếng", "Consumable", 0.06m, 0.015m),
             new("Hygiene", "Xà phòng diệt khuẩn", "Xà phòng cục diệt khuẩn dùng vệ sinh cá nhân", "bánh", "Consumable", 0.12m, 0.1m),
             new("Hygiene", "Nước rửa tay khô", "Gel rửa tay khô diệt khuẩn nhanh, không cần nước", "chai", "Consumable", 0.3m, 0.28m),
@@ -974,7 +1028,7 @@ public sealed partial class DatabaseSeeder
         [
             1, 7, 8, 11, 12, 13, 14, 15, 16, 17,
             2, 18, 19, 20, 22, 25, 26,
-            3, 9, 10, 27, 28, 29, 30, 32, 33,
+            3, 9, 10, 27, 28, 29, 30, 32, 33, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124,
             5, 34, 35, 36, 37, 38, 39, 40, 41, 42,
             43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
             53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
