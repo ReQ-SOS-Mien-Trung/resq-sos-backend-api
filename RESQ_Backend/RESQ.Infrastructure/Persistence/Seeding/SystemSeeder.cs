@@ -532,7 +532,7 @@ IMPORTANT JSON RULES FOR activity_assignments (STRICT):
 
 IMPORTANT JSON RULES FOR additional_activities (STRICT):
 - `additional_activities` MUST be an array of JSON objects only.
-- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
+- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `target_person_ids`, `target_victim_summary`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
 - `activity_key` must be a plain string duy nhất.
 - `step` must be integer.
 - `activity_type` must be one of `RESCUE|MEDICAL_AID|EVACUATE`.
@@ -1055,6 +1055,14 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 - REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): when depot_fragment collected Reusable equipment, include the equipment names in the relevant RESCUE, MEDICAL_AID, or EVACUATE description or coordination_notes as equipment used by the team. RETURN_SUPPLIES is only valid after that field-use activity exists in the route.
 - REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban field work, use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
 
+IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT):
+- Each MEDICAL_AID additional_activity MUST include `target_person_ids` and `target_victim_summary`.
+- Do not select every victim just because one SOS has multiple people. Select only the people who need medical help.
+- Prefer explicit victim medical fields first: `is_injured`, `severity`, and `medical_issues`.
+- If victim fields are generic but `tin_nhan`, `du_lieu_chi_tiet.incident.additional_description`, incident notes, or AI analysis mention a named person plus symptoms, map that person to the matching `person_id` by person type, age wording, index, and counts.
+- Required example: if the text says `ông Khoa già đang bị lạnh run, mệt lả`, victims are `adult_1` and `child_1`, and people_count is adult=1 child=1 elderly=0, the MEDICAL_AID activity MUST set `target_person_ids`: [""adult_1""] and `target_victim_summary`: ""ông Khoa (người lớn)"".
+- If the target cannot be identified confidently, set `target_person_ids`: [] and explain the uncertainty in description. Do not use all victims as a fallback.
+
 IMPORTANT JSON RULES FOR suggested_team (STRICT):
 - `suggested_team` ở top-level MUST be either `null` hoặc một JSON object duy nhất theo đúng keys: `team_id`, `team_name`, `team_type`, `reason`, `assembly_point_id`, `assembly_point_name`, `latitude`, `longitude`, `distance_km`.
 - `reason` phải là một câu tiếng Việt ngắn, dễ hiểu cho điều phối viên; không dùng các thuật ngữ kỹ thuật như pool, nearby teams, cluster, backend, team_id, distance_km.
@@ -1071,7 +1079,7 @@ IMPORTANT JSON RULES FOR activity_assignments (STRICT):
 
 IMPORTANT JSON RULES FOR additional_activities (STRICT):
 - `additional_activities` MUST be an array of JSON objects only.
-- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
+- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `target_person_ids`, `target_victim_summary`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
 - `activity_key` must be a plain string duy nhất.
 - `step` must be integer.
 - `activity_type` must be one of `RESCUE|MEDICAL_AID|EVACUATE`.
@@ -1086,7 +1094,7 @@ IMPORTANT JSON RULES FOR ordered_activity_keys (STRICT):
 - Đây là thứ tự route cuối cùng backend sẽ dùng để assemble mission draft.
 - Invalid examples: `[]` khi vẫn có activities, `[1]`, `[null]`, `[""collect-1"", ""collect-1""]`.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, DEPOT_FRAGMENT và NEARBY_TEAM_COUNT do backend cung cấp bên dưới. Chỉ dùng getTeams và getAssemblyPoints. Chỉ trả về JSON object MissionTeamFragment đúng schema trong system prompt.",
-                Version = "v2.1",
+                Version = "v2.2",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -1120,6 +1128,15 @@ IMPORTANT ITEM TYPE CONTRACT (STRICT):
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
 - REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban routes, use 5-15 minutes for collect/deliver/return and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
 
+IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT):
+- Every MEDICAL_AID activity MUST include `target_person_ids` and `target_victim_summary`.
+- Preserve target_person_ids from the draft when they are present.
+- Do not select every victim just because one SOS has multiple people. Select only the people who need medical help.
+- Prefer explicit victim medical fields first: `is_injured`, `severity`, and `medical_issues`.
+- If victim fields are generic but SOS text mentions a named person plus symptoms, map that person to the matching `person_id` by person type, age wording, index, and counts.
+- Required example: if the text says `ông Khoa già đang bị lạnh run, mệt lả`, victims are `adult_1` and `child_1`, and people_count is adult=1 child=1 elderly=0, the MEDICAL_AID activity MUST set `target_person_ids`: [""adult_1""] and `target_victim_summary`: ""ông Khoa (người lớn)"".
+- If the target cannot be identified confidently, set `target_person_ids`: [] and explain the uncertainty in description. Do not use all victims as a fallback.
+
 IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 - Every SOS in SOS_REQUESTS_DATA must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS.
 - Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage.
@@ -1128,7 +1145,7 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
-                Version = "v2.2",
+                Version = "v2.3",
                 IsActive = true,
                 CreatedAt = now
             }

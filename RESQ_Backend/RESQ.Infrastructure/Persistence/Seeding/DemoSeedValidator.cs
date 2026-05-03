@@ -476,8 +476,11 @@ public sealed class DemoSeedValidator
             var quantity = log.QuantityChange ?? 0;
             return log.ActionType switch
             {
-                "Import" or "TransferIn" or "Return" => quantity,
-                "Export" or "TransferOut" => -quantity,
+                "Import" or "TransferIn" or "Return" => Math.Abs(quantity),
+                "Export"
+                    or "TransferOut"
+                    or "MissionPickup"
+                    or "DepotClosureExternalDisposal" => -Math.Abs(quantity),
                 "Adjust" => quantity,
                 _ => 0
             };

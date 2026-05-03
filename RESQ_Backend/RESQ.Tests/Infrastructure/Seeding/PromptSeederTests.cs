@@ -29,7 +29,7 @@ public class PromptSeederTests
 
     [Theory]
     [InlineData(6, "v1.0")]
-    [InlineData(11, "v2.1")]
+    [InlineData(11, "v2.2")]
     public void CreatePrompts_MissionTeamPlanningVersions_ContainOrderedRouteAndSuggestedTeamRules(
         int promptId,
         string version)
@@ -124,6 +124,27 @@ public class PromptSeederTests
         Assert.Contains("REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)", validation.SystemPrompt);
         Assert.Contains("RETURN_SUPPLIES is only valid after", team.SystemPrompt);
         Assert.Contains("explicitly mention using the collected Reusable equipment by name", validation.SystemPrompt);
+    }
+
+    [Fact]
+    public void CreatePrompts_ActiveTeamAndValidationPrompts_ContainMedicalTargetVictimRules()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var team = prompts.Single(item => item.PromptType == "MissionTeamPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Equal("v2.2", team.Version);
+        Assert.Equal("v2.3", validation.Version);
+
+        foreach (var prompt in new[] { team, validation })
+        {
+            Assert.Contains("IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT)", prompt.SystemPrompt);
+            Assert.Contains("target_person_ids", prompt.SystemPrompt);
+            Assert.Contains("target_victim_summary", prompt.SystemPrompt);
+            Assert.Contains("adult_1", prompt.SystemPrompt);
+            Assert.Contains("child_1", prompt.SystemPrompt);
+            Assert.Contains("ông Khoa", prompt.SystemPrompt);
+        }
     }
 
     [Fact]

@@ -29,6 +29,10 @@ public class CreateSosRequestCommandHandler(
     ILogger<CreateSosRequestCommandHandler> logger
 ) : IRequestHandler<CreateSosRequestCommand, CreateSosRequestResponse>
 {
+    private const string DuplicateSosRequestCode = "DUPLICATE_SOS_REQUEST";
+    private const string DuplicateSosRequestMessage = "SOS request này đã được gửi trước đó. Vui lòng không gửi lại cùng một nội dung.";
+    private const double CoordinateTolerance = 0.0000001d;
+
     private readonly ISosRequestRepository _sosRequestRepository = sosRequestRepository;
     private readonly ISosRuleEvaluationRepository _sosRuleEvaluationRepository = sosRuleEvaluationRepository;
     private readonly ISosPriorityEvaluationService _priorityEvaluationService = priorityEvaluationService;
@@ -70,6 +74,8 @@ public class CreateSosRequestCommandHandler(
             victimInfo: request.VictimInfo,
             isSentOnBehalf: request.IsSentOnBehalf,
             reporterInfo: request.ReporterInfo);
+
+        await EnsureNoDuplicateSosRequestAsync(request, sosRequest, cancellationToken);
 
         // Save SOS request first to get the ID
         await _sosRequestRepository.CreateAsync(sosRequest, cancellationToken);
@@ -239,6 +245,87 @@ public class CreateSosRequestCommandHandler(
             CreatedByCoordinatorId = created.CreatedByCoordinatorId,
             LinkedCompanions = linkedCompanions.Count > 0 ? linkedCompanions : null
         };
+    }
+
+    private async Task EnsureNoDuplicateSosRequestAsync(
+        CreateSosRequestCommand request,
+        SosRequestModel newRequest,
+        CancellationToken cancellationToken)
+    {
+        var existingRequests = await _sosRequestRepository.GetByUserIdAsync(request.UserId, cancellationToken);
+        var duplicate = existingRequests.Any(existing => IsDuplicateCreatePayload(existing, newRequest, request.ClientCreatedAt));
+
+        if (duplicate)
+        {
+            throw ExceptionCodes.WithCode(
+                new ConflictException(DuplicateSosRequestMessage),
+                DuplicateSosRequestCode);
+        }
+    }
+
+    private static bool IsDuplicateCreatePayload(
+        SosRequestModel existing,
+        SosRequestModel incoming,
+        DateTime? incomingClientCreatedAt)
+    {
+        if (existing.UserId != incoming.UserId
+            || existing.PacketId != incoming.PacketId
+            || !StringEquals(existing.OriginId, incoming.OriginId)
+            || existing.Timestamp != incoming.Timestamp
+            || !StringEquals(existing.SosType, incoming.SosType)
+            || !StringEquals(existing.RawMessage, incoming.RawMessage)
+            || !NullableDoubleEquals(existing.Location?.Latitude, incoming.Location?.Latitude)
+            || !NullableDoubleEquals(existing.Location?.Longitude, incoming.Location?.Longitude)
+            || !NullableDoubleEquals(existing.LocationAccuracy, incoming.LocationAccuracy)
+            || !JsonEquals(existing.StructuredData, incoming.StructuredData)
+            || !JsonEquals(existing.NetworkMetadata, incoming.NetworkMetadata)
+            || !JsonEquals(existing.SenderInfo, incoming.SenderInfo)
+            || !JsonEquals(existing.ReporterInfo, incoming.ReporterInfo)
+            || !JsonEquals(existing.VictimInfo, incoming.VictimInfo)
+            || existing.IsSentOnBehalf != incoming.IsSentOnBehalf)
+        {
+            return false;
+        }
+
+        return !incomingClientCreatedAt.HasValue
+            || (existing.CreatedAt.HasValue
+                && DateTime.Equals(
+                    existing.CreatedAt.Value.ToUniversalTime(),
+                    incomingClientCreatedAt.Value.ToUniversalTime()));
+    }
+
+    private static bool StringEquals(string? left, string? right)
+        => string.Equals(left?.Trim(), right?.Trim(), StringComparison.Ordinal);
+
+    private static bool NullableDoubleEquals(double? left, double? right)
+    {
+        if (!left.HasValue || !right.HasValue)
+        {
+            return left.HasValue == right.HasValue;
+        }
+
+        return Math.Abs(left.Value - right.Value) <= CoordinateTolerance;
+    }
+
+    private static bool JsonEquals(string? left, string? right)
+        => string.Equals(NormalizeJson(left), NormalizeJson(right), StringComparison.Ordinal);
+
+    private static string NormalizeJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc.RootElement);
+        }
+        catch
+        {
+            return json.Trim();
+        }
     }
 
     /// <summary>

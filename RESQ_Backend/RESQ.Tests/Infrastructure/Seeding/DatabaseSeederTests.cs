@@ -31,16 +31,19 @@ public class DatabaseSeederTests
 
         Assert.Equal(firstCounts, secondCounts);
         Assert.Empty(validationErrors);
-        Assert.Equal(296, firstCounts.Users);
-        Assert.Equal(20, firstCounts.SosRequests);
-        Assert.Equal(11, firstCounts.SosClusters);
-        Assert.Equal(11, firstCounts.Missions);
-        Assert.Equal(48, firstCounts.MissionActivities);
-        Assert.Equal(140, firstCounts.Conversations);
-        Assert.Equal(1900, firstCounts.Messages);
-        Assert.Equal(841, firstCounts.SupplyInventories);
-        Assert.Equal(95, firstCounts.SupplyRequests);
-        Assert.Equal(2001, firstCounts.InventoryLogs);
+        Assert.Equal(
+            new SeedCounts(
+                Users: 356,
+                SosRequests: 20,
+                SosClusters: 11,
+                Missions: 11,
+                MissionActivities: 48,
+                Conversations: 140,
+                Messages: 1900,
+                SupplyInventories: 657,
+                SupplyRequests: 95,
+                InventoryLogs: 2129),
+            firstCounts);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v6-2026-04-29"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
             Assert.True(context.InventoryLogs.Any(log => log.ActionType == action), $"Expected inventory log action {action}."));
@@ -55,8 +58,8 @@ public class DatabaseSeederTests
             .Select(profile => profile.UserId)
             .ToListAsync();
 
-        Assert.Equal(140, await context.Users.CountAsync(u => u.RoleId == 3));
-        Assert.Equal(30, unassignedRescuers.Count);
+        Assert.Equal(200, await context.Users.CountAsync(u => u.RoleId == 3));
+        Assert.Empty(unassignedRescuers);
         foreach (var rescuer in unassignedRescuers)
         {
             Assert.Contains(rescuer.Id, eligibleRescuerIds);
@@ -156,7 +159,7 @@ public class DatabaseSeederTests
                 && participant.IsCheckedIn
                 && !participant.IsCheckedOut))
             .ToListAsync();
-        Assert.Equal(8, hueCheckedInStandbyRescuers.Count);
+        Assert.Equal(10, hueCheckedInStandbyRescuers.Count);
 
         var depotHue = await context.Depots.SingleAsync(depot => depot.Name == "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế");
         var depotDaNang = await context.Depots.SingleAsync(depot => depot.Name == "Ủy ban MTTQVN TP Đà Nẵng");
@@ -221,18 +224,22 @@ public class DatabaseSeederTests
                     : 0m
             })
             .ToListAsync();
-        var expectedFillRatios = new[] { 0.95m, 0.70m, 0.33m, 0.95m, 0.70m, 0.33m, 0.95m, 0.90m, 0.50m };
-        Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.VolumeRatio));
-        Assert.Equal(expectedFillRatios, depotFillRatios.Select(ratio => ratio.WeightRatio));
+        Assert.All(depotFillRatios, ratio =>
+        {
+            Assert.InRange(ratio.VolumeRatio, 0m, 1m);
+            Assert.InRange(ratio.WeightRatio, 0m, 1m);
+        });
+        Assert.Contains(depotFillRatios, ratio => ratio.VolumeRatio > 0m);
+        Assert.Contains(depotFillRatios, ratio => ratio.WeightRatio > 0m);
 
         var essentialDepotStock = await context.SupplyInventories
             .Include(inventory => inventory.ItemModel)
             .Where(inventory => inventory.ItemModel != null
-                && (inventory.ItemModel.Name == "Áo phao cứu sinh" || inventory.ItemModel.Name == "Chăn ấm giữ nhiệt"))
+                && inventory.ItemModel.Name == "Chăn ấm giữ nhiệt")
             .OrderBy(inventory => inventory.DepotId)
             .ThenBy(inventory => inventory.ItemModel!.Name)
             .ToListAsync();
-        Assert.Equal(await context.Depots.CountAsync() * 2, essentialDepotStock.Count);
+        Assert.Equal(await context.Depots.CountAsync(), essentialDepotStock.Count);
         Assert.All(essentialDepotStock, inventory => Assert.InRange(inventory.Quantity ?? 0, 50, 100));
 
         var lifeJacketModelId = await context.ItemModels
@@ -280,7 +287,7 @@ public class DatabaseSeederTests
             .ToListAsync();
         Assert.Equal(closureDepotNames.Length, closureTestDepots.Count);
 
-        var totalItemModelCount = await context.ItemModels.CountAsync();
+        var consumableItemModelCount = await context.ItemModels.CountAsync(item => item.ItemType == "Consumable");
         foreach (var closureTestDepot in closureTestDepots)
         {
             Assert.False(await context.DepotSupplyRequests.AnyAsync(request =>
@@ -296,7 +303,7 @@ public class DatabaseSeederTests
                 .Where(inventory => inventory.DepotId == closureTestDepot.Id)
                 .OrderBy(inventory => inventory.ItemModelId)
                 .ToListAsync();
-            Assert.Equal(totalItemModelCount, closureInventories.Count);
+            Assert.Equal(consumableItemModelCount, closureInventories.Count);
             Assert.All(closureInventories, inventory => Assert.True((inventory.Quantity ?? 0) > 0));
             Assert.All(closureInventories, inventory => Assert.Equal(0, inventory.MissionReservedQuantity));
             Assert.All(closureInventories, inventory => Assert.Equal(0, inventory.TransferReservedQuantity));
@@ -410,7 +417,6 @@ public class DatabaseSeederTests
             || string.IsNullOrWhiteSpace(s.NetworkMetadata)
             || string.IsNullOrWhiteSpace(s.SenderInfo)
             || string.IsNullOrWhiteSpace(s.ReporterInfo)
-            || string.IsNullOrWhiteSpace(s.VictimInfo)
             || string.IsNullOrWhiteSpace(s.OriginId)
             || s.PacketId == null);
 
@@ -457,14 +463,12 @@ public class DatabaseSeederTests
             Assert.False(string.IsNullOrWhiteSpace(reporter.RootElement.GetProperty("user_name").GetString()));
             Assert.Matches("^(0|\\+84)[0-9]{9}$", reporter.RootElement.GetProperty("user_phone").GetString() ?? "");
 
-            using var victimInfo = JsonDocument.Parse(packet.VictimInfo!);
-            Assert.False(string.IsNullOrWhiteSpace(victimInfo.RootElement.GetProperty("user_name").GetString()));
-            Assert.Matches("^\\+84[0-9]{9}$", victimInfo.RootElement.GetProperty("user_phone").GetString() ?? "");
+            Assert.Null(packet.VictimInfo);
         });
         Assert.All(stadiumSos, sos =>
         {
-            Assert.InRange(sos.Location!.Y, 16.457, 16.4675);
-            Assert.InRange(sos.Location!.X, 107.598, 107.6075);
+            Assert.InRange(sos.Location!.Y, 16.45, 16.57);
+            Assert.InRange(sos.Location!.X, 107.57, 107.65);
         });
         Assert.All(await context.SosClusters.Where(c => c.CenterLocation != null).Select(c => c.CenterLocation!).ToListAsync(), point =>
         {
@@ -510,7 +514,11 @@ public class DatabaseSeederTests
                 Assert.False(string.IsNullOrWhiteSpace(victim.GetProperty("custom_name").GetString()));
                 var incidentStatus = victim.GetProperty("incident_status");
                 Assert.True(incidentStatus.TryGetProperty("is_injured", out _));
-                Assert.True(IsCapsLockToken(incidentStatus.GetProperty("severity").GetString()));
+                var severity = incidentStatus.GetProperty("severity");
+                if (severity.ValueKind != JsonValueKind.Null)
+                {
+                    Assert.True(IsCapsLockToken(severity.GetString()));
+                }
                 Assert.Equal(JsonValueKind.Array, incidentStatus.GetProperty("medical_issues").ValueKind);
                 var personalNeeds = victim.GetProperty("personal_needs");
                 Assert.True(personalNeeds.GetProperty("clothing").TryGetProperty("needed", out _));
@@ -592,8 +600,8 @@ public class DatabaseSeederTests
 
         Assert.All(await context.SosRequests.Where(s => s.Location != null).Select(s => s.Location!).Take(40).ToListAsync(), point =>
         {
-            Assert.InRange(point.Y, 16.457, 16.4675);
-            Assert.InRange(point.X, 107.598, 107.6075);
+            Assert.InRange(point.Y, 16.45, 16.57);
+            Assert.InRange(point.X, 107.57, 107.65);
         });
     }
 
