@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
@@ -84,6 +85,7 @@ public class CreateSosRequestCommandHandlerTests
             "duplicate-message");
         existing.Id = 41;
         existing.CreatedAt = DateTime.UtcNow.AddHours(1);
+        existing.Timestamp = 123;
 
         var sosRepo = new StubSosRepo(existing);
         var aiQueue = new StubAiQueue();
@@ -93,6 +95,119 @@ public class CreateSosRequestCommandHandlerTests
 
         Assert.Equal(42, result.Id);
         Assert.Equal(42, aiQueue.QueuedTasks.Single().SosRequestId);
+    }
+
+    [Fact]
+    public async Task Handle_ThrowsConflict_AndSkipsSideEffects_WhenCreatePayloadAlreadyExists()
+    {
+        var command = BuildCommand(
+            rawMessage: "SOS duplicate",
+            packetId: Guid.NewGuid(),
+            originId: "device-1",
+            locationAccuracy: 4.2,
+            structuredData: """{"incident":{"situation":"flood"},"victims":[]}""",
+            networkMetadata: """{"hop_count":1,"path":["device-1"]}""",
+            senderInfo: """{"user_id":"sender"}""",
+            reporterInfo: """{"user_id":"reporter"}""",
+            victimInfo: """{"user_id":"victim"}""",
+            timestamp: 1777786685,
+            sosType: "BOTH",
+            isSentOnBehalf: true);
+        var existing = BuildExistingFromCommand(command, id: 9);
+        existing.StructuredData = """{ "incident": { "situation": "flood" }, "victims": [] }""";
+
+        var sosRepo = new StubSosRepo(existing);
+        var unitOfWork = new StubUnitOfWork();
+        var evalRepo = new StubEvalRepo();
+        var evalService = new StubEvalService(SosPriorityLevel.High, 75);
+        var aiQueue = new StubAiQueue();
+        var handler = BuildHandler(
+            sosRepo: sosRepo,
+            evalRepo: evalRepo,
+            evalService: evalService,
+            aiQueue: aiQueue,
+            unitOfWork: unitOfWork);
+
+        var exception = await Assert.ThrowsAsync<ConflictException>(
+            () => handler.Handle(command, CancellationToken.None));
+
+        Assert.Equal("DUPLICATE_SOS_REQUEST", ExceptionCodes.TryGet(exception));
+        Assert.Equal(0, sosRepo.CreateCalls);
+        Assert.Equal(0, unitOfWork.SaveCalls);
+        Assert.Equal(0, evalService.EvaluateCalls);
+        Assert.Null(evalRepo.LastCreated);
+        Assert.Empty(aiQueue.QueuedTasks);
+    }
+
+    [Fact]
+    public async Task Handle_CreatesSosRequest_WhenSamePacketIdButMessageChanged()
+    {
+        var packetId = Guid.NewGuid();
+        var existing = BuildExistingFromCommand(
+            BuildCommand(rawMessage: "old message", packetId: packetId),
+            id: 1);
+        var handler = BuildHandler(sosRepo: new StubSosRepo(existing));
+
+        var result = await handler.Handle(
+            BuildCommand(rawMessage: "new message", packetId: packetId),
+            CancellationToken.None);
+
+        Assert.Equal(2, result.Id);
+    }
+
+    [Fact]
+    public async Task Handle_CreatesSosRequest_WhenSamePacketIdButLocationChanged()
+    {
+        var packetId = Guid.NewGuid();
+        var existing = BuildExistingFromCommand(
+            BuildCommand(packetId: packetId),
+            id: 1);
+        var handler = BuildHandler(sosRepo: new StubSosRepo(existing));
+
+        var result = await handler.Handle(
+            BuildCommand(packetId: packetId, location: new GeoLocation(10.7627, 106.6603)),
+            CancellationToken.None);
+
+        Assert.Equal(2, result.Id);
+    }
+
+    [Fact]
+    public async Task Handle_CreatesSosRequest_WhenSamePayloadBelongsToDifferentUser()
+    {
+        var existing = BuildExistingFromCommand(
+            BuildCommand(userId: Guid.NewGuid(), packetId: Guid.NewGuid()),
+            id: 10);
+        var handler = BuildHandler(sosRepo: new StubSosRepo(existing));
+
+        var result = await handler.Handle(BuildCommand(packetId: existing.PacketId), CancellationToken.None);
+
+        Assert.Equal(11, result.Id);
+    }
+
+    [Fact]
+    public async Task Handle_ThrowsConflict_WhenClientCreatedAtMatchesExistingCreatedAt()
+    {
+        var clientCreatedAt = new DateTime(2026, 5, 3, 5, 38, 5, DateTimeKind.Utc);
+        var command = BuildCommand(packetId: Guid.NewGuid(), clientCreatedAt: clientCreatedAt);
+        var existing = BuildExistingFromCommand(command, id: 3);
+        var handler = BuildHandler(sosRepo: new StubSosRepo(existing));
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => handler.Handle(command, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Handle_CreatesSosRequest_WhenClientCreatedAtDoesNotMatchExistingCreatedAt()
+    {
+        var clientCreatedAt = new DateTime(2026, 5, 3, 5, 38, 5, DateTimeKind.Utc);
+        var command = BuildCommand(packetId: Guid.NewGuid(), clientCreatedAt: clientCreatedAt);
+        var existing = BuildExistingFromCommand(command, id: 3);
+        existing.CreatedAt = clientCreatedAt.AddSeconds(1);
+        var handler = BuildHandler(sosRepo: new StubSosRepo(existing));
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        Assert.Equal(4, result.Id);
     }
 
     [Fact]
@@ -151,10 +266,60 @@ public class CreateSosRequestCommandHandlerTests
     // ── Builder ──
 
     private static CreateSosRequestCommand BuildCommand(
-        Guid? userId = null, string rawMessage = "Cần cứu trợ khẩn cấp",
-        string? structuredData = null, string? sosType = null)
-        => new(userId ?? ValidUserId, HcmLocation, rawMessage,
-               StructuredData: structuredData, SosType: sosType);
+        Guid? userId = null,
+        string rawMessage = "Cần cứu trợ khẩn cấp",
+        GeoLocation? location = null,
+        Guid? packetId = null,
+        string? originId = null,
+        double? locationAccuracy = null,
+        string? structuredData = null,
+        string? networkMetadata = null,
+        string? senderInfo = null,
+        string? reporterInfo = null,
+        string? victimInfo = null,
+        long? timestamp = null,
+        string? sosType = null,
+        DateTime? clientCreatedAt = null,
+        bool isSentOnBehalf = false)
+        => new(
+            userId ?? ValidUserId,
+            location ?? HcmLocation,
+            rawMessage,
+            packetId,
+            originId,
+            locationAccuracy,
+            sosType,
+            structuredData,
+            networkMetadata,
+            senderInfo,
+            timestamp,
+            ClientCreatedAt: clientCreatedAt,
+            VictimInfo: victimInfo,
+            IsSentOnBehalf: isSentOnBehalf,
+            ReporterInfo: reporterInfo);
+
+    private static SosRequestModel BuildExistingFromCommand(CreateSosRequestCommand command, int id)
+    {
+        var existing = SosRequestModel.Create(
+            command.UserId,
+            command.Location,
+            command.RawMessage,
+            command.PacketId,
+            command.OriginId,
+            command.LocationAccuracy,
+            command.SosType,
+            command.StructuredData,
+            command.NetworkMetadata,
+            command.SenderInfo,
+            command.Timestamp,
+            clientCreatedAt: command.ClientCreatedAt,
+            victimInfo: command.VictimInfo,
+            isSentOnBehalf: command.IsSentOnBehalf,
+            reporterInfo: command.ReporterInfo);
+
+        existing.Id = id;
+        return existing;
+    }
 
     private static CreateSosRequestCommandHandler BuildHandler(
         StubSosRepo? sosRepo = null, StubEvalRepo? evalRepo = null,
@@ -196,8 +361,11 @@ public class CreateSosRequestCommandHandlerTests
     private sealed class StubSosRepo(params SosRequestModel[] seeded) : ISosRequestRepository
     {
         private readonly List<SosRequestModel> _store = [.. seeded];
+        public int CreateCalls { get; private set; }
+
         public Task CreateAsync(SosRequestModel sos, CancellationToken ct = default)
         {
+            CreateCalls++;
             sos.Id = _store.Count == 0 ? 1 : _store.Max(x => x.Id) + 1;
             _store.Add(sos);
             return Task.CompletedTask;
@@ -226,8 +394,12 @@ public class CreateSosRequestCommandHandlerTests
         int? configId = null,
         string? configVersion = null) : ISosPriorityEvaluationService
     {
+        public int EvaluateCalls { get; private set; }
+
         public Task<SosRuleEvaluationModel> EvaluateAsync(int sosReqId, string? json, string? sosType, CancellationToken ct = default)
-            => Task.FromResult(new SosRuleEvaluationModel
+        {
+            EvaluateCalls++;
+            return Task.FromResult(new SosRuleEvaluationModel
             {
                 SosRequestId = sosReqId,
                 PriorityLevel = level,
@@ -236,6 +408,8 @@ public class CreateSosRequestCommandHandlerTests
                 ConfigVersion = configVersion,
                 RuleVersion = configVersion ?? "1.0"
             });
+        }
+
         public Task<SosRuleEvaluationModel> EvaluateWithConfigAsync(int sosReqId, string? json, string? sosType, RESQ.Domain.Entities.System.SosPriorityRuleConfigModel? cfg, CancellationToken ct = default)
             => EvaluateAsync(sosReqId, json, sosType, ct);
     }

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using RESQ.Application.Common.Models;
 using RESQ.Domain.Entities.System;
 
@@ -201,6 +202,8 @@ public class SuggestedActivityDto
     public string Description { get; set; } = string.Empty;
     public string? TargetVictimSummary { get; set; }
     public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
+    [JsonIgnore]
+    public List<string>? TargetPersonIds { get; set; }
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     /// <summary>`SingleTeam` nếu một đội tự hoàn thành được, `SplitAcrossTeams` nếu đây là một nhánh trong kế hoạch nhiều đội.</summary>

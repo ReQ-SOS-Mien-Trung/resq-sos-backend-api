@@ -273,8 +273,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 doi_tuong_can_ho_tro = victimContext.Summary,
                 danh_sach_nan_nhan = victimContext.Victims.Select(victim => new
                 {
+                    person_id = victim.PersonId,
                     ten = victim.DisplayName,
                     loai = victim.PersonType,
+                    index = victim.Index,
                     muc_do = victim.Severity,
                     bi_thuong = victim.IsInjured,
                     van_de_y_te = victim.MedicalIssues,
@@ -927,6 +929,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 Step = a.Step,
                 ActivityType = a.ActivityType ?? string.Empty,
                 Description = a.Description ?? string.Empty,
+                TargetPersonIds = NormalizeTargetPersonIds(a.TargetPersonIds),
+                TargetVictimSummary = NormalizeOptionalText(a.TargetVictimSummary),
                 Priority = a.Priority,
                 EstimatedTime = a.EstimatedTime,
                 ExecutionMode = a.ExecutionMode,
@@ -1031,6 +1035,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 if (a.TryGetProperty("step", out var sv) && sv.TryGetInt32(out var svi)) dto.Step = svi;
                 if (a.TryGetProperty("activity_type", out var at)) dto.ActivityType = at.GetString() ?? string.Empty;
                 if (a.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
+                dto.TargetPersonIds = ParseTargetPersonIds(a);
+                dto.TargetVictimSummary = GetOptionalString(a, "target_victim_summary");
                 if (a.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
                 if (a.TryGetProperty("estimated_time", out var et)) dto.EstimatedTime = et.GetString();
                 if (a.TryGetProperty("execution_mode", out var em) && em.ValueKind != JsonValueKind.Null) dto.ExecutionMode = em.GetString();
@@ -1256,6 +1262,59 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : value.ToString();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static List<string>? NormalizeTargetPersonIds(IEnumerable<string>? personIds)
+    {
+        if (personIds is null)
+            return null;
+
+        return personIds
+            .Select(NormalizeOptionalText)
+            .Where(personId => !string.IsNullOrWhiteSpace(personId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(personId => personId!)
+            .ToList();
+    }
+
+    private static List<string>? ParseTargetPersonIds(JsonElement activity)
+    {
+        if (!activity.TryGetProperty("target_person_ids", out var value)
+            || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            return value.EnumerateArray()
+                .Select(element => element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString())
+                .Select(NormalizeOptionalText)
+                .Where(personId => !string.IsNullOrWhiteSpace(personId))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(personId => personId!)
+                .ToList();
+        }
+
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            return value.GetString()?
+                .Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(NormalizeOptionalText)
+                .Where(personId => !string.IsNullOrWhiteSpace(personId))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(personId => personId!)
+                .ToList() ?? [];
+        }
+
+        var scalar = NormalizeOptionalText(value.ToString());
+        return string.IsNullOrWhiteSpace(scalar) ? [] : [scalar];
     }
 
     private static List<int> ParseWarningRelatedSosIds(JsonElement root)
@@ -2497,6 +2556,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             Description = activity.Description,
             TargetVictimSummary = activity.TargetVictimSummary,
             TargetVictims = MissionActivityVictimContextHelper.CloneVictims(activity.TargetVictims),
+            TargetPersonIds = activity.TargetPersonIds?.ToList(),
             Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
             ExecutionMode = activity.ExecutionMode,
@@ -2562,13 +2622,73 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             }
 
             var victimContext = ResolveVictimContext(sosRequest);
+            var targetPersonIds = activity.TargetPersonIds;
+            var hasExplicitTargetIds = targetPersonIds is not null;
+            var hasSelectedTargetIds = targetPersonIds is { Count: > 0 };
+            if (hasSelectedTargetIds || (hasExplicitTargetIds && IsMedicalAidActivity(activity)))
+            {
+                var targetVictims = SelectTargetVictims(victimContext, targetPersonIds ?? []);
+                var targetSummary = NormalizeOptionalText(activity.TargetVictimSummary)
+                    ?? BuildTargetVictimSummary(targetVictims);
+
+                activity.TargetVictimSummary = targetSummary;
+                activity.TargetVictims = targetVictims;
+                activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                    activity.ActivityType,
+                    activity.Description,
+                    targetSummary) ?? string.Empty;
+                continue;
+            }
+
+            if (IsMedicalAidActivity(activity))
+            {
+                activity.TargetVictimSummary = NormalizeOptionalText(activity.TargetVictimSummary);
+                activity.TargetVictims = [];
+                activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                    activity.ActivityType,
+                    activity.Description,
+                    activity.TargetVictimSummary) ?? string.Empty;
+                continue;
+            }
+
             activity.TargetVictimSummary = victimContext.Summary;
             activity.TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims);
             activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
                 activity.ActivityType,
                 activity.Description,
-                victimContext.Summary);
+                victimContext.Summary) ?? string.Empty;
         }
+    }
+
+    private static bool IsMedicalAidActivity(SuggestedActivityDto activity) =>
+        string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase);
+
+    private static List<MissionActivityTargetVictimDto> SelectTargetVictims(
+        MissionActivityVictimContext victimContext,
+        IEnumerable<string> targetPersonIds)
+    {
+        var ids = targetPersonIds
+            .Select(NormalizeOptionalText)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (ids.Count == 0)
+            return [];
+
+        return MissionActivityVictimContextHelper.CloneVictims(
+            victimContext.Victims.Where(victim =>
+                !string.IsNullOrWhiteSpace(victim.PersonId)
+                && ids.Contains(victim.PersonId)));
+    }
+
+    private static string? BuildTargetVictimSummary(IReadOnlyCollection<MissionActivityTargetVictimDto> victims)
+    {
+        var labels = victims
+            .Select(victim => NormalizeOptionalText(victim.DisplayName) ?? NormalizeOptionalText(victim.PersonId))
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .ToList();
+
+        return labels.Count == 0 ? null : string.Join(", ", labels);
     }
 
     private static List<SuggestedActivityDto> ExpandCombinedEvacuations(
@@ -5972,6 +6092,12 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         [JsonPropertyName("description")]
         public string? Description { get; set; }
+
+        [JsonPropertyName("target_person_ids")]
+        public List<string>? TargetPersonIds { get; set; }
+
+        [JsonPropertyName("target_victim_summary")]
+        public string? TargetVictimSummary { get; set; }
 
         [JsonPropertyName("priority")]
         public string? Priority { get; set; }

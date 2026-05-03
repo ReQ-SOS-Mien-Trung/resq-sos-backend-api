@@ -85,6 +85,122 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void ParseMissionSuggestion_ParsesActivityTargetPersonIds()
+    {
+        var result = ParseMissionSuggestion(
+            """
+            {
+              "mission_title": "Medical mission",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "MEDICAL_AID",
+                  "description": "Cham soc y te cho ong Khoa",
+                  "sos_request_id": 28,
+                  "target_person_ids": ["adult_1"],
+                  "target_victim_summary": "ong Khoa"
+                }
+              ]
+            }
+            """);
+
+        var activity = Assert.Single(result.SuggestedActivities);
+        Assert.Equal(["adult_1"], activity.TargetPersonIds);
+        Assert.Equal("ong Khoa", activity.TargetVictimSummary);
+    }
+
+    [Fact]
+    public void EnrichVictimTargets_MedicalAidUsesAiTargetPersonIds()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "MEDICAL_AID",
+                Description = "Cham soc y te cho ong Khoa",
+                SosRequestId = 28,
+                TargetPersonIds = ["adult_1"],
+                TargetVictimSummary = "ong Khoa"
+            }
+        };
+        var sosLookup = BuildVictimTargetSosLookup();
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
+
+        var activity = Assert.Single(activities);
+        var victim = Assert.Single(activity.TargetVictims);
+        Assert.Equal("adult_1", victim.PersonId);
+        Assert.Equal("ong Khoa", activity.TargetVictimSummary);
+        Assert.DoesNotContain(activity.TargetVictims, item => item.PersonId == "child_1");
+    }
+
+    [Fact]
+    public void EnrichVictimTargets_MedicalAidWithoutAiTarget_DoesNotFallbackToAllVictims()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "MEDICAL_AID",
+                Description = "Cham soc y te tai hien truong",
+                SosRequestId = 28
+            }
+        };
+        var sosLookup = BuildVictimTargetSosLookup();
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
+
+        var activity = Assert.Single(activities);
+        Assert.Empty(activity.TargetVictims);
+        Assert.Null(activity.TargetVictimSummary);
+    }
+
+    [Fact]
+    public void EnrichVictimTargets_RescueWithoutAiTarget_KeepsExistingVictimFallback()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "RESCUE",
+                Description = "Tiep can hien truong",
+                SosRequestId = 28
+            }
+        };
+        var sosLookup = BuildVictimTargetSosLookup();
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
+
+        var activity = Assert.Single(activities);
+        Assert.Equal(2, activity.TargetVictims.Count);
+        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "adult_1");
+        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "child_1");
+    }
+
+    [Fact]
+    public void EnrichVictimTargets_RescueWithEmptyAiTarget_KeepsExistingVictimFallback()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "RESCUE",
+                Description = "Tiep can hien truong",
+                SosRequestId = 28,
+                TargetPersonIds = []
+            }
+        };
+        var sosLookup = BuildVictimTargetSosLookup();
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
+
+        var activity = Assert.Single(activities);
+        Assert.Equal(2, activity.TargetVictims.Count);
+        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "adult_1");
+        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "child_1");
+    }
+
+    [Fact]
     public void DeserializePipelineFragment_Requirements_ToleratesStringSupplyShortages()
     {
         var fragment = DeserializePipelineFragment<MissionRequirementsFragment>(
@@ -1550,12 +1666,16 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionTeamPlanning, "RETURN_SUPPLIES is only valid after")]
     [InlineData(PromptType.MissionTeamPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionTeamPlanning, "15-35 minutes for rescue/medical/evacuate")]
+    [InlineData(PromptType.MissionTeamPlanning, "TARGET_VICTIM_SELECTION_FOR_MEDICAL_AID (STRICT)")]
+    [InlineData(PromptType.MissionTeamPlanning, "target_person_ids")]
     [InlineData(PromptType.MissionPlanValidation, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "Do NOT add Consumable items to COLLECT")]
     [InlineData(PromptType.MissionPlanValidation, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "explicitly mention using the collected Reusable equipment by name")]
     [InlineData(PromptType.MissionPlanValidation, "MEDICAL_ITEM_SELECTION (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "TARGET_VICTIM_SELECTION_FOR_MEDICAL_AID (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "target_person_ids")]
     public void BuildPipelineStageAppendix_ContainsExpectedGuardrailRule(PromptType promptType, string expectedRule)
     {
         var appendix = BuildStageAppendix(promptType, string.Empty);
@@ -1651,6 +1771,33 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.NotNull(method);
         return (string)method!.Invoke(null, [promptType, extraAppendix])!;
     }
+
+    private static Dictionary<int, SosRequestSummary> BuildVictimTargetSosLookup() =>
+        new()
+        {
+            [28] = new SosRequestSummary
+            {
+                Id = 28,
+                TargetVictimSummary = "Nguoi lon 1 (adult), Tre em 1 (child)",
+                TargetVictims =
+                [
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "adult_1",
+                        DisplayName = "Nguoi lon 1",
+                        PersonType = "ADULT",
+                        Index = 1
+                    },
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "child_1",
+                        DisplayName = "Tre em 1",
+                        PersonType = "CHILD",
+                        Index = 1
+                    }
+                ]
+            }
+        };
 
     private static RescueMissionSuggestionResult ParseMissionSuggestion(string response)
     {

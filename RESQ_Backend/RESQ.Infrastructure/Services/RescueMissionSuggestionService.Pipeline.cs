@@ -628,6 +628,13 @@ public partial class RescueMissionSuggestionService
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Do not default to 30/45/60 minutes.
                 - For nearby urban field work, use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+
+                TARGET_VICTIM_SELECTION_FOR_MEDICAL_AID (STRICT):
+                - Every MEDICAL_AID activity must include target_person_ids and target_victim_summary.
+                - Do not select every victim just because one SOS has multiple people.
+                - Prefer explicit victim medical fields first; when fields are generic, use SOS text and additional_description to map named symptoms to the matching person_id.
+                - Example: text says "ông Khoa già đang bị lạnh run, mệt lả", victims are adult_1 and child_1, people_count adult=1 child=1 elderly=0 => target_person_ids ["adult_1"], target_victim_summary "ông Khoa (người lớn)".
+                - If the target is uncertain, set target_person_ids to [] and explain the uncertainty in description.
                 """,
             PromptType.MissionPlanValidation => """
                 DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT):
@@ -646,6 +653,14 @@ public partial class RescueMissionSuggestionService
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Do not default to 30/45/60 minutes.
                 - For nearby urban routes, use 5-15 minutes for collect/deliver/return and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+
+                TARGET_VICTIM_SELECTION_FOR_MEDICAL_AID (STRICT):
+                - Every MEDICAL_AID activity must include target_person_ids and target_victim_summary.
+                - Preserve target_person_ids from the draft when they are present.
+                - Do not select every victim just because one SOS has multiple people.
+                - Prefer explicit victim medical fields first; when fields are generic, use SOS text and additional_description to map named symptoms to the matching person_id.
+                - Example: text says "ông Khoa già đang bị lạnh run, mệt lả", victims are adult_1 and child_1, people_count adult=1 child=1 elderly=0 => target_person_ids ["adult_1"], target_victim_summary "ông Khoa (người lớn)".
+                - If the target is uncertain, set target_person_ids to [] and explain the uncertainty in description.
                 """,
             _ => string.Empty
         };
@@ -862,6 +877,8 @@ public partial class RescueMissionSuggestionService
         NormalizeIntProperty(source, "step", 0);
         NormalizeStringProperty(source, "activity_type");
         NormalizeStringProperty(source, "description");
+        NormalizeStringArrayProperty(source, "target_person_ids");
+        NormalizeStringProperty(source, "target_victim_summary");
         NormalizeStringProperty(source, "priority");
         NormalizeStringProperty(source, "estimated_time");
         NormalizeStringProperty(source, "execution_mode");
@@ -1226,6 +1243,34 @@ public partial class RescueMissionSuggestionService
             return;
 
         source[propertyName] = ReadStringNode(node);
+    }
+
+    private static void NormalizeStringArrayProperty(JsonObject source, string propertyName)
+    {
+        if (!source.TryGetPropertyValue(propertyName, out var node))
+            return;
+
+        var normalized = new JsonArray();
+        if (node is null)
+        {
+            source[propertyName] = normalized;
+            return;
+        }
+
+        foreach (var entry in CoerceNodeToArray(node))
+        {
+            var value = ReadStringNode(entry);
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
+            foreach (var part in value.Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(part))
+                    normalized.Add(part.Trim());
+            }
+        }
+
+        source[propertyName] = normalized;
     }
 
     private static void NormalizeBooleanProperty(JsonObject source, string propertyName, bool? defaultValue = null)
@@ -1851,6 +1896,8 @@ public partial class RescueMissionSuggestionService
             Step = activity.Step,
             ActivityType = activity.ActivityType,
             Description = activity.Description,
+            TargetPersonIds = activity.TargetPersonIds?.ToList(),
+            TargetVictimSummary = activity.TargetVictimSummary,
             Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
             ExecutionMode = activity.ExecutionMode,
@@ -1886,6 +1933,8 @@ public partial class RescueMissionSuggestionService
                 step = activity.Step,
                 activity_type = activity.ActivityType,
                 description = activity.Description,
+                target_person_ids = activity.TargetPersonIds,
+                target_victim_summary = activity.TargetVictimSummary,
                 priority = activity.Priority,
                 estimated_time = activity.EstimatedTime,
                 execution_mode = activity.ExecutionMode,
@@ -2312,6 +2361,8 @@ public partial class RescueMissionSuggestionService
             Step = activity.Step,
             ActivityType = activity.ActivityType ?? string.Empty,
             Description = activity.Description ?? string.Empty,
+            TargetPersonIds = activity.TargetPersonIds?.ToList(),
+            TargetVictimSummary = activity.TargetVictimSummary,
             Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
             ExecutionMode = activity.ExecutionMode,

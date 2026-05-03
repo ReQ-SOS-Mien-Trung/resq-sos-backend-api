@@ -53,6 +53,8 @@ public class MissionActivityFragment
     public int Step { get; set; }
     public string ActivityType { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public List<string>? TargetPersonIds { get; set; }
+    public string? TargetVictimSummary { get; set; }
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     public string? ExecutionMode { get; set; }
@@ -121,6 +123,8 @@ public class MissionDraftActivityDto
     public int Step { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
+    public List<string>? TargetPersonIds { get; set; }
+    public string? TargetVictimSummary { get; set; }
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     public string? ExecutionMode { get; set; }
