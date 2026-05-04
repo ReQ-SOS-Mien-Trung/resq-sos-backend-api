@@ -5,6 +5,7 @@ using RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecution
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Tests.TestDoubles;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
 
@@ -65,7 +66,8 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
         var lifecycleSyncService = new StubRescueTeamMissionLifecycleSyncService(
             new RescueTeamMissionLifecycleSyncResult([21]));
         var unitOfWork = new StubUnitOfWork();
-        var handler = BuildHandler(missionTeamRepository, lifecycleSyncService, unitOfWork);
+        var adminRealtimeHubService = new StubAdminRealtimeHubService();
+        var handler = BuildHandler(missionTeamRepository, lifecycleSyncService, unitOfWork, adminRealtimeHubService);
 
         var response = await handler.Handle(
             new CompleteMissionTeamExecutionCommand(5, 7, MemberId, "Đã hoàn tất nhiệm vụ"),
@@ -77,6 +79,13 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
         Assert.Equal("Đã hoàn tất nhiệm vụ", response.Note);
         Assert.Equal(7, missionTeamRepository.LastUpdatedId);
         Assert.Equal(MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), missionTeamRepository.LastUpdatedStatus);
+        var realtimeUpdate = Assert.Single(adminRealtimeHubService.MissionExecutionProgressUpdates);
+        Assert.Equal("TeamExecutionCompleted", realtimeUpdate.Action);
+        Assert.Equal(5, realtimeUpdate.MissionId);
+        Assert.Equal(7, realtimeUpdate.MissionTeamId);
+        Assert.Equal(21, realtimeUpdate.RescueTeamId);
+        Assert.Equal(MissionTeamExecutionStatus.CompletedWaitingReport.ToString(), realtimeUpdate.Status);
+        Assert.Equal(MemberId, realtimeUpdate.ChangedBy);
         Assert.Equal("Đã hoàn tất nhiệm vụ", missionTeamRepository.LastNote);
     }
 
@@ -101,10 +110,12 @@ public class CompleteMissionTeamExecutionCommandHandlerTests
     private static CompleteMissionTeamExecutionCommandHandler BuildHandler(
         StubMissionTeamRepository missionTeamRepository,
         StubRescueTeamMissionLifecycleSyncService? lifecycleSyncService = null,
-        StubUnitOfWork? unitOfWork = null) =>
+        StubUnitOfWork? unitOfWork = null,
+        StubAdminRealtimeHubService? adminRealtimeHubService = null) =>
         new(
             missionTeamRepository,
             lifecycleSyncService ?? new StubRescueTeamMissionLifecycleSyncService(),
+            adminRealtimeHubService ?? new StubAdminRealtimeHubService(),
             unitOfWork ?? new StubUnitOfWork());
 
     private static MissionTeamModel BuildMissionTeam(MissionTeamExecutionStatus status)

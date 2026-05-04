@@ -72,6 +72,8 @@ public class MissionActivityStatusExecutionService(
                 new BadRequestException("Activity này không thuộc mission được chỉ định."),
                 MissionActivitySyncErrorCodes.MissionActivityMismatch);
 
+        var previousStatus = activity.Status;
+
         if (activity.MissionTeamId.HasValue)
         {
             var userTeam = await _personnelQueryRepository.GetActiveRescueTeamByUserIdAsync(decisionBy, cancellationToken);
@@ -430,12 +432,15 @@ public class MissionActivityStatusExecutionService(
         {
             EffectiveStatus = effectiveStatus,
             CurrentServerStatus = activity.Status,
+            PreviousStatus = previousStatus,
+            RequestedStatus = requestedStatus,
             ImageUrl = activity.ImageUrl,
             ActivityId = activity.Id,
             MissionId = activity.MissionId,
             DepotId = activity.DepotId,
             MissionTeamId = activity.MissionTeamId,
             RescueTeamId = assignedMissionTeam?.RescuerTeamId,
+            Step = activity.Step,
             ActivityType = activity.ActivityType,
             EstimatedTime = activity.EstimatedTime,
             InventoryChanged = inventoryChanged,

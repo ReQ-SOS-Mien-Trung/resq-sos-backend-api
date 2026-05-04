@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RESQ.Application.Common.Constants;
 
 namespace RESQ.Presentation.Hubs;
 
@@ -65,6 +66,14 @@ public class AdminOperationsHub : Hub
     public Task UnsubscribeMissionActivities(int missionId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, MissionActivitiesGroup(missionId));
 
+    [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
+    public Task SubscribeMissionExecution(int missionId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, MissionExecutionGroup(missionId));
+
+    [Authorize(Policy = PermissionConstants.PolicyActivityAccess)]
+    public Task UnsubscribeMissionExecution(int missionId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, MissionExecutionGroup(missionId));
+
     public Task SubscribeRescueTeams() =>
         Groups.AddToGroupAsync(Context.ConnectionId, RescueTeamsGroup);
 
@@ -90,6 +99,7 @@ public class AdminOperationsHub : Hub
     internal static string SOSClusterGroup(int clusterId) => $"admin-operations:sos-cluster:{clusterId}";
     internal static string MissionGroup(int missionId) => $"admin-operations:mission:{missionId}";
     internal static string MissionActivitiesGroup(int missionId) => $"admin-operations:mission-activities:{missionId}";
+    internal static string MissionExecutionGroup(int missionId) => $"admin-operations:mission-execution:{missionId}";
     internal static string RescueTeamGroup(int teamId) => $"admin-operations:rescue-team:{teamId}";
     internal static string RescuerScoresGroup(Guid rescuerId) => $"{RescuerScoresGroupPrefix}:{rescuerId}";
 }

@@ -1,7 +1,9 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Operations;
 
@@ -12,17 +14,20 @@ public class SafetyCheckInCommandHandler : IRequestHandler<SafetyCheckInCommand,
     private readonly IMissionTeamRepository _missionTeamRepository;
     private readonly IMissionRepository _missionRepository;
     private readonly IMissionActivityRepository _missionActivityRepository;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork;
 
     public SafetyCheckInCommandHandler(
         IMissionTeamRepository missionTeamRepository,
         IMissionRepository missionRepository,
         IMissionActivityRepository missionActivityRepository,
+        IAdminRealtimeHubService adminRealtimeHubService,
         IUnitOfWork unitOfWork)
     {
         _missionTeamRepository = missionTeamRepository;
         _missionRepository = missionRepository;
         _missionActivityRepository = missionActivityRepository;
+        _adminRealtimeHubService = adminRealtimeHubService;
         _unitOfWork = unitOfWork;
     }
 
@@ -63,6 +68,26 @@ public class SafetyCheckInCommandHandler : IRequestHandler<SafetyCheckInCommand,
             cancellationToken);
 
         await _unitOfWork.SaveAsync();
+
+        await _adminRealtimeHubService.PushMissionExecutionProgressUpdateAsync(
+            new AdminMissionExecutionProgressRealtimeUpdate
+            {
+                EntityId = missionTeam.Id,
+                EntityType = "MissionTeam",
+                MissionId = request.MissionId,
+                MissionTeamId = missionTeam.Id,
+                RescueTeamId = missionTeam.RescuerTeamId,
+                Action = "TeamSafetyCheckIn",
+                Status = missionTeam.SafetyStatus,
+                EffectiveStatus = missionTeam.SafetyStatus,
+                ChangedBy = request.UserId,
+                ChangedAt = DateTime.UtcNow,
+                SafetyLatestCheckInAt = missionTeam.SafetyLatestCheckInAt,
+                SafetyTimeoutAt = missionTeam.SafetyTimeoutAt,
+                SafetyStatus = missionTeam.SafetyStatus,
+                RequeryRecommended = true
+            },
+            cancellationToken);
 
         return true;
     }

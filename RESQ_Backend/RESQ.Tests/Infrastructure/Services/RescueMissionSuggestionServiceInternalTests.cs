@@ -554,6 +554,144 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void AugmentRequirementsFromStructuredData_AddsMilkFromVictimSpecialDietOnly()
+    {
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 24,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 24,
+                StructuredData =
+                    """
+                    {
+                      "incident": {
+                        "people_count": { "adult": 1, "child": 1, "elderly": 0 }
+                      },
+                      "victims": [
+                        {
+                          "person_id": "adult_1",
+                          "person_type": "ADULT",
+                          "custom_name": "Khoa",
+                          "personal_needs": {
+                            "diet": {
+                              "has_special_diet": true,
+                              "description": "Dị ứng thịt"
+                            }
+                          }
+                        },
+                        {
+                          "person_id": "child_1",
+                          "person_type": "CHILD",
+                          "custom_name": "Thảo",
+                          "personal_needs": {
+                            "diet": {
+                              "has_special_diet": true,
+                              "description": "cần sữa"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                    """
+            }
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "AugmentRequirementsFromStructuredData",
+            requirements,
+            sosRequests);
+
+        var supplies = Assert.Single(requirements.SosRequirements).RequiredSupplies;
+        var milk = Assert.Single(supplies, supply => supply.ItemName == "Sữa bột trẻ em");
+        Assert.Equal(1, milk.Quantity);
+        Assert.Equal("gói", milk.Unit);
+        Assert.Equal("Food", milk.Category);
+        Assert.Contains("Thảo", milk.Notes);
+        Assert.DoesNotContain(supplies, supply => supply.ItemName.Contains("thịt", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void NeedCodeMatchesSupplyText_DoesNotAllowGenericFoodToCoverMilkNeed()
+    {
+        Assert.False(InvokeStaticResult<bool>(
+            nameof(RescueMissionSuggestionService),
+            "NeedCodeMatchesSupplyText",
+            "MILK",
+            "luong kho thuc pham"));
+
+        Assert.True(InvokeStaticResult<bool>(
+            nameof(RescueMissionSuggestionService),
+            "NeedCodeMatchesSupplyText",
+            "MILK",
+            "sua bot tre em food"));
+    }
+
+    [Fact]
+    public void AugmentRequirementsFromStructuredData_AddsMilkFromTargetVictimSpecialDiet()
+    {
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 25,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 25,
+                StructuredData = """{"incident":{"people_count":{"adult":1,"child":1,"elderly":0}}}""",
+                TargetVictims =
+                [
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "adult_1",
+                        DisplayName = "Khoa",
+                        SpecialDietDescription = "Di ung thit"
+                    },
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "child_1",
+                        DisplayName = "Thao",
+                        SpecialDietDescription = "can sua"
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "AugmentRequirementsFromStructuredData",
+            requirements,
+            sosRequests);
+
+        var milk = Assert.Single(
+            Assert.Single(requirements.SosRequirements).RequiredSupplies,
+            supply => supply.ItemName == "Sữa bột trẻ em");
+        Assert.Equal(1, milk.Quantity);
+        Assert.Contains("Thao", milk.Notes);
+    }
+
+    [Fact]
     public void BackfillItemIds_CanonicalizesGenericSupplyNameToInventoryName()
     {
         var activities = new List<SuggestedActivityDto>
@@ -1652,6 +1790,7 @@ public class RescueMissionSuggestionServiceInternalTests
 
     [Theory]
     [InlineData(PromptType.MissionRequirementsAssessment, "MEDICAL_ITEM_SELECTION (STRICT)")]
+    [InlineData(PromptType.MissionRequirementsAssessment, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
     [InlineData(PromptType.MissionRequirementsAssessment, "Bo so cuu co ban")]
     [InlineData(PromptType.MissionRequirementsAssessment, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
@@ -1659,6 +1798,7 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionDepotPlanning, "Backend will automatically sum up DELIVER_SUPPLIES items")]
     [InlineData(PromptType.MissionDepotPlanning, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "MEDICAL_ITEM_SELECTION (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "5-15 minutes for collect/deliver/return")]
     [InlineData(PromptType.MissionDepotPlanning, "15-35 minutes for rescue/medical/evacuate")]
@@ -1673,6 +1813,7 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionPlanValidation, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "explicitly mention using the collected Reusable equipment by name")]
     [InlineData(PromptType.MissionPlanValidation, "MEDICAL_ITEM_SELECTION (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "TARGET_VICTIM_SELECTION_FOR_MEDICAL_AID (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "target_person_ids")]

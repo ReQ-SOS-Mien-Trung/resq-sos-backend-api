@@ -597,6 +597,11 @@ public partial class RescueMissionSuggestionService
                 - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
                 - Do not add unrelated medicine just because the request is medical.
 
+                SPECIAL_DIET_MILK_SUPPLY (STRICT):
+                - Inspect danh_sach_nan_nhan[].che_do_an_dac_biet and du_lieu_chi_tiet.victims[].personal_needs.diet.
+                - If a victim needs can sua, sua bot, milk, formula, or has INFANT_NEEDS_MILK, add required_supplies item_name "Sua bot tre em" for that exact sos_request_id.
+                - Do not treat generic food or Luong kho as covering this milk/formula need.
+
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Keep duration estimates realistic for nearby urban missions; do not default to 30/45/60 minutes without distance or field-condition evidence.
                 """,
@@ -614,6 +619,11 @@ public partial class RescueMissionSuggestionService
                 MEDICAL_ITEM_SELECTION (STRICT):
                 - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
                 - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+
+                SPECIAL_DIET_MILK_SUPPLY (STRICT):
+                - If requirements_fragment contains "Sua bot tre em" or SOS_REQUESTS_DATA has can sua/sua bot/milk/formula, call searchInventory for sua/Sua bot tre em before finalizing depot planning.
+                - If the selected depot has no or insufficient milk/formula stock, add a supply_shortages row with the exact sos_request_id and set needs_additional_depot = true.
+                - Generic food or Luong kho must not replace milk/formula for a child or infant special diet.
 
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Do not default to 30/45/60 minutes.
@@ -649,6 +659,10 @@ public partial class RescueMissionSuggestionService
                 MEDICAL_ITEM_SELECTION (STRICT):
                 - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
                 - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+
+                SPECIAL_DIET_MILK_SUPPLY (STRICT):
+                - If SOS_REQUESTS_DATA has can sua/sua bot/milk/formula or INFANT_NEEDS_MILK, the final mission must either deliver "Sua bot tre em" to that exact sos_request_id or include a supply_shortages row for it.
+                - Do not let generic food, Luong kho, or description-only notes count as milk/formula coverage.
 
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Do not default to 30/45/60 minutes.

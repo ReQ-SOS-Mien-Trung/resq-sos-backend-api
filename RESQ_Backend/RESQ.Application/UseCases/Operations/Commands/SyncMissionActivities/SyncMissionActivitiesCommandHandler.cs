@@ -1,8 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Entities.Operations;
 
@@ -12,6 +14,7 @@ public class SyncMissionActivitiesCommandHandler(
     IMissionActivityRepository activityRepository,
     IMissionActivitySyncMutationRepository syncMutationRepository,
     IMissionActivityStatusExecutionService missionActivityStatusExecutionService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<SyncMissionActivitiesCommandHandler> logger
 ) : IRequestHandler<SyncMissionActivitiesCommand, SyncMissionActivitiesResponseDto>
@@ -19,6 +22,7 @@ public class SyncMissionActivitiesCommandHandler(
     private readonly IMissionActivityRepository _activityRepository = activityRepository;
     private readonly IMissionActivitySyncMutationRepository _syncMutationRepository = syncMutationRepository;
     private readonly IMissionActivityStatusExecutionService _missionActivityStatusExecutionService = missionActivityStatusExecutionService;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<SyncMissionActivitiesCommandHandler> _logger = logger;
 
@@ -36,10 +40,19 @@ public class SyncMissionActivitiesCommandHandler(
 
         foreach (var indexedItem in orderedItems)
         {
-            resultsByIndex[indexedItem.OriginalIndex] = await ProcessItemAsync(
+            var processed = await ProcessItemAsync(
                 request.UserId,
                 indexedItem.Item,
                 cancellationToken);
+
+            resultsByIndex[indexedItem.OriginalIndex] = processed.Result;
+
+            if (processed.RealtimeUpdate is not null)
+            {
+                await _adminRealtimeHubService.PushMissionExecutionProgressUpdateAsync(
+                    processed.RealtimeUpdate,
+                    cancellationToken);
+            }
         }
 
         var results = resultsByIndex.ToList();
@@ -50,7 +63,7 @@ public class SyncMissionActivitiesCommandHandler(
         };
     }
 
-    private async Task<MissionActivitySyncResultDto> ProcessItemAsync(
+    private async Task<MissionActivitySyncProcessingResult> ProcessItemAsync(
         Guid userId,
         MissionActivitySyncItemDto item,
         CancellationToken cancellationToken)
@@ -58,10 +71,10 @@ public class SyncMissionActivitiesCommandHandler(
         var replay = await TryReplayAsync(item.ClientMutationId, cancellationToken);
         if (replay is not null)
         {
-            return replay;
+            return new MissionActivitySyncProcessingResult(replay, null);
         }
 
-        MissionActivitySyncResultDto? result = null;
+        MissionActivitySyncProcessingResult? result = null;
         try
         {
             await _unitOfWork.ExecuteInTransactionAsync(async () =>
@@ -74,11 +87,12 @@ public class SyncMissionActivitiesCommandHandler(
         catch (DeferredMissionActivitySyncResultException ex)
         {
             _unitOfWork.ClearTrackedChanges();
-            return await PersistDeferredResultAsync(userId, item, ex.Result, cancellationToken);
+            var deferredResult = await PersistDeferredResultAsync(userId, item, ex.Result, cancellationToken);
+            return new MissionActivitySyncProcessingResult(deferredResult, null);
         }
     }
 
-    private async Task<MissionActivitySyncResultDto> ProcessItemInTransactionAsync(
+    private async Task<MissionActivitySyncProcessingResult> ProcessItemInTransactionAsync(
         Guid userId,
         MissionActivitySyncItemDto item,
         CancellationToken cancellationToken)
@@ -86,14 +100,16 @@ public class SyncMissionActivitiesCommandHandler(
         var replay = await TryReplayAsync(item.ClientMutationId, cancellationToken);
         if (replay is not null)
         {
-            return replay;
+            return new MissionActivitySyncProcessingResult(replay, null);
         }
 
         var placeholder = CreatePlaceholderMutation(userId, item);
         var began = await _syncMutationRepository.TryBeginAsync(placeholder, cancellationToken);
         if (!began)
         {
-            return await GetRequiredReplayAsync(item.ClientMutationId, cancellationToken);
+            return new MissionActivitySyncProcessingResult(
+                await GetRequiredReplayAsync(item.ClientMutationId, cancellationToken),
+                null);
         }
 
         var activity = await _activityRepository.GetByIdAsync(item.ActivityId, cancellationToken);
@@ -107,7 +123,7 @@ public class SyncMissionActivitiesCommandHandler(
                 null);
 
             await PersistSnapshotAsync(userId, item, notFoundResult, cancellationToken);
-            return notFoundResult;
+            return new MissionActivitySyncProcessingResult(notFoundResult, null);
         }
 
         if (activity.MissionId != item.MissionId)
@@ -120,7 +136,7 @@ public class SyncMissionActivitiesCommandHandler(
                 activity.ImageUrl);
 
             await PersistSnapshotAsync(userId, item, mismatchResult, cancellationToken);
-            return mismatchResult;
+            return new MissionActivitySyncProcessingResult(mismatchResult, null);
         }
 
         if (activity.Status == item.BaseServerStatus)
@@ -137,7 +153,9 @@ public class SyncMissionActivitiesCommandHandler(
 
                 var appliedResult = MissionActivitySyncResultMapper.CreateApplied(item, executionResult);
                 await PersistSnapshotAsync(userId, item, appliedResult, cancellationToken);
-                return appliedResult;
+                return new MissionActivitySyncProcessingResult(
+                    appliedResult,
+                    BuildAppliedRealtimeUpdate(item, executionResult, userId));
             }
             catch (NotFoundException ex)
             {
@@ -176,7 +194,7 @@ public class SyncMissionActivitiesCommandHandler(
             : MissionActivitySyncResultMapper.CreateConflict(item, activity.Status, activity.ImageUrl);
 
         await PersistSnapshotAsync(userId, item, result, cancellationToken);
-        return result;
+        return new MissionActivitySyncProcessingResult(result, null);
     }
 
     private async Task<MissionActivitySyncResultDto> PersistDeferredResultAsync(
@@ -279,6 +297,45 @@ public class SyncMissionActivitiesCommandHandler(
     }
 
     private sealed record IndexedSyncItem(int OriginalIndex, MissionActivitySyncItemDto Item);
+
+    private sealed record MissionActivitySyncProcessingResult(
+        MissionActivitySyncResultDto Result,
+        AdminMissionExecutionProgressRealtimeUpdate? RealtimeUpdate);
+
+    private static AdminMissionExecutionProgressRealtimeUpdate BuildAppliedRealtimeUpdate(
+        MissionActivitySyncItemDto item,
+        MissionActivityStatusExecutionResult executionResult,
+        Guid userId)
+    {
+        var activityId = executionResult.ActivityId > 0
+            ? executionResult.ActivityId
+            : item.ActivityId;
+        var missionId = executionResult.MissionId ?? item.MissionId;
+
+        return new AdminMissionExecutionProgressRealtimeUpdate
+        {
+            EntityId = activityId,
+            EntityType = "MissionActivity",
+            MissionId = missionId,
+            ActivityId = activityId,
+            MissionTeamId = executionResult.MissionTeamId,
+            RescueTeamId = executionResult.RescueTeamId,
+            DepotId = executionResult.DepotId,
+            Step = executionResult.Step,
+            ActivityType = executionResult.ActivityType,
+            Action = "ActivitySyncApplied",
+            Status = executionResult.EffectiveStatus.ToString(),
+            PreviousStatus = executionResult.PreviousStatus?.ToString() ?? item.BaseServerStatus.ToString(),
+            RequestedStatus = item.TargetStatus.ToString(),
+            EffectiveStatus = executionResult.EffectiveStatus.ToString(),
+            ImageUrl = executionResult.ImageUrl,
+            ChangedBy = userId,
+            ChangedAt = DateTime.UtcNow,
+            ClientMutationId = item.ClientMutationId,
+            SyncOutcome = MissionActivitySyncOutcomes.Applied,
+            RequeryRecommended = true
+        };
+    }
 
     private sealed class DeferredMissionActivitySyncResultException(
         MissionActivitySyncResultDto result,

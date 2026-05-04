@@ -31,6 +31,7 @@ public class ReportMissionActivityIncidentCommandHandler(
     IMediator mediator,
     IUnitOfWork unitOfWork,
     ISosRequestRealtimeHubService sosRequestRealtimeHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<ReportMissionActivityIncidentCommandHandler> logger
 ) : IRequestHandler<ReportMissionActivityIncidentCommand, ReportTeamIncidentResponse>
 {
@@ -229,6 +230,31 @@ public class ReportMissionActivityIncidentCommandHandler(
                 cancellationToken: cancellationToken);
         }
 
+        var affectedActivities = incident.AffectedActivities.Select(MapAffectedActivity).ToList();
+        await adminRealtimeHubService.PushMissionExecutionProgressUpdateAsync(
+            new AdminMissionExecutionProgressRealtimeUpdate
+            {
+                EntityId = incidentId,
+                EntityType = "TeamIncident",
+                MissionId = request.MissionId,
+                ActivityId = primaryActivity.Id,
+                MissionTeamId = missionTeam.Id,
+                RescueTeamId = missionTeam.RescuerTeamId,
+                Step = primaryActivity.Step,
+                ActivityType = primaryActivity.ActivityType,
+                Action = "ActivityIncidentReported",
+                Status = TeamIncidentStatus.Reported.ToString(),
+                EffectiveStatus = TeamIncidentStatus.Reported.ToString(),
+                ChangedBy = request.ReportedBy,
+                ChangedAt = now,
+                IncidentId = incidentId,
+                IncidentScope = TeamIncidentScope.Activity.ToString(),
+                AffectedActivities = affectedActivities,
+                Note = normalized.Summary,
+                RequeryRecommended = true
+            },
+            cancellationToken);
+
         return new ReportTeamIncidentResponse
         {
             IncidentId = incidentId,
@@ -245,7 +271,7 @@ public class ReportMissionActivityIncidentCommandHandler(
             AssistanceSosRequestId = supportSos?.Id,
             AssistanceSosStatus = supportSos?.Status,
             AssistanceSosPriorityLevel = supportSos?.PriorityLevel,
-            AffectedActivities = incident.AffectedActivities.Select(MapAffectedActivity).ToList(),
+            AffectedActivities = affectedActivities,
             Detail = ParseDetail(normalized.DetailJson),
             ReportedAt = now
         };

@@ -58,6 +58,39 @@ public class RescueMissionSuggestionServicePreviewTests
           ]
         }
         """;
+    private const string StructuredMilkSpecialDietData =
+        """
+        {
+          "incident": {
+            "situation": "TRAPPED",
+            "people_count": { "adult": 1, "child": 1, "elderly": 0 }
+          },
+          "victims": [
+            {
+              "person_id": "adult_1",
+              "person_type": "ADULT",
+              "custom_name": "Khoa",
+              "personal_needs": {
+                "diet": {
+                  "has_special_diet": true,
+                  "description": "Dị ứng thịt"
+                }
+              }
+            },
+            {
+              "person_id": "child_1",
+              "person_type": "CHILD",
+              "custom_name": "Thảo",
+              "personal_needs": {
+                "diet": {
+                  "has_special_diet": true,
+                  "description": "cần sữa"
+                }
+              }
+            }
+          ]
+        }
+        """;
 
     [Fact]
     public async Task PreviewSuggestionAsync_MissionPlanningPrompt_DoesNotPersistSuggestion()
@@ -426,6 +459,127 @@ public class RescueMissionSuggestionServicePreviewTests
         Assert.False(result.NeedsAdditionalDepot);
         Assert.DoesNotContain("thiếu depot hợp lệ", result.SpecialNotes ?? string.Empty);
         Assert.DoesNotContain("không có sẵn", result.SpecialNotes ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_AddsMilkShortageWhenSelectedDepotOnlyHasGenericFood()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationResponseOverride: """
+            {
+              "mission_title": "Milk shortage coverage",
+              "mission_type": "SUPPLY",
+              "priority_score": 9,
+              "severity_level": "Critical",
+              "overall_assessment": "Need urgent delivery",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Collect available supplies from Kho Hue",
+                  "priority": "Critical",
+                  "estimated_time": "15 phut",
+                  "sos_request_id": 21,
+                  "depot_id": 1,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Le Loi",
+                  "supplies_to_collect": [
+                    { "item_id": 3, "item_name": "Luong kho", "quantity": 1, "unit": "thanh" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Nearby",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                },
+                {
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Deliver available food to SOS 21",
+                  "priority": "Critical",
+                  "estimated_time": "15 phut",
+                  "sos_request_id": 21,
+                  "depot_id": 1,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Le Loi",
+                  "supplies_to_collect": [
+                    { "item_id": 3, "item_name": "Luong kho", "quantity": 1, "unit": "thanh" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Continue",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "30 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": []
+            }
+            """);
+        var service = BuildPipelineService(
+            aiClient,
+            suggestionRepository,
+            CreateMandatoryStructuredSupplyDepotRepository(),
+            CreateMandatoryStructuredSupplyItemMetadataRepository());
+
+        var result = await service.GenerateSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 21,
+                    RawMessage = "Child Thao needs milk, adult Khoa has meat allergy",
+                    StructuredData = StructuredMilkSpecialDietData,
+                    PriorityLevel = "Critical",
+                    Latitude = 16.469621,
+                    Longitude = 107.592778
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi",
+                    Latitude = 16.4545,
+                    Longitude = 107.5680
+                }
+            ],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(result.NeedsAdditionalDepot);
+        Assert.DoesNotContain(result.SuggestedActivities
+                .Where(activity => activity.ActivityType == "DELIVER_SUPPLIES")
+                .SelectMany(activity => activity.SuppliesToCollect ?? []),
+            supply => supply.ItemName == "Sữa bột trẻ em");
+
+        var shortage = Assert.Single(result.SupplyShortages);
+        Assert.Equal(21, shortage.SosRequestId);
+        Assert.Equal("Sữa bột trẻ em", shortage.ItemName);
+        Assert.Equal(1, shortage.SelectedDepotId);
+        Assert.Equal(1, shortage.NeededQuantity);
+        Assert.Equal(0, shortage.AvailableQuantity);
+        Assert.Equal(1, shortage.MissingQuantity);
+        Assert.Contains("Sữa bột trẻ em", result.SpecialNotes ?? string.Empty);
+        Assert.Contains("Coordinator", result.SpecialNotes ?? string.Empty);
     }
 
     [Fact]
