@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Queries.GetMissions;
 
@@ -22,4 +23,6 @@ public record UpdateMissionActivityPatch(
     double? TargetLatitude,
     double? TargetLongitude,
     List<SupplyToCollectDto>? Items,
+    string? TargetVictimSummary = null,
+    List<MissionActivityTargetVictimDto>? TargetVictims = null,
     int? AssemblyPointId = null);

@@ -83,7 +83,9 @@ internal class UpdateMissionActivityPatchValidator : AbstractValidator<UpdateMis
         || patch.AssemblyPointId.HasValue
         || patch.TargetLatitude.HasValue
         || patch.TargetLongitude.HasValue
-        || patch.Items is not null;
+        || patch.Items is not null
+        || patch.TargetVictimSummary is not null
+        || patch.TargetVictims is not null;
 
     private static bool HaveCompleteCoordinates(UpdateMissionActivityPatch patch) =>
         patch.TargetLatitude.HasValue == patch.TargetLongitude.HasValue;

@@ -213,6 +213,7 @@ public sealed partial class DatabaseSeeder
         EnsureNewMedicinesInHueDepot(seed);
         EnsureClosureTestDepotsFullInventory(seed);
         ExcludeHueDepotItems(seed);
+        EnsureHueDepotDepletedBabyFormula(seed);
 
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
@@ -506,6 +507,20 @@ public sealed partial class DatabaseSeeder
         }
     }
 
+    private static void EnsureHueDepotDepletedBabyFormula(DemoSeedContext seed)
+    {
+        if (seed.Depots.Count == 0)
+        {
+            return;
+        }
+
+        var hueDepot = seed.Depots[0];
+        var babyFormulaModel = seed.ItemModels.Single(model =>
+            string.Equals(model.Name, "Sữa bột trẻ em", StringComparison.OrdinalIgnoreCase));
+
+        EnsureDepotInventory(seed, hueDepot.Id, babyFormulaModel.Id, 0, 0);
+    }
+
     private static void EnsureEssentialBlanketLots(DemoSeedContext seed, ItemModel blanketModel)
     {
         var lotInventoryIds = seed.Lots
@@ -550,7 +565,6 @@ public sealed partial class DatabaseSeeder
         {
             ("Mì tôm", 24, -20, 7, 90_001),
             ("Nước tinh khiết", 48, -18, 14, 90_002),
-            ("Sữa bột trẻ em", 18, -16, 21, 90_003),
             ("Thuốc hạ sốt Paracetamol 500mg", 60, -14, 28, 90_004)
         };
 

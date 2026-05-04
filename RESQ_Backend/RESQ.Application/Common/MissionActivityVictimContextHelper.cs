@@ -1,5 +1,7 @@
 using RESQ.Application.Common.Models;
 using RESQ.Application.UseCases.Emergency.Queries;
+using System.Globalization;
+using System.Text;
 
 namespace RESQ.Application.Common;
 
@@ -87,6 +89,51 @@ public static class MissionActivityVictimContextHelper
 
         cleanedLines.Add($"{TargetVictimPrefix} {EnsureSentence(targetVictimSummary)}");
         return string.Join(Environment.NewLine, cleanedLines);
+    }
+
+    public static string? ExtractSummaryFromDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return null;
+
+        var line = description
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Select(value => value.Trim())
+            .FirstOrDefault(value => value.StartsWith(TargetVictimPrefix, StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(line))
+            return null;
+
+        var summary = line[TargetVictimPrefix.Length..].Trim();
+        return string.IsNullOrWhiteSpace(summary)
+            ? null
+            : summary.TrimEnd('.', '!', '?').Trim();
+    }
+
+    public static List<MissionActivityTargetVictimDto> SelectVictimsForSummary(
+        MissionActivityVictimContext victimContext,
+        string? targetVictimSummary)
+    {
+        if (victimContext.Victims.Count == 0)
+            return [];
+
+        if (string.IsNullOrWhiteSpace(targetVictimSummary))
+            return CloneVictims(victimContext.Victims);
+
+        var normalizedSummary = NormalizeForVictimMatch(targetVictimSummary);
+        if (string.IsNullOrWhiteSpace(normalizedSummary))
+            return CloneVictims(victimContext.Victims);
+
+        var matches = victimContext.Victims
+            .Where(victim => VictimMatchesSummary(victim, normalizedSummary))
+            .ToList();
+
+        return matches.Count > 0
+            ? CloneVictims(matches)
+            : victimContext.Victims.Count == 1
+                ? CloneVictims(victimContext.Victims)
+                : [];
     }
 
     public static bool ShouldInjectSummaryIntoDescription(string? activityType) =>
@@ -204,6 +251,57 @@ public static class MissionActivityVictimContextHelper
             return displayName!;
 
         return typeLabel ?? "nạn nhân";
+    }
+
+    private static bool VictimMatchesSummary(
+        MissionActivityTargetVictimDto victim,
+        string normalizedSummary)
+    {
+        var candidateLabels = new[]
+        {
+            BuildSummaryLabel(victim),
+            victim.DisplayName,
+            victim.PersonId
+        };
+
+        foreach (var candidate in candidateLabels)
+        {
+            var normalizedCandidate = NormalizeForVictimMatch(candidate);
+            if (string.IsNullOrWhiteSpace(normalizedCandidate))
+                continue;
+
+            if (normalizedSummary.Contains(normalizedCandidate, StringComparison.OrdinalIgnoreCase)
+                || normalizedCandidate.Contains(normalizedSummary, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string NormalizeForVictimMatch(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length);
+
+        foreach (var ch in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            builder.Append(char.IsLetterOrDigit(ch) ? ch : ' ');
+        }
+
+        return string.Join(
+            ' ',
+            builder
+                .ToString()
+                .Normalize(NormalizationForm.FormC)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static string? BuildCountSummary(SosPeopleCountDto? peopleCount, int? sosRequestId)
