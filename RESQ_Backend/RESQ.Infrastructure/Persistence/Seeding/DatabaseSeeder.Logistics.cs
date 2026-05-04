@@ -17,6 +17,38 @@ public sealed partial class DatabaseSeeder
         "Bộ đèn pin đội đầu"
     ];
 
+    private async Task ApplyLogisticsSeedCorrectionsAsync(CancellationToken cancellationToken)
+    {
+        var hasChanges = false;
+
+        var powderedMilkModels = await _db.ItemModels
+            .Where(model => model.Name == "Sữa bột trẻ em")
+            .ToListAsync(cancellationToken);
+        foreach (var model in powderedMilkModels)
+        {
+            model.Name = "Sữa hộp trẻ em";
+            model.Description = "Sữa hộp dinh dưỡng dành cho trẻ em dưới 6 tuổi";
+            model.Unit = "hộp";
+            hasChanges = true;
+        }
+
+        var powderedMilkLogs = await _db.InventoryLogs
+            .Where(log => log.Note != null && log.Note.Contains("sữa bột"))
+            .ToListAsync(cancellationToken);
+        foreach (var log in powderedMilkLogs)
+        {
+            log.Note = log.Note!
+                .Replace("sữa bột trẻ em", "sữa hộp trẻ em", StringComparison.OrdinalIgnoreCase)
+                .Replace("sữa bột", "sữa hộp", StringComparison.OrdinalIgnoreCase);
+            hasChanges = true;
+        }
+
+        if (hasChanges)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private async Task SeedLogisticsCatalogAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
         var categoryDefs = new[]
@@ -213,7 +245,7 @@ public sealed partial class DatabaseSeeder
         EnsureNewMedicinesInHueDepot(seed);
         EnsureClosureTestDepotsFullInventory(seed);
         ExcludeHueDepotItems(seed);
-        EnsureHueDepotDepletedBabyFormula(seed);
+        EnsureHueDepotDepletedBoxedMilk(seed);
 
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
@@ -507,7 +539,7 @@ public sealed partial class DatabaseSeeder
         }
     }
 
-    private static void EnsureHueDepotDepletedBabyFormula(DemoSeedContext seed)
+    private static void EnsureHueDepotDepletedBoxedMilk(DemoSeedContext seed)
     {
         if (seed.Depots.Count == 0)
         {
@@ -515,10 +547,10 @@ public sealed partial class DatabaseSeeder
         }
 
         var hueDepot = seed.Depots[0];
-        var babyFormulaModel = seed.ItemModels.Single(model =>
-            string.Equals(model.Name, "Sữa bột trẻ em", StringComparison.OrdinalIgnoreCase));
+        var boxedMilkModel = seed.ItemModels.Single(model =>
+            string.Equals(model.Name, "Sữa hộp trẻ em", StringComparison.OrdinalIgnoreCase));
 
-        EnsureDepotInventory(seed, hueDepot.Id, babyFormulaModel.Id, 0, 0);
+        EnsureDepotInventory(seed, hueDepot.Id, boxedMilkModel.Id, 0, 0);
     }
 
     private static void EnsureEssentialBlanketLots(DemoSeedContext seed, ItemModel blanketModel)
@@ -910,7 +942,7 @@ public sealed partial class DatabaseSeeder
         return
         [
             new("Food", "Mì tôm", "Mì ăn liền đóng gói dùng cứu trợ khẩn cấp", "gói", "Consumable", 0.8m, 0.075m),
-            new("Food", "Sữa bột trẻ em", "Sữa bột dinh dưỡng dành cho trẻ em dưới 6 tuổi", "gói", "Consumable", 0.5m, 0.4m),
+            new("Food", "Sữa hộp trẻ em", "Sữa hộp dinh dưỡng dành cho trẻ em dưới 6 tuổi", "hộp", "Consumable", 0.5m, 0.4m),
             new("Food", "Lương khô", "Lương khô năng lượng cao, bảo quản lâu dài", "thanh", "Consumable", 0.15m, 0.06m),
             new("Food", "Gạo sấy khô", "Gạo sấy khô ăn liền, chỉ cần thêm nước nóng", "gói", "Consumable", 0.6m, 0.5m),
             new("Food", "Cháo ăn liền", "Cháo ăn liền đóng gói, dễ tiêu hóa cho mọi lứa tuổi", "gói", "Consumable", 0.4m, 0.065m),

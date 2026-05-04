@@ -247,11 +247,14 @@ app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<DashboardHub>("/hubs/dashboard");
 app.MapHub<OperationalHub>("/hubs/operational");
+app.MapHub<OperationalHub>("/hubs/logistics");
 app.MapHub<SosRequestHub>("/hubs/sos-requests");
 app.MapHub<PublicDonationHub>("/hubs/public-donations");
 app.MapHub<AdminFinanceHub>("/hubs/admin-finance");
+app.MapHub<AdminFinanceHub>("/hubs/funds");
 app.MapHub<AdminIdentityHub>("/hubs/admin-identity");
 app.MapHub<AdminOperationsHub>("/hubs/admin-operations");
+app.MapHub<AdminOperationsHub>("/hubs/depot");
 app.MapHub<AdminSystemHub>("/hubs/admin-system");
 
 app.Run();

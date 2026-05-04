@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Logistics;
+using RESQ.Application.Services;
 using RESQ.Domain.Enum.Logistics;
 
 namespace RESQ.Application.UseCases.Logistics.Commands.AdjustInventory;
@@ -8,12 +9,14 @@ namespace RESQ.Application.UseCases.Logistics.Commands.AdjustInventory;
 public class AdjustInventoryCommandHandler(
     RESQ.Application.Services.IManagerDepotAccessService managerDepotAccessService,
     IDepotInventoryRepository depotInventoryRepository,
-    IDepotRepository depotRepository)
+    IDepotRepository depotRepository,
+    IOperationalHubService operationalHubService)
     : IRequestHandler<AdjustInventoryCommand, AdjustInventoryResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly RESQ.Application.Services.IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
     private readonly IDepotRepository _depotRepository = depotRepository;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
 
     public async Task<AdjustInventoryResponse> Handle(AdjustInventoryCommand request, CancellationToken cancellationToken)
     {
@@ -33,6 +36,9 @@ public class AdjustInventoryCommandHandler(
             request.Note,
             request.ExpiredDate,
             cancellationToken);
+
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "InventoryAdjusted", cancellationToken);
+        await _operationalHubService.PushInventoryLotsUpdateAsync(depotId, request.ItemModelId, "InventoryAdjusted", cancellationToken);
 
         var direction = request.QuantityChange > 0 ? "tăng" : "giảm";
         var absQty    = Math.Abs(request.QuantityChange);

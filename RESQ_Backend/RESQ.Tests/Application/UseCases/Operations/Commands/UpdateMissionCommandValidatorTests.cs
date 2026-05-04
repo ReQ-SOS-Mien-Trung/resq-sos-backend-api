@@ -119,7 +119,7 @@ public class UpdateMissionCommandValidatorTests
                     10.1,
                     106.1,
                     null,
-                    2)
+                    AssemblyPointId: 2)
             ]);
 
         var result = _validator.Validate(command);
