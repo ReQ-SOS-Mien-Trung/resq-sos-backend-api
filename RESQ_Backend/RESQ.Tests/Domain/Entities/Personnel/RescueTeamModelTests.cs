@@ -126,6 +126,20 @@ public class RescueTeamModelTests
     }
 
     [Fact]
+    public void SetAvailableByLeader_Transitions_FromUnavailable()
+    {
+        var team = RescueTeamModel.Create("Alpha", RescueTeamType.Rescue, 1, ManagerId, 6);
+        var leaderId = Guid.NewGuid();
+        team.AddMember(leaderId, true, "Core", null);
+        team.SetAvailableByLeader(leaderId);
+        team.SetUnavailable();
+
+        team.SetAvailableByLeader(leaderId);
+
+        Assert.Equal(RescueTeamStatus.Available, team.Status);
+    }
+
+    [Fact]
     public void AssignMission_Throws_WhenNotAvailable()
     {
         var team = RescueTeamModel.Create("Alpha", RescueTeamType.Rescue, 1, ManagerId, 6);

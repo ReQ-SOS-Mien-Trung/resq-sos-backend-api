@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Finance;
@@ -26,6 +27,8 @@ public class ImportPurchasedInventoryCommandHandler(
     IItemModelMetadataRepository itemModelMetadataRepository,
     IUnitOfWork unitOfWork,
     IFirebaseService firebaseService,
+    IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     ILogger<ImportPurchasedInventoryCommandHandler> logger)
     : IRequestHandler<ImportPurchasedInventoryCommand, ImportPurchasedInventoryResponse>
 {
@@ -39,11 +42,16 @@ public class ImportPurchasedInventoryCommandHandler(
     private readonly IItemModelMetadataRepository _itemModelMetadataRepository = itemModelMetadataRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IFirebaseService _firebaseService = firebaseService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
+    private readonly IAdminRealtimeHubService _adminRealtimeHubService = adminRealtimeHubService;
     private readonly ILogger<ImportPurchasedInventoryCommandHandler> _logger = logger;
 
     public async Task<ImportPurchasedInventoryResponse> Handle(ImportPurchasedInventoryCommand request, CancellationToken cancellationToken)
     {
         var response = new ImportPurchasedInventoryResponse();
+        var affectedItemModelIds = new HashSet<int>();
+        decimal totalChargedAmount = 0m;
+        int? chargedDepotFundId = null;
 
         var depotId = await _managerDepotAccessService.ResolveAccessibleDepotIdAsync(request.UserId, request.DepotId, cancellationToken);
         if (depotId == null)
@@ -287,6 +295,7 @@ public class ImportPurchasedInventoryCommandHandler(
                     foreach (var (dto, resolvedItemModel) in validItems)
                     {
                         var resolvedItemModelId = dto.ItemModelId ?? createdItemReferences[createdIndex++].CurrentId;
+                        affectedItemModelIds.Add(resolvedItemModelId);
 
                         var receivedDateUtc = dto.ReceivedDate.HasValue
                             ? DateTime.SpecifyKind(dto.ReceivedDate.Value, DateTimeKind.Utc)
@@ -356,13 +365,14 @@ public class ImportPurchasedInventoryCommandHandler(
                     response.TotalFailed += errors.Count;
                 }
 
-                var totalChargedAmount = successfulInvoiceCharges.Sum(charge => charge.Amount);
+                totalChargedAmount = successfulInvoiceCharges.Sum(charge => charge.Amount);
                 if (totalChargedAmount > 0)
                 {
                     var depotFund = selectedDepotFund
                         ?? await ResolveDepotFundForPurchaseImportAsync(depotId.Value, cancellationToken);
 
                     depotFund.Debit(totalChargedAmount);
+                    chargedDepotFundId = depotFund.Id;
                     await _depotFundRepo.UpdateAsync(depotFund, cancellationToken);
 
                     foreach (var charge in successfulInvoiceCharges)
@@ -436,6 +446,38 @@ public class ImportPurchasedInventoryCommandHandler(
         {
             _logger.LogError(ex, "Lỗi trong quá trình nhập hàng có VAT. Tất cả thay đổi đã được hoàn tác.");
             throw new CreateFailedException("Lỗi trong quá trình nhập hàng. Vui lòng thử lại.");
+        }
+
+        if (response.TotalImported > 0)
+        {
+            await _operationalHubService.PushDepotInventoryUpdateAsync(
+                depotId.Value,
+                "PurchasedInventoryImported",
+                cancellationToken);
+
+            foreach (var itemModelId in affectedItemModelIds)
+            {
+                await _operationalHubService.PushInventoryLotsUpdateAsync(
+                    depotId.Value,
+                    itemModelId,
+                    "PurchasedInventoryImported",
+                    cancellationToken);
+            }
+        }
+
+        if (totalChargedAmount > 0)
+        {
+            await _adminRealtimeHubService.PushDisbursementUpdateAsync(
+                new AdminDisbursementRealtimeUpdate
+                {
+                    EntityId = chargedDepotFundId ?? depotId.Value,
+                    EntityType = "DepotFund",
+                    DepotId = depotId.Value,
+                    Amount = totalChargedAmount,
+                    Action = "PurchasedInventoryImported",
+                    ChangedAt = DateTime.UtcNow
+                },
+                cancellationToken);
         }
 
         return response;
