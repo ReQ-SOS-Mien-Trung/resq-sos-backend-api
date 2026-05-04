@@ -10,12 +10,14 @@ namespace RESQ.Application.UseCases.Logistics.Commands.ExportInventory;
 public class ExportInventoryCommandHandler(
     IDepotInventoryRepository depotInventoryRepository,
     IDepotRepository depotRepository,
-    IManagerDepotAccessService managerDepotAccessService)
+    IManagerDepotAccessService managerDepotAccessService,
+    IOperationalHubService operationalHubService)
     : IRequestHandler<ExportInventoryCommand, ExportInventoryResponse>
 {
     private readonly IDepotInventoryRepository _depotInventoryRepository = depotInventoryRepository;
     private readonly IDepotRepository _depotRepository = depotRepository;
     private readonly IManagerDepotAccessService _managerDepotAccessService = managerDepotAccessService;
+    private readonly IOperationalHubService _operationalHubService = operationalHubService;
 
     public async Task<ExportInventoryResponse> Handle(ExportInventoryCommand request, CancellationToken cancellationToken)
     {
@@ -33,6 +35,9 @@ public class ExportInventoryCommandHandler(
             request.UserId,
             request.Note,
             cancellationToken);
+
+        await _operationalHubService.PushDepotInventoryUpdateAsync(depotId, "InventoryExported", cancellationToken);
+        await _operationalHubService.PushInventoryLotsUpdateAsync(depotId, request.ItemModelId, "InventoryExported", cancellationToken);
 
         return new ExportInventoryResponse($"Đã xuất kho thành công {request.Quantity} đơn vị vật phẩm #{request.ItemModelId} tại kho #{depotId}.");
     }

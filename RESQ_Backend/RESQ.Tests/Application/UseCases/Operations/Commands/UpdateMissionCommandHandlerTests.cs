@@ -408,7 +408,7 @@ public class UpdateMissionCommandHandlerTests
                         10.1,
                         106.1,
                         [],
-                        2)
+                        AssemblyPointId: 2)
                 ]),
             CancellationToken.None);
 
@@ -484,7 +484,7 @@ public class UpdateMissionCommandHandlerTests
                         null,
                         null,
                         [],
-                        2)
+                        AssemblyPointId: 2)
                 ]),
             CancellationToken.None);
 
@@ -549,7 +549,7 @@ public class UpdateMissionCommandHandlerTests
                             10.1,
                             106.1,
                             null,
-                            2)
+                            AssemblyPointId: 2)
                     ]),
                 CancellationToken.None));
 

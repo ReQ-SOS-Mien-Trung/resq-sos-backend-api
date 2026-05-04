@@ -18,7 +18,7 @@ public class SetTeamAvailableCommandHandler(
         var team = await teamRepository.GetByIdAsync(request.TeamId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy đội cứu hộ id = {request.TeamId}");
 
-        // Domain rule: chỉ leader mới được set Available, và đội phải đang ở Gathering
+        // Domain rule: chỉ leader mới được set Available từ Gathering hoặc Unavailable.
         team.SetAvailableByLeader(request.LeaderUserId);
 
         await teamRepository.UpdateAsync(team, cancellationToken);

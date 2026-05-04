@@ -48,7 +48,8 @@ public sealed class AdminRealtimeHubService(
             var groups = new HashSet<string>(StringComparer.Ordinal)
             {
                 AdminFinanceHub.FundingRequestsGroup,
-                AdminFinanceHub.FundingRequestGroup(update.RequestId)
+                AdminFinanceHub.FundingRequestGroup(update.RequestId),
+                AdminFinanceHub.DepotFundsGroup(update.DepotId)
             };
 
             await SendToFinanceGroupsAsync(groups, FundingRequestEvent, update, cancellationToken);
@@ -98,7 +99,8 @@ public sealed class AdminRealtimeHubService(
             update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
             var groups = new HashSet<string>(StringComparer.Ordinal)
             {
-                AdminFinanceHub.DisbursementsGroup
+                AdminFinanceHub.DisbursementsGroup,
+                AdminFinanceHub.DepotFundsGroup(update.DepotId)
             };
 
             if (update.CampaignId.HasValue)
@@ -129,11 +131,15 @@ public sealed class AdminRealtimeHubService(
         try
         {
             update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
-            await SendToFinanceGroupsAsync(
-                [AdminFinanceHub.SystemFundGroup],
-                SystemFundEvent,
-                update,
-                cancellationToken);
+            var groups = new HashSet<string>(StringComparer.Ordinal)
+            {
+                AdminFinanceHub.SystemFundGroup
+            };
+
+            if (update.DepotId.HasValue)
+                groups.Add(AdminFinanceHub.DepotFundsGroup(update.DepotId.Value));
+
+            await SendToFinanceGroupsAsync(groups, SystemFundEvent, update, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -665,7 +671,11 @@ public sealed class AdminRealtimeHubService(
         DateTime changedAt,
         CancellationToken cancellationToken)
     {
-        var groups = new[] { AdminFinanceHub.DepotFundChartsGroup(depotId) };
+        var groups = new[]
+        {
+            AdminFinanceHub.DepotFundsGroup(depotId),
+            AdminFinanceHub.DepotFundChartsGroup(depotId)
+        };
         var payloads = new[]
         {
             BuildChartInvalidation(
