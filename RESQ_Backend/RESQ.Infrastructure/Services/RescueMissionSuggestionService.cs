@@ -280,6 +280,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     muc_do = victim.Severity,
                     bi_thuong = victim.IsInjured,
                     van_de_y_te = victim.MedicalIssues,
+                    can_quan_ao = victim.ClothingNeeded,
+                    gioi_tinh_quan_ao = victim.ClothingGender,
+                    che_do_an_dac_biet = victim.SpecialDietDescription,
                     so_dien_thoai = victim.PersonPhone
                 }),
                 vi_tri = sos.Latitude.HasValue && sos.Longitude.HasValue
@@ -349,6 +352,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                         ["Lương khô", "thực phẩm", "thuc pham", "food"]);
                 }
 
+                AddStructuredMilkNeeds(needs, sos.Id, root, HasStructuredSupply(supplyCodes, "MILK"));
+
                 if (HasStructuredSupply(supplyCodes, "BLANKET") || HasBlanketNeed(groupNeeds))
                 {
                     var blanket = groupNeeds.HasValue ? TryGetObject(groupNeeds.Value, "blanket") : null;
@@ -414,6 +419,106 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
 
         return needs;
+    }
+
+    private static void AddStructuredMilkNeeds(
+        ICollection<MandatoryStructuredSupplyNeed> needs,
+        int sosRequestId,
+        JsonElement root,
+        bool hasExplicitMilkSupplyCode)
+    {
+        var victimLabels = ResolveStructuredMilkNeedVictimLabels(root);
+        if (victimLabels.Count == 0 && !hasExplicitMilkSupplyCode)
+            return;
+
+        var quantity = Math.Max(victimLabels.Count, 1);
+        var note = victimLabels.Count > 0
+            ? $"Nhu cầu sữa từ personal_needs.diet của nạn nhân {string.Join(", ", victimLabels)}."
+            : "Nhu cầu MILK từ structuredData.";
+
+        AddMandatoryNeed(
+            needs,
+            sosRequestId,
+            "MILK",
+            "Sữa bột trẻ em",
+            quantity,
+            "gói",
+            "Food",
+            note,
+            ["Sữa bột trẻ em", "sữa bột", "sữa trẻ em", "sữa", "milk", "formula", "infant formula", "baby formula"]);
+    }
+
+    private static List<string> ResolveStructuredMilkNeedVictimLabels(JsonElement root)
+    {
+        if (!root.TryGetProperty("victims", out var victims) || victims.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var labels = new List<string>();
+        foreach (var victim in victims.EnumerateArray())
+        {
+            if (victim.ValueKind != JsonValueKind.Object || !StructuredVictimNeedsMilk(victim))
+                continue;
+
+            var label = ReadJsonString(victim, "custom_name")
+                ?? ReadJsonString(victim, "display_name")
+                ?? ReadJsonString(victim, "person_id")
+                ?? (ReadJsonInt(victim, "index") is { } index ? $"#{index}" : null)
+                ?? "không rõ tên";
+
+            if (!labels.Contains(label, StringComparer.OrdinalIgnoreCase))
+                labels.Add(label);
+        }
+
+        return labels;
+    }
+
+    private static bool StructuredVictimNeedsMilk(JsonElement victim)
+    {
+        var personalNeeds = TryGetObject(victim, "personal_needs");
+        var diet = personalNeeds.HasValue ? TryGetObject(personalNeeds.Value, "diet") : null;
+        var dietDescription = diet.HasValue ? ReadJsonString(diet.Value, "description") : null;
+
+        if (IsPositiveMilkNeedDescription(dietDescription))
+            return true;
+
+        var incidentStatus = TryGetObject(victim, "incident_status");
+        return incidentStatus.HasValue
+            && JsonArrayContains(incidentStatus.Value, "medical_issues", "INFANT_NEEDS_MILK");
+    }
+
+    private static bool IsPositiveMilkNeedDescription(string? description)
+    {
+        var normalized = NormalizeItemName(description ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (!ContainsOperationalKeyword(normalized, "sua", "milk", "formula"))
+            return false;
+
+        if (ContainsOperationalKeyword(
+            normalized,
+            "khong can sua",
+            "khong sua",
+            "khong uong sua",
+            "khong dung sua",
+            "di ung sua",
+            "allergy milk",
+            "milk allergy",
+            "lactose intolerance"))
+        {
+            return false;
+        }
+
+        return ContainsOperationalKeyword(
+            normalized,
+            "can sua",
+            "sua bot",
+            "sua tre em",
+            "sua cong thuc",
+            "milk",
+            "formula",
+            "infant formula",
+            "baby formula");
     }
 
     private static void AddStructuredClothingNeeds(
@@ -544,6 +649,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             "BLANKETS" or "HYPOTHERMIA_BLANKET" or "BLANKET" => "BLANKET",
             "DRINKING_WATER" or "WATER" => "WATER",
             "READY_TO_EAT_FOOD" or "FOOD" => "FOOD",
+            "MILK" or "BABY_MILK" or "INFANT_MILK" or "INFANT_FORMULA" or "INFANT_NEEDS_MILK" => "MILK",
             "MEDICAL" or "MEDICINE" => "MEDICINE",
             "OTHER" or "POWER_BANK" => "OTHER",
             _ => null
@@ -561,6 +667,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return "WATER";
         if (ContainsOperationalKeyword(folded, "thuc pham", "luong thuc", "do an", "food"))
             return "FOOD";
+        if (ContainsOperationalKeyword(folded, "sua", "milk", "formula"))
+            return "MILK";
         if (ContainsOperationalKeyword(folded, "thuoc", "y te", "medical", "so cuu"))
             return "MEDICINE";
         if (ContainsOperationalKeyword(folded, "khac", "pin", "sac", "power bank"))
@@ -756,6 +864,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         {
             "WATER" => ContainsOperationalKeyword(normalizedText, "nuoc", "water", "uống", "uong"),
             "FOOD" => ContainsOperationalKeyword(normalizedText, "food", "thuc pham", "luong kho", "do an", "khau phan"),
+            "MILK" => ContainsOperationalKeyword(normalizedText, "sua", "sua bot", "sua tre em", "milk", "formula", "infant formula"),
             "MEDICINE" => ContainsOperationalKeyword(normalizedText, "thuoc", "y te", "medical", "so cuu", "first aid"),
             "BLANKET" => ContainsOperationalKeyword(normalizedText, "chăn", "màn", "giữ ấm", "blanket", "heating"),
             "CLOTHES" => ContainsOperationalKeyword(normalizedText, "quan ao", "clothes", "clothing", "ao am", "bo quan ao"),
@@ -4201,6 +4310,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 break;
             case "FOOD":
                 AddSupplyInventorySearchTerm(terms, "thuc pham");
+                break;
+            case "MILK":
+                AddSupplyInventorySearchTerm(terms, "sua");
+                AddSupplyInventorySearchTerm(terms, "sua bot");
+                AddSupplyInventorySearchTerm(terms, "sua tre em");
+                AddSupplyInventorySearchTerm(terms, "milk");
+                AddSupplyInventorySearchTerm(terms, "formula");
                 break;
             case "MEDICINE":
                 AddSupplyInventorySearchTerm(terms, "y te");

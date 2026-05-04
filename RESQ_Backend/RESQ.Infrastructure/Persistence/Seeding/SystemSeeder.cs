@@ -407,13 +407,14 @@ Quy tắc một kho:
 - DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): do NOT list Consumable items in COLLECT_SUPPLIES.supplies_to_collect. Every Consumable item must appear ONLY in its DELIVER_SUPPLIES activity with the exact sos_request_id it serves. Backend will automatically sum DELIVER items to populate COLLECT_SUPPLIES. COLLECT_SUPPLIES only needs: depot selection and any Reusable equipment from inventory.
 - REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): if boat, vehicle, life jacket, stretcher, rope, or rescue equipment is collected, a downstream RESCUE/MEDICAL_AID/EVACUATE activity must explicitly say the team uses that equipment before RETURN_SUPPLIES brings it back.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+- SPECIAL_DIET_MILK_SUPPLY (STRICT): if requirements_fragment contains ""Sua bot tre em"" or SOS_REQUESTS_DATA has can sua/sua bot/milk/formula, call searchInventory for sua/Sua bot tre em. If the selected depot has no or insufficient milk/formula stock, add a supply_shortages row with exact sos_request_id and set needs_additional_depot = true. Generic food or Luong kho must not replace milk/formula.
 - IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
 - Do not rely on description-only SOS mentions or one generic delivery to cover multiple SOS.
 - REALISTIC_ESTIMATE_TIME (STRICT): compute estimated_time as an integer-minute duration, then output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in the final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2. Use distance_km from tool/context when available; otherwise estimate cautiously from coordinates/address evidence. Add +5-15 minutes for heavy/many supplies, blocked access, flood/night/bad weather, complex rescue/evacuation, or field setup. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if the SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Round to the nearest 5 minutes, minimum 5 minutes.
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"" với số nguyên phút parse được để lưu DB; không trả placeholder trong JSON thật.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
-                Version = "v1.3",
+                Version = "v1.4",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -922,6 +923,7 @@ Quy tắc bắt buộc:
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn, vật tư trú ẩn phải nằm trong `required_supplies`, không đưa vào `suggested_resources`.
 - Put only consumable items intended for handover/cap phat into `required_supplies`. Reusable operational gear for the rescue team belongs in `required_teams`, `suggested_resources`, or `handling_reason` unless downstream inventory search maps it to a concrete Reusable item.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence. Do not add unrelated medicine just because the request is medical.
+- SPECIAL_DIET_MILK_SUPPLY (STRICT): inspect `danh_sach_nan_nhan[].che_do_an_dac_biet` and `du_lieu_chi_tiet.victims[].personal_needs.diet`. If a victim needs can sua, sua bot, milk, formula, or has INFANT_NEEDS_MILK, add `required_supplies` item_name ""Sua bot tre em"" for that exact sos_request_id. Do not treat generic food or Luong kho as covering this milk/formula need.
 - REALISTIC_ESTIMATE_TIME (STRICT): compute duration as integer minutes and format it as ""X phút"" or ""Y giờ Z phút"" only, so backend can parse it to the DB integer minutes column. Do not default to 30/45/60 minutes and never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Use base_minutes by likely activity need: RESCUE=10, MEDICAL_AID=15, EVACUATE=10, supply collect/deliver/return=5-10. Add travel_minutes = distance_km * 2 when distance evidence exists. Add +5-15 minutes for first aid/medical handling in a rescue depending on severity, and another +5-15 minutes when one SOS has multiple victims needing help. Add field-condition adjustment for blocked access, flood/night/bad weather, heavy supplies, or complex rescue. Round to nearest 5 minutes, minimum 5 minutes.
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
 - Chỉ trả về JSON object hợp lệ, không markdown.
@@ -958,7 +960,7 @@ IMPORTANT JSON RULES FOR sos_requirements (STRICT):
 - Invalid required_teams examples: [""Medical""], [1], [{""quantity"":""one""}], [{""team_type"":{""name"":""Medical""}}]
 - For unknown numeric values, use a safe integer estimate. Never output non-integer numeric fields in these arrays.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
-                Version = "v2.1",
+                Version = "v2.2",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -1131,6 +1133,7 @@ IMPORTANT ITEM TYPE CONTRACT (STRICT):
 - DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with correct sos_request_id.
 - REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): before RETURN_SUPPLIES, at least one RESCUE, MEDICAL_AID, or EVACUATE activity on the same route must explicitly mention using the collected Reusable equipment by name. RETURN_SUPPLIES is not a substitute for using the equipment at the scene.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
+- SPECIAL_DIET_MILK_SUPPLY (STRICT): if SOS_REQUESTS_DATA has can sua/sua bot/milk/formula or INFANT_NEEDS_MILK, the final mission must either deliver ""Sua bot tre em"" to that exact sos_request_id or include a supply_shortages row for it. Do not let generic food, Luong kho, or description-only notes count as milk/formula coverage.
 - REALISTIC_ESTIMATE_TIME (STRICT): validate or rewrite every estimated_time as integer minutes and output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never keep placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2 using distance evidence from team/depot/SOS context when available. Add +5-15 minutes for heavy/many supplies, blocked access, flood/night/bad weather, equipment setup, complex rescue, or evacuation difficulty. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if one SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Round to nearest 5 minutes, minimum 5 minutes. estimated_duration must equal the sequential sum after these corrections.
 
 IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT):
@@ -1150,7 +1153,7 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
-                Version = "v2.3",
+                Version = "v2.4",
                 IsActive = true,
                 CreatedAt = now
             }

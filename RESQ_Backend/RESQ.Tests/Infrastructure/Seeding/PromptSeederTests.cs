@@ -14,12 +14,12 @@ public class PromptSeederTests
     }
 
     [Fact]
-    public void CreatePrompts_MissionRequirementsAssessmentV21_ContainsStrictJsonArrayRules()
+    public void CreatePrompts_MissionRequirementsAssessmentV22_ContainsStrictJsonArrayRules()
     {
         var prompt = SystemSeeder.CreatePrompts().Single(item => item.Id == 10);
 
         Assert.Equal("MissionRequirementsAssessment", prompt.PromptType);
-        Assert.Equal("v2.1", prompt.Version);
+        Assert.Equal("v2.2", prompt.Version);
         Assert.Contains("IMPORTANT JSON RULES FOR suggested_resources (STRICT):", prompt.SystemPrompt);
         Assert.Contains("- suggested_resources MUST be an array of JSON objects only.", prompt.SystemPrompt);
         Assert.Contains("IMPORTANT JSON RULES FOR sos_requirements (STRICT):", prompt.SystemPrompt);
@@ -97,6 +97,26 @@ public class PromptSeederTests
     }
 
     [Fact]
+    public void CreatePrompts_ActivePipelinePrompts_ContainSpecialDietMilkRule()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var requirements = prompts.Single(item => item.PromptType == "MissionRequirementsAssessment");
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Equal("v2.2", requirements.Version);
+        Assert.Equal("v1.4", depot.Version);
+        Assert.Equal("v2.4", validation.Version);
+
+        foreach (var prompt in new[] { requirements, depot, validation })
+        {
+            Assert.Contains("SPECIAL_DIET_MILK_SUPPLY (STRICT)", prompt.SystemPrompt);
+            Assert.Contains("milk/formula", prompt.SystemPrompt);
+            Assert.Contains("Luong kho", prompt.SystemPrompt);
+        }
+    }
+
+    [Fact]
     public void CreatePrompts_ActiveDepotAndValidationPrompts_ContainDeliverOnlyConsumablesInCollectRule()
     {
         var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
@@ -134,7 +154,7 @@ public class PromptSeederTests
         var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
 
         Assert.Equal("v2.2", team.Version);
-        Assert.Equal("v2.3", validation.Version);
+        Assert.Equal("v2.4", validation.Version);
 
         foreach (var prompt in new[] { team, validation })
         {
