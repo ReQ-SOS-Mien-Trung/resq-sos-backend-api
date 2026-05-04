@@ -858,23 +858,23 @@ public class DatabaseSeederTests
             Assert.Equal(expected.ExpiredDate, importLog.ExpiredDate);
         }
 
-        var babyFormulaInventory = await context.SupplyInventories
+        var boxedMilkInventory = await context.SupplyInventories
             .Include(item => item.ItemModel)
             .Include(item => item.Lots)
             .Include(item => item.InventoryLogs)
             .SingleAsync(item =>
                 item.DepotId == 1
                 && item.ItemModel != null
-                && item.ItemModel.Name == "Sữa bột trẻ em");
+                && item.ItemModel.Name == "Sữa hộp trẻ em");
 
-        Assert.Equal(0, babyFormulaInventory.Quantity);
-        Assert.Equal(0, babyFormulaInventory.MissionReservedQuantity);
-        Assert.Equal(0, babyFormulaInventory.TransferReservedQuantity);
-        Assert.Equal(0, babyFormulaInventory.Lots.Sum(lot => lot.RemainingQuantity));
-        Assert.DoesNotContain(babyFormulaInventory.Lots, lot => lot.SourceId == 90_003);
-        Assert.Contains(babyFormulaInventory.InventoryLogs, log =>
+        Assert.Equal(0, boxedMilkInventory.Quantity);
+        Assert.Equal(0, boxedMilkInventory.MissionReservedQuantity);
+        Assert.Equal(0, boxedMilkInventory.TransferReservedQuantity);
+        Assert.Equal(0, boxedMilkInventory.Lots.Sum(lot => lot.RemainingQuantity));
+        Assert.DoesNotContain(boxedMilkInventory.Lots, lot => lot.SourceId == 90_003);
+        Assert.Contains(boxedMilkInventory.InventoryLogs, log =>
             log.ActionType == "Import" && log.QuantityChange == 1);
-        Assert.Contains(babyFormulaInventory.InventoryLogs, log =>
+        Assert.Contains(boxedMilkInventory.InventoryLogs, log =>
             log.ActionType == "Adjust" && log.QuantityChange == -1);
     }
 

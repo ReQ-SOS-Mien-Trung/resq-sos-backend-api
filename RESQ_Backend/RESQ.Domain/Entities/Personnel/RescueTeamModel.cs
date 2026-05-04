@@ -126,7 +126,7 @@ public class RescueTeamModel
     /// </summary>
     public void SetAvailableByLeader(Guid leaderUserId)
     {
-        if (Status != RescueTeamStatus.Gathering)
+        if (Status is not (RescueTeamStatus.Gathering or RescueTeamStatus.Unavailable))
             throw new InvalidTeamTransitionException(Status, RescueTeamStatus.Available);
 
         var leader = _members.FirstOrDefault(m => m.IsLeader && m.UserId == leaderUserId && m.Status == TeamMemberStatus.Accepted)
