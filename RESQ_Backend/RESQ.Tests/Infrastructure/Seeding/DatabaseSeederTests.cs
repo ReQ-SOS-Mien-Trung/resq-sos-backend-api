@@ -820,7 +820,6 @@ public class DatabaseSeederTests
         {
             new { ItemName = "Mì tôm", Quantity = 24, SourceId = 90_001, ReceivedDate = anchorUtc.AddDays(-20), ExpiredDate = anchorUtc.AddDays(7) },
             new { ItemName = "Nước tinh khiết", Quantity = 48, SourceId = 90_002, ReceivedDate = anchorUtc.AddDays(-18), ExpiredDate = anchorUtc.AddDays(14) },
-            new { ItemName = "Sữa bột trẻ em", Quantity = 18, SourceId = 90_003, ReceivedDate = anchorUtc.AddDays(-16), ExpiredDate = anchorUtc.AddDays(21) },
             new { ItemName = "Thuốc hạ sốt Paracetamol 500mg", Quantity = 60, SourceId = 90_004, ReceivedDate = anchorUtc.AddDays(-14), ExpiredDate = anchorUtc.AddDays(28) }
         };
 
@@ -858,6 +857,25 @@ public class DatabaseSeederTests
             Assert.Equal(expected.ReceivedDate, importLog.ReceivedDate);
             Assert.Equal(expected.ExpiredDate, importLog.ExpiredDate);
         }
+
+        var babyFormulaInventory = await context.SupplyInventories
+            .Include(item => item.ItemModel)
+            .Include(item => item.Lots)
+            .Include(item => item.InventoryLogs)
+            .SingleAsync(item =>
+                item.DepotId == 1
+                && item.ItemModel != null
+                && item.ItemModel.Name == "Sữa bột trẻ em");
+
+        Assert.Equal(0, babyFormulaInventory.Quantity);
+        Assert.Equal(0, babyFormulaInventory.MissionReservedQuantity);
+        Assert.Equal(0, babyFormulaInventory.TransferReservedQuantity);
+        Assert.Equal(0, babyFormulaInventory.Lots.Sum(lot => lot.RemainingQuantity));
+        Assert.DoesNotContain(babyFormulaInventory.Lots, lot => lot.SourceId == 90_003);
+        Assert.Contains(babyFormulaInventory.InventoryLogs, log =>
+            log.ActionType == "Import" && log.QuantityChange == 1);
+        Assert.Contains(babyFormulaInventory.InventoryLogs, log =>
+            log.ActionType == "Adjust" && log.QuantityChange == -1);
     }
 
     [Fact]

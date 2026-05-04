@@ -154,6 +154,7 @@ public sealed partial class DatabaseSeeder
             consumablePlans,
             missionExportTarget);
 
+        BuildZeroQuantityAdjustmentHistory(consumablePlans.Values.ToList(), seed.AnchorUtc);
         BuildAdjustmentHistory(consumablePlans.Values.ToList(), seed.AnchorUtc);
 
         var inventoryLogs = new List<InventoryLog>(820);
@@ -304,6 +305,7 @@ public sealed partial class DatabaseSeeder
     {
         foreach (var plan in plans
                      .OrderBy(p => p.Inventory.Id)
+                     .Where(p => p.FinalQuantity > 0)
                      .Where(p => p.Inventory.Id % 3 == 0)
                      .Take(45))
         {
@@ -319,6 +321,25 @@ public sealed partial class DatabaseSeeder
                     : ClampHistoricalUtc(fallbackCreatedAt, baseCreatedAt, anchorUtc),
                 PerformedBy = plan.PerformedBy,
                 Note = $"Điều chỉnh giảm {plan.ItemModel.Name} sau kiểm kê do hư hỏng hoặc quá hạn"
+            });
+        }
+    }
+
+    private static void BuildZeroQuantityAdjustmentHistory(
+        IReadOnlyList<ConsumableInventoryHistoryPlan> plans,
+        DateTime anchorUtc)
+    {
+        foreach (var plan in plans
+                     .OrderBy(p => p.Inventory.Id)
+                     .Where(p => p.FinalQuantity == 0))
+        {
+            var baseCreatedAt = plan.Inventory.LastStockedAt ?? plan.BaseLot.ReceivedDate ?? anchorUtc.AddDays(-30);
+            plan.Adjustments.Add(new ConsumableAdjustmentEvent
+            {
+                Quantity = 1,
+                CreatedAt = ClampHistoricalUtc(baseCreatedAt.AddDays(7), baseCreatedAt, anchorUtc),
+                PerformedBy = plan.PerformedBy,
+                Note = $"Điều chỉnh hết tồn {plan.ItemModel.Name} sau kiểm kê demo"
             });
         }
     }
