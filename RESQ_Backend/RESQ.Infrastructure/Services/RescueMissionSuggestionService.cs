@@ -553,7 +553,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return mapped;
 
         var folded = NormalizeItemName(code ?? string.Empty);
-        if (ContainsOperationalKeyword(folded, "chan", "chan man", "giu am", "blanket"))
+        if (ContainsOperationalKeyword(folded, "chăn", "chăn màn", "giữ ấm", "blanket"))
             return "BLANKET";
         if (ContainsOperationalKeyword(folded, "quan ao", "clothes", "clothing"))
             return "CLOTHES";
@@ -746,8 +746,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             "lacking",
             "partially lacking",
             "not enough",
-            "khong du",
-            "thieu");
+            "không đủ",
+            "thiếu");
     }
 
     private static bool NeedCodeMatchesSupplyText(string code, string normalizedText)
@@ -757,7 +757,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             "WATER" => ContainsOperationalKeyword(normalizedText, "nuoc", "water", "uống", "uong"),
             "FOOD" => ContainsOperationalKeyword(normalizedText, "food", "thuc pham", "luong kho", "do an", "khau phan"),
             "MEDICINE" => ContainsOperationalKeyword(normalizedText, "thuoc", "y te", "medical", "so cuu", "first aid"),
-            "BLANKET" => ContainsOperationalKeyword(normalizedText, "chan", "men", "giu am", "blanket", "heating"),
+            "BLANKET" => ContainsOperationalKeyword(normalizedText, "chăn", "màn", "giữ ấm", "blanket", "heating"),
             "CLOTHES" => ContainsOperationalKeyword(normalizedText, "quan ao", "clothes", "clothing", "ao am", "bo quan ao"),
             "OTHER" => ContainsOperationalKeyword(normalizedText, "khac", "pin", "sac", "power bank"),
             _ => false
@@ -1456,10 +1456,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ["y te"] = ["thuoc", "y te", "medical", "so cuu", "cap cuu", "bo so cuu"],
             ["so cuu"] = ["so cuu", "bo so cuu", "bang", "bong", "gac", "oxy", "thuoc"],
             ["first aid"] = ["so cuu", "bo so cuu", "bang", "bong", "gac", "oxy", "thuoc"],
-            ["chan man"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
-            ["blanket"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
-            ["blankets"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
-            ["giu am"] = ["chan", "men", "giu nhiet", "suoi am", "suoi", "giu am"],
+            ["chăn"] = ["chăn", "màn", "giữ nhiệt", "sưởi ấm", "sưởi", "giữ ấm"],
+            ["blanket"] = ["chăn", "màn", "giữ nhiệt", "sưởi ấm", "sưởi", "giữ ấm"],
+            ["blankets"] = ["chăn", "màn", "giữ nhiệt", "sưởi ấm", "sưởi", "giữ ấm"],
+            ["giữ ấm"] = ["chăn", "màn", "giữ nhiệt", "sưởi ấm", "sưởi", "giữ ấm"],
             ["quan ao"] = ["ao", "quan", "bo quan ao", "ao am", "ung", "tat", "mu"],
             ["clothes"] = ["ao", "quan", "bo quan ao", "ao am", "ung", "tat", "mu"],
             ["clothing"] = ["ao", "quan", "bo quan ao", "ao am", "ung", "tat", "mu"]
@@ -1474,10 +1474,10 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         "y te",
         "so cuu",
         "first aid",
-        "chan man",
+        "chăn",
         "blanket",
         "blankets",
-        "giu am",
+        "giữ ấm",
         "quan ao",
         "clothes",
         "clothing"
@@ -2431,7 +2431,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 || normalizedName.Contains("cano", StringComparison.OrdinalIgnoreCase)
                 || normalizedName.Contains("day", StringComparison.OrdinalIgnoreCase)
                 || normalizedName.Contains("phao", StringComparison.OrdinalIgnoreCase)
-                || normalizedName.Contains("cang", StringComparison.OrdinalIgnoreCase))
+                || normalizedName.Contains("cáng", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -3833,8 +3833,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             AddSupplyInventorySearchTerm(terms, "sua");
         if (ContainsOperationalKeyword(normalizedName, "so cuu", "y te", "thuoc", "medical", "first aid"))
             AddSupplyInventorySearchTerm(terms, "y te");
-        if (ContainsOperationalKeyword(normalizedName, "chan", "giu am", "blanket"))
-            AddSupplyInventorySearchTerm(terms, "chan");
+        if (ContainsOperationalKeyword(normalizedName, "chăn", "giữ ấm", "blanket"))
+            AddSupplyInventorySearchTerm(terms, "chăn");
         if (ContainsOperationalKeyword(normalizedName, "quan ao", "clothes", "clothing", "ao am", "bo quan ao"))
             AddSupplyInventorySearchTerm(terms, "quan ao");
         if (ContainsOperationalKeyword(normalizedName, "pin", "sac", "power bank"))
@@ -3942,8 +3942,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (ContainsOperationalKeyword(normalizedSupplyName, "so cuu", "y te", "thuoc", "medical", "first aid")
             && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "so cuu", "y te", "thuoc", "medical"))
             score += 80;
-        if (ContainsOperationalKeyword(normalizedSupplyName, "chan", "giu am", "blanket")
-            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "chan", "giu am", "blanket"))
+        if (ContainsOperationalKeyword(normalizedSupplyName, "chăn", "giữ ấm", "blanket")
+            && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "chăn", "giữ ấm", "blanket"))
             score += 80;
         if (ContainsOperationalKeyword(normalizedSupplyName, "quan ao", "clothes", "clothing", "ao am", "bo quan ao")
             && ContainsOperationalKeyword($"{normalizedItemName} {normalizedCategoryName}", "quan ao", "clothes", "clothing", "ao", "bo quan ao"))
@@ -3963,7 +3963,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (IsReturnActivity(activity) && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase))
             score += 100;
         if (IsCollectActivity(activity) && string.Equals(item.ItemType, ReusableItemType, StringComparison.OrdinalIgnoreCase))
-            score += ContainsOperationalKeyword(normalizedSupplyName, "xuong", "thuyen", "ca no", "cano", "boat", "phao", "cang", "day") ? 80 : 0;
+            score += ContainsOperationalKeyword(normalizedSupplyName, "xuong", "thuyen", "ca no", "cano", "boat", "phao", "cáng", "day") ? 80 : 0;
 
         return score;
     }
@@ -4207,8 +4207,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 AddSupplyInventorySearchTerm(terms, "so cuu");
                 break;
             case "BLANKET":
-                AddSupplyInventorySearchTerm(terms, "chan");
-                AddSupplyInventorySearchTerm(terms, "giu am");
+                AddSupplyInventorySearchTerm(terms, "chăn");
+                AddSupplyInventorySearchTerm(terms, "giữ ấm");
                 break;
             case "CLOTHES":
                 AddSupplyInventorySearchTerm(terms, "quan ao");
@@ -4581,13 +4581,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         if (!ContainsOperationalKeyword(
             normalizedSegment,
-            "khong co",
-            "khong san",
-            "khong du",
-            "thieu",
-            "can bo sung",
-            "bo sung nguon",
-            "nguon khac"))
+            "không có",
+            "không sẵn",
+            "không đủ",
+            "thiếu",
+            "cần bổ sung",
+            "bổ sung nguồn",
+            "nguồn khác"))
         {
             return false;
         }
@@ -4745,7 +4745,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 Quantity = 1,
                 Description = "Rescue equipment",
                 Priority = SelectTransportNeedPriority(result.SuggestedActivities),
-                SearchTypes = BuildSearchTypeList("phao", "day", "cang", "ao phao", "cuu ho"),
+                SearchTypes = BuildSearchTypeList("phao", "day", "cáng", "ao phao", "cuu ho"),
                 RelatedSosIds = relatedSosIds
             });
         }
@@ -4790,7 +4790,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 Description = resource.Description,
                 Priority = resource.Priority,
                 SourceResource = resource,
-                SearchTypes = BuildSearchTypeList(resource.Description, "phao", "day", "cang", "ao phao", "cuu ho"),
+                SearchTypes = BuildSearchTypeList(resource.Description, "phao", "day", "cáng", "ao phao", "cuu ho"),
                 RelatedSosIds = relatedSosIds
             },
             _ => null
@@ -4851,11 +4851,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             "water level");
         var mentionsIsolation = ContainsOperationalKeyword(
             context,
-            "co lap",
-            "mac ket",
-            "chia cat",
-            "khong the tiep can",
-            "khong tiep can",
+            "cô lập",
+            "mắc kẹt",
+            "chia cắt",
+            "không thể tiếp cận",
+            "không tiếp cận",
             "trapped",
             "isolated",
             "stranded",
@@ -4864,12 +4864,12 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase))
             || ContainsOperationalKeyword(
                 context,
-                "so tan",
+                "sơ tán",
                 "evacuate",
                 "evacuation",
-                "di doi",
-                "dua ra khoi vung nguy hiem",
-                "dua den noi an toan");
+                "di dời",
+                "đưa ra khỏi vùng nguy hiểm",
+                "đưa đến nơi an toàn");
         var mentionsRescueGear = activities.Any(activity =>
                 string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase))
@@ -4878,7 +4878,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 "cuu ho",
                 "phao",
                 "day",
-                "cang",
+                "cáng",
                 "sat lo",
                 "do nat",
                 "rescue");
@@ -5035,7 +5035,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         {
             "BOAT" when ContainsOperationalKeyword(normalizedItemName, "ca no", "cano", "canoe", "xuong", "thuyen", "boat") => 100,
             "VEHICLE" when ContainsOperationalKeyword(normalizedItemName, "xe", "truck", "ambulance", "cuu thuong", "xe khach") => 100,
-            "EQUIPMENT" when ContainsOperationalKeyword(normalizedItemName, "phao", "day", "cang", "ao phao", "cuu ho") => 100,
+            "EQUIPMENT" when ContainsOperationalKeyword(normalizedItemName, "phao", "day", "cáng", "ao phao", "cuu ho") => 100,
             _ => 0
         };
 
@@ -5165,7 +5165,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (existingDescription.Contains(item.ItemName, StringComparison.OrdinalIgnoreCase))
             return existingDescription;
 
-        return $"{existingDescription.TrimEnd().TrimEnd('.')}. Bo sung tu kho: {item.ItemName} x{quantity}{unitSuffix}{sosSuffix}.";
+        return $"{existingDescription.TrimEnd().TrimEnd('.')}. Bổ sung từ kho: {item.ItemName} x{quantity}{unitSuffix}{sosSuffix}.";
     }
 
     private static void TrimInventoryBackedSuggestedResource(
@@ -5474,7 +5474,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             && !IsPipelinePromptType(options.PromptOverride.PromptType))
         {
             var unsupportedPromptResult = CreateFailureResult(
-                $"Prompt type '{options.PromptOverride.PromptType}' khong con duoc ho tro cho mission suggestion pipeline.");
+                $"Prompt type '{options.PromptOverride.PromptType}' không còn được hỗ trợ cho mission suggestion pipeline.");
             yield return Error(unsupportedPromptResult.ErrorMessage ?? "Mission suggestion pipeline failed.", unsupportedPromptResult);
             yield break;
         }

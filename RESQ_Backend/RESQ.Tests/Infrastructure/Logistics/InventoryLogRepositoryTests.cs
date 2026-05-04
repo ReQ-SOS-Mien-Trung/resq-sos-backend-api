@@ -73,7 +73,7 @@ public class InventoryLogRepositoryTests
             detail.ItemModelId == 101
             && detail.ActionType == nameof(InventoryActionType.Adjust)
             && detail.QuantityChange == -2
-            && detail.Note == "Mat 2 bang ca nhan");
+            && detail.Note == "Mất 2 bảng ca nhân");
 
         Assert.Equal(2, log.ReusableDetails.Count);
         Assert.Contains(log.ReusableDetails, detail =>
@@ -87,7 +87,7 @@ public class InventoryLogRepositoryTests
             && detail.ReusableItemId == 2002
             && detail.ActionType == nameof(InventoryActionType.Adjust)
             && detail.QuantityChange == -1
-            && detail.Note == "Mat bo dam BD-002");
+            && detail.Note == "Mất bộ đầm BD-002");
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class InventoryLogRepositoryTests
         Assert.Equal(nameof(InventoryActionType.Return), transaction.ActionType);
         Assert.Equal(nameof(InventorySourceType.Mission), transaction.SourceType);
         Assert.Equal(77, transaction.SourceId);
-        Assert.Equal("Tra thieu bang ca nhan", transaction.Note);
+        Assert.Equal("Trả thiếu bằng ca nhân", transaction.Note);
         Assert.Equal(4, transaction.Items.Count);
         Assert.Contains(transaction.Items, item =>
             item.ItemModelId == 101
@@ -124,7 +124,7 @@ public class InventoryLogRepositoryTests
             item.ItemModelId == 101
             && item.ActionType == nameof(InventoryActionType.Adjust)
             && item.QuantityChange == -2
-            && item.Note == "Mat 2 bang ca nhan");
+            && item.Note == "Mất 2 bảng ca nhân");
         Assert.Contains(transaction.Items, item =>
             item.ItemModelId == 201
             && item.ReusableItemId == 2001
@@ -136,7 +136,7 @@ public class InventoryLogRepositoryTests
             && item.ReusableItemId == 2002
             && item.ActionType == nameof(InventoryActionType.Adjust)
             && item.QuantityChange == -1
-            && item.Note == "Mat bo dam BD-002");
+            && item.Note == "Mất bộ đầm BD-002");
     }
 
     private static ResQDbContext CreateContext()
@@ -318,7 +318,7 @@ public class InventoryLogRepositoryTests
                 SourceType = nameof(InventorySourceType.Mission),
                 SourceId = 77,
                 MissionId = 9,
-                Note = "Tra thieu bang ca nhan",
+                Note = "Trả thiếu bằng ca nhân",
                 CreatedAt = createdAt
             },
             new InventoryLog
@@ -331,7 +331,7 @@ public class InventoryLogRepositoryTests
                 SourceType = nameof(InventorySourceType.Mission),
                 SourceId = 77,
                 MissionId = 9,
-                Note = "Mat 2 bang ca nhan",
+                Note = "Mất 2 bảng ca nhân",
                 CreatedAt = createdAt.AddMilliseconds(100)
             },
             new InventoryLog
@@ -355,7 +355,7 @@ public class InventoryLogRepositoryTests
                 SourceType = nameof(InventorySourceType.Mission),
                 SourceId = 77,
                 MissionId = 9,
-                Note = "Mat bo dam BD-002",
+                Note = "Mất bộ đầm BD-002",
                 CreatedAt = createdAt.AddMilliseconds(300)
             });
 

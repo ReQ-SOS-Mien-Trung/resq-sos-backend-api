@@ -403,7 +403,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
                 new()
                 {
                     ItemId = 80,
-                    ItemName = "Cang khieng thuong",
+                    ItemName = "Căng khiêng thường",
                     Quantity = 1,
                     Unit = "chiec",
                     ExpectedReturnUnits =
@@ -412,7 +412,7 @@ public class ConfirmDeliverySuppliesCommandHandlerTests
                         {
                             ReusableItemId = 279,
                             ItemModelId = 80,
-                            ItemName = "Cang khieng thuong",
+                            ItemName = "Căng khiêng thường",
                             SerialNumber = "D3-R080-001"
                         }
                     ]

@@ -33,7 +33,7 @@ public class RollbackPromptVersionCommandHandler(
 
             if (target.PromptType == PromptType.MissionPlanning)
             {
-                throw new BadRequestException("Prompt type 'MissionPlanning' da bi ngung ho tro va khong the rollback.");
+                throw new BadRequestException("Prompt type 'MissionPlanning' đã bị ngưng hỗ trợ và không thể rollback.");
             }
 
             if (target.IsActive)

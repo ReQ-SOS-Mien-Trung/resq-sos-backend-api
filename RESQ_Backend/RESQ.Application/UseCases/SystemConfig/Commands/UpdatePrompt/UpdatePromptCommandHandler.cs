@@ -38,7 +38,7 @@ public class UpdatePromptCommandHandler(
 
         if (prompt.PromptType == PromptType.MissionPlanning)
         {
-            throw new BadRequestException("Prompt type 'MissionPlanning' da bi ngung ho tro va khong the chinh sua.");
+            throw new BadRequestException("Prompt type 'MissionPlanning' đã bị ngưng hỗ trợ và không thể chỉnh sửa.");
         }
 
         if (request.IsActive == true)

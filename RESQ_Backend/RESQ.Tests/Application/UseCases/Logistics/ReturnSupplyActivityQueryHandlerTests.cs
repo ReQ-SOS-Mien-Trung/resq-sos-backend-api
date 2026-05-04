@@ -83,7 +83,7 @@ public class ReturnSupplyActivityQueryHandlerTests
                                 new ReturnSupplyActivityItemDetail
                                 {
                                     ItemId = itemId,
-                                    ItemName = "Cang khieng thuong",
+                                    ItemName = "Căng khiêng thường",
                                     Quantity = 2,
                                     Unit = "chiec",
                                     ExpectedReturnUnits =

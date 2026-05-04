@@ -743,9 +743,9 @@ public class SosAiAnalysisService : ISosAiAnalysisService
             || baseExplanation.Contains("diem", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("điểm", StringComparison.OrdinalIgnoreCase);
         var hasAgreementMention = baseExplanation.Contains("agree", StringComparison.OrdinalIgnoreCase)
-            || baseExplanation.Contains("dong y", StringComparison.OrdinalIgnoreCase)
+            || baseExplanation.Contains("dông ý", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("đồng ý", StringComparison.OrdinalIgnoreCase)
-            || baseExplanation.Contains("khong dong y", StringComparison.OrdinalIgnoreCase)
+            || baseExplanation.Contains("không dông ý", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("không đồng ý", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("rule-base", StringComparison.OrdinalIgnoreCase)
             || baseExplanation.Contains("rule base", StringComparison.OrdinalIgnoreCase)

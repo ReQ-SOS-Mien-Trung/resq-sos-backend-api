@@ -22,7 +22,7 @@ public class GetMissionSuggestionsQueryHandlerTests
                     ClusterId = 5,
                     ModelName = "gemini-3.1-flash-lite-preview",
                     AnalysisType = "RescueMissionSuggestion",
-                    SuggestedMissionTitle = "Cuu ho khan cap tai Ha Tinh",
+                    SuggestedMissionTitle = "Cậu hộ khẩn cấp tại Hà Tĩnh",
                     SuggestedMissionType = "MixedResponse",
                     SuggestedSeverityLevel = "Critical",
                     SuggestedPriorityScore = 9.5,

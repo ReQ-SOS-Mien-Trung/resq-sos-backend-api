@@ -33,7 +33,7 @@ public class ActivatePromptVersionCommandHandler(
 
             if (target.PromptType == PromptType.MissionPlanning)
             {
-                throw new BadRequestException("Prompt type 'MissionPlanning' da bi ngung ho tro va khong the kich hoat.");
+                throw new BadRequestException("Prompt type 'MissionPlanning' đã bị ngưng hỗ trợ và không thể kích hoạt.");
             }
 
             if (target.IsActive)

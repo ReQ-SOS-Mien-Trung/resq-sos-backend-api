@@ -106,7 +106,7 @@ public class DonationController : ControllerBase
             if (!isValidSignature)
             {
                 _logger.LogWarning("PayOS webhook signature verification failed.");
-                return Ok(new { success = false, message = "Chu ky webhook khong hop le." });
+                return Ok(new { success = false, message = "Chữ ký webhook không hợp lệ." });
             }
 
             var webhook = JsonSerializer.Deserialize<WebhookType>(
@@ -115,7 +115,7 @@ public class DonationController : ControllerBase
 
             if (webhook == null || webhook.Data == null)
             {
-                return Ok(new { success = false, message = "Du lieu webhook khong hop le." });
+                return Ok(new { success = false, message = "Dữ liệu webhook không hợp lệ." });
             }
 
             var processed = await _mediator.Send(new ProcessPayosPaymentReturnCommand

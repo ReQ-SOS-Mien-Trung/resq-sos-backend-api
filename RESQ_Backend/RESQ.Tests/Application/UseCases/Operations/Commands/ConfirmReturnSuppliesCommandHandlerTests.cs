@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
@@ -177,9 +177,9 @@ public class ConfirmReturnSuppliesCommandHandlerTests
 
         var expectedUnits = new List<SupplyExecutionReusableUnitDto>
         {
-            new() { ReusableItemId = 171, ItemModelId = itemId, ItemName = "Cang khieng thuong", SerialNumber = "D2-R080-001" },
-            new() { ReusableItemId = 172, ItemModelId = itemId, ItemName = "Cang khieng thuong", SerialNumber = "D2-R080-002" },
-            new() { ReusableItemId = 173, ItemModelId = itemId, ItemName = "Cang khieng thuong", SerialNumber = "D2-R080-003" }
+            new() { ReusableItemId = 171, ItemModelId = itemId, ItemName = "Căng khêng thường", SerialNumber = "D2-R080-001" },
+            new() { ReusableItemId = 172, ItemModelId = itemId, ItemName = "Căng khêng thường", SerialNumber = "D2-R080-002" },
+            new() { ReusableItemId = 173, ItemModelId = itemId, ItemName = "Căng khêng thường", SerialNumber = "D2-R080-003" }
         };
 
         var activity = new MissionActivityModel
@@ -194,7 +194,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 new()
                 {
                     ItemId = itemId,
-                    ItemName = "Cang khieng thuong",
+                    ItemName = "Căng khiêng thường",
                     Quantity = 2,
                     Unit = "chiec",
                     ExpectedReturnUnits = expectedUnits
@@ -213,7 +213,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                     new MissionSupplyReturnExecutionItemDto
                     {
                         ItemModelId = itemId,
-                        ItemName = "Cang khieng thuong",
+                        ItemName = "Căng khiêng thường",
                         Unit = "chiec",
                         ActualQuantity = 3,
                         ReturnedReusableUnits = expectedUnits
@@ -223,7 +223,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         };
         var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
         {
-            [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+            [itemId] = new() { Id = itemId, Name = "Căng khiêng thường", Unit = "chiec", ItemType = "Reusable" }
         });
         var handler = new ConfirmReturnSuppliesCommandHandler(
             activityRepository,
@@ -392,14 +392,14 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         {
             ReusableItemId = 171,
             ItemModelId = itemId,
-            ItemName = "Cang khieng thuong",
+            ItemName = "Căng khiêng thường",
             SerialNumber = "D4-R080-001"
         };
         var lostUnit = new SupplyExecutionReusableUnitDto
         {
             ReusableItemId = 172,
             ItemModelId = itemId,
-            ItemName = "Cang khieng thuong",
+            ItemName = "Căng khiêng thường",
             SerialNumber = "D4-R080-002"
         };
 
@@ -415,7 +415,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 new()
                 {
                     ItemId = itemId,
-                    ItemName = "Cang khieng thuong",
+                    ItemName = "Căng khiêng thường",
                     Quantity = 2,
                     Unit = "chiec",
                     ExpectedReturnUnits = [returnedUnit, lostUnit]
@@ -433,7 +433,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                     new MissionSupplyReturnExecutionItemDto
                     {
                         ItemModelId = itemId,
-                        ItemName = "Cang khieng thuong",
+                        ItemName = "Căng khiêng thường",
                         Unit = "chiec",
                         ActualQuantity = 1,
                         ReturnedReusableUnits = [returnedUnit],
@@ -448,7 +448,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             depotInventoryRepository,
             new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
             {
-                [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+                [itemId] = new() { Id = itemId, Name = "Căng khiêng thường", Unit = "chiec", ItemType = "Reusable" }
             }),
             new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
@@ -467,7 +467,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                         {
                             ReusableItemId = lostUnit.ReusableItemId,
                             IsReturned = false,
-                            Note = "Mat trong qua trinh cuu ho"
+                            Note = "Mất trong quá trình cứu hộ"
                         }
                     ]
                 }
@@ -480,7 +480,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         Assert.True(response.DiscrepancyRecorded);
         Assert.Equal(returnedUnit.ReusableItemId, receivedReusable.ReusableItemId);
         Assert.Equal(lostUnit.ReusableItemId, lostReusable.ReusableItemId);
-        Assert.Equal("Mat trong qua trinh cuu ho", lostReusable.Note);
+        Assert.Equal("Mất trong quá trình cứu hộ", lostReusable.Note);
     }
 
     [Fact]
@@ -496,7 +496,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         {
             ReusableItemId = 172,
             ItemModelId = itemId,
-            ItemName = "Cang khieng thuong",
+            ItemName = "Căng khiêng thường",
             SerialNumber = "D4-R080-002"
         };
 
@@ -512,7 +512,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 new()
                 {
                     ItemId = itemId,
-                    ItemName = "Cang khieng thuong",
+                    ItemName = "Căng khiêng thường",
                     Quantity = 1,
                     Unit = "chiec",
                     ExpectedReturnUnits = [lostUnit]
@@ -525,7 +525,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             new StubDepotInventoryRepository { ManagerDepotIds = [depotId] },
             new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
             {
-                [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+                [itemId] = new() { Id = itemId, Name = "Căng khiêng thường", Unit = "chiec", ItemType = "Reusable" }
             }),
             new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
 
@@ -637,7 +637,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 new()
                 {
                     ItemId = itemId,
-                    ItemName = "Cang khieng thuong",
+                    ItemName = "Căng khiêng thường",
                     Quantity = 1,
                     Unit = "chiec",
                     ExpectedReturnUnits =
@@ -646,7 +646,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                         {
                             ReusableItemId = 171,
                             ItemModelId = itemId,
-                            ItemName = "Cang khieng thuong",
+                            ItemName = "Căng khiêng thường",
                             SerialNumber = "D2-R080-001"
                         }
                     ]
@@ -662,7 +662,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
         };
         var metadataRepository = new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
         {
-            [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+            [itemId] = new() { Id = itemId, Name = "Căng khiêng thường", Unit = "chiec", ItemType = "Reusable" }
         });
         var handler = new ConfirmReturnSuppliesCommandHandler(
             activityRepository,
@@ -712,7 +712,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
                 new()
                 {
                     ItemId = itemId,
-                    ItemName = "Cang khieng thuong",
+                    ItemName = "Căng khiêng thường",
                     Quantity = 1,
                     Unit = "chiec"
                 }
@@ -727,7 +727,7 @@ public class ConfirmReturnSuppliesCommandHandlerTests
             },
             new StubItemModelMetadataRepository(new Dictionary<int, ItemModelRecord>
             {
-                [itemId] = new() { Id = itemId, Name = "Cang khieng thuong", Unit = "chiec", ItemType = "Reusable" }
+                [itemId] = new() { Id = itemId, Name = "Căng khiêng thường", Unit = "chiec", ItemType = "Reusable" }
             }),
             
             new DummyMediator(), new StubOperationalHubService(), new StubUnitOfWork(), NullLogger<ConfirmReturnSuppliesCommandHandler>.Instance);
