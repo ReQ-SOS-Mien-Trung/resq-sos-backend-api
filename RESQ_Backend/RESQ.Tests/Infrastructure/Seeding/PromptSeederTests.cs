@@ -175,11 +175,45 @@ public class PromptSeederTests
         foreach (var prompt in new[] { requirements, depot, team, validation })
         {
             Assert.Contains("REALISTIC_ESTIMATE_TIME (STRICT)", prompt.SystemPrompt);
+            Assert.Contains("DB integer minutes column", prompt.SystemPrompt);
+            Assert.Contains("distance_km * 2", prompt.SystemPrompt);
+            Assert.Contains("+5-15 minutes", prompt.SystemPrompt);
+            Assert.Contains("multiple victims", prompt.SystemPrompt);
+            Assert.Contains("Round", prompt.SystemPrompt);
+            Assert.DoesNotContain("distance_km * 5", prompt.SystemPrompt);
+        }
+    }
+
+    [Fact]
+    public void CreatePrompts_MissionPrompts_DoNotHardCodeEstimatedTimeExamples()
+    {
+        var missionPrompts = SystemSeeder.CreatePrompts()
+            .Where(item => item.PromptType.StartsWith("Mission", StringComparison.Ordinal))
+            .ToArray();
+
+        foreach (var prompt in missionPrompts)
+        {
+            Assert.Contains("REALISTIC_ESTIMATE_TIME (STRICT)", prompt.SystemPrompt);
+            Assert.Contains("DB integer minutes", prompt.SystemPrompt);
+            Assert.Contains("distance_km * 2", prompt.SystemPrompt);
+            Assert.Contains("multiple victims", prompt.SystemPrompt);
+            Assert.DoesNotContain("distance_km * 5", prompt.SystemPrompt);
         }
 
-        Assert.Contains("5-15 minutes for collect/deliver/return", depot.SystemPrompt);
-        Assert.Contains("15-35 minutes for rescue/medical/evacuate", depot.SystemPrompt);
-        Assert.Contains("15-35 minutes for rescue/medical/evacuate", team.SystemPrompt);
+        var hardCodedExamples = new[]
+        {
+            @"""estimated_time"": ""30 phút""",
+            @"""estimated_time"": ""45 phút""",
+            @"""estimated_time"": ""1 giờ""",
+            @"""estimated_time"": ""2 giờ"""
+        };
+
+        foreach (var hardCodedExample in hardCodedExamples)
+        {
+            Assert.DoesNotContain(
+                missionPrompts,
+                prompt => prompt.SystemPrompt?.Contains(hardCodedExample, StringComparison.Ordinal) == true);
+        }
     }
 
     [Fact]

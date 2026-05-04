@@ -1217,7 +1217,7 @@ public class RescueMissionSuggestionServicePreviewTests
                     {
                       "step": 2,
                       "activity_type": "RESCUE",
-                      "description": "Cuu ho nguoi mac ket tai SOS ID 1",
+                      "description": "Cậu hộ người mắc kẹt tại SOS ID 1",
                       "sos_request_id": 1,
                       "depot_id": null,
                       "depot_name": null,

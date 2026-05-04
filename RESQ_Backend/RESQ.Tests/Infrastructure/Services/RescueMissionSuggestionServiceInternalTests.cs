@@ -50,7 +50,7 @@ public class RescueMissionSuggestionServiceInternalTests
             {
               "mission_title": "Mission",
               "warning_level": "medium",
-              "warning_title": "Can xem xet bo sung",
+              "warning_title": "Cần xem xét bổ sung",
               "warning_message": "Co 2 SOS priority cao can coordinator kiem tra lai route.",
               "warning_related_sos_ids": [11, 12],
               "warning_reason": "Cluster co nhieu diem nguy co dang xem xet."
@@ -58,7 +58,7 @@ public class RescueMissionSuggestionServiceInternalTests
             """);
 
         Assert.True(result.NeedsManualReview);
-        Assert.Contains("Can xem xet bo sung", result.SpecialNotes);
+        Assert.Contains("Cần xem xét bổ sung", result.SpecialNotes);
         Assert.Contains("#11", result.SpecialNotes);
         Assert.Contains("#12", result.SpecialNotes);
     }
@@ -71,7 +71,7 @@ public class RescueMissionSuggestionServiceInternalTests
             {
               "mission_title": "Mission",
               "warning_level": "strong",
-              "warning_title": "Mixed route khong an toan",
+              "warning_title": "Mixed route không an toàn",
               "warning_message": "Cluster dang ghep nhanh rescue va relief cho SOS critical.",
               "warning_related_sos_ids": [11, 22],
               "warning_reason": "Can uu tien safe transfer truoc khi tiep te."
@@ -79,7 +79,7 @@ public class RescueMissionSuggestionServiceInternalTests
             """);
 
         Assert.True(result.NeedsManualReview);
-        Assert.Contains("Mixed route khong an toan", result.MixedRescueReliefWarning);
+        Assert.Contains("Mixed route không an toàn", result.MixedRescueReliefWarning);
         Assert.Contains("#11", result.MixedRescueReliefWarning);
         Assert.Contains("#22", result.MixedRescueReliefWarning);
     }

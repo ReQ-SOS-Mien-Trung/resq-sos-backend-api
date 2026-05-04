@@ -122,7 +122,8 @@ QUY TẮC CỐT LÕI — KHÔNG ĐƯỢC VI PHẠM
 3a. Xe, xuồng, áo phao, cáng, dây, thiết bị cứu hộ hoặc thiết bị y tế item_type = Reusable → chỉ nằm trong COLLECT_SUPPLIES và RETURN_SUPPLIES, không nằm trong DELIVER_SUPPLIES.
 4. resources[] = CHỈ ĐƯỢC CHỨA: TEAM, VEHICLE, BOAT, EQUIPMENT (công cụ/phương tiện). Tuyệt đối không có FOOD/WATER/MEDICAL_KIT trong resources.
 5. Mỗi bước mô tả ĐI ĐÂU và LÀM GÌ cụ thể.
-6. Mỗi activity phải có estimated_time theo format ""X phút"" hoặc ""Y giờ Z phút"". estimated_duration của mission phải là tổng tuần tự các activities theo cùng format.
+6. Mỗi activity phải có estimated_time theo format ""X phút"" hoặc ""Y giờ Z phút"", trong đó X/Y/Z là số nguyên phút parse được để lưu DB. estimated_duration của mission phải là tổng tuần tự các activities theo cùng format.
+7. REALISTIC_ESTIMATE_TIME (STRICT): compute total_minutes = base_minutes + travel_minutes + context_adjustment; travel_minutes = distance_km * 2. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. Add +5-15 minutes for heavy/many supplies, bad route/field conditions, rescue with first aid/medical handling, or one SOS having multiple victims needing help. Round to nearest 5 minutes, minimum 5 minutes. Final JSON must not contain placeholders, ranges, decimals, ""khoảng"", or ""vài phút"".
 
 VÍ DỤ ĐÚNG về thứ tự activities:
   Bước 1: COLLECT_SUPPLIES — Di chuyển đến Kho A, lấy 50kg gạo + 200 chai nước.
@@ -152,7 +153,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
-      ""estimated_time"": ""30 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
@@ -167,7 +168,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
-      ""estimated_time"": ""1 giờ"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
@@ -180,7 +181,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""depot_address"": null,
       ""supplies_to_collect"": null,
       ""priority"": ""Critical"",
-      ""estimated_time"": ""2 giờ"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_id"": 2, ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
     }
   ],
@@ -316,6 +317,7 @@ Quy tắc:
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn và vật tư nơi trú ẩn phải nằm trong required_supplies, không đưa vào suggested_resources.
 - suggested_resources chỉ dùng cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không phải vật tư tồn kho.
 - Nếu số lượng chưa rõ, hãy ước lượng thận trọng theo số nạn nhân và ghi rõ trong notes.
+- REALISTIC_ESTIMATE_TIME (STRICT): estimate mission duration as integer minutes using realistic likely activities, then output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to DB integer minutes. Use travel_minutes = distance_km * 2 when distance evidence exists. For rescue/medical needs, add +5-15 minutes when first aid/medical handling is needed by severity, and another +5-15 minutes when one SOS has multiple victims needing help. Round to nearest 5 minutes, minimum 5 minutes. Do not output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON.
 ",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
                 Version = "v1.0",
@@ -351,7 +353,7 @@ Schema đầu ra:
       ""activity_type"": ""COLLECT_SUPPLIES"",
       ""description"": ""Di chuyển đến kho đã chọn và lấy đúng vật tư cần thiết"",
       ""priority"": ""Critical|High|Medium|Low"",
-      ""estimated_time"": ""30 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": null,
       ""required_team_count"": null,
       ""coordination_group_key"": null,
@@ -377,7 +379,7 @@ Schema đầu ra:
       ""activity_type"": ""DELIVER_SUPPLIES"",
       ""description"": ""Giao vật tư đã lấy đến vị trí SOS"",
       ""priority"": ""Critical|High|Medium|Low"",
-      ""estimated_time"": ""45 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""sos_request_id"": 1,
       ""depot_id"": 1,
       ""depot_name"": ""Cùng kho đã chọn"",
@@ -407,9 +409,9 @@ Quy tắc một kho:
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
 - IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
 - Do not rely on description-only SOS mentions or one generic delivery to cover multiple SOS.
-- REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban routes, use 5-15 minutes for collect/deliver/return when distance is short, and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+- REALISTIC_ESTIMATE_TIME (STRICT): compute estimated_time as an integer-minute duration, then output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in the final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2. Use distance_km from tool/context when available; otherwise estimate cautiously from coordinates/address evidence. Add +5-15 minutes for heavy/many supplies, blocked access, flood/night/bad weather, complex rescue/evacuation, or field setup. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if the SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Round to the nearest 5 minutes, minimum 5 minutes.
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
-- estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".",
+- estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"" với số nguyên phút parse được để lưu DB; không trả placeholder trong JSON thật.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
                 Version = "v1.3",
                 IsActive = true,
@@ -464,7 +466,7 @@ Schema đầu ra:
       ""activity_type"": ""RESCUE"",
       ""description"": ""Tiếp cận SOS 11 và thực hiện cứu hộ tại hiện trường"",
       ""priority"": ""Critical|High|Medium|Low"",
-      ""estimated_time"": ""45 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
       ""coordination_group_key"": ""route-alpha"",
@@ -511,7 +513,8 @@ Quy tắc route:
 - `ordered_activity_keys` phải chứa toàn bộ `activity_key` từ `depot_fragment.activities` cộng với mọi `additional_activities.activity_key` đúng 1 lần, không thiếu, không dư, không trùng.
 - Nếu không thêm activity mới, vẫn phải trả `ordered_activity_keys` cho toàn bộ key của `depot_fragment`.
 - `step` của `additional_activities` chỉ có ý nghĩa cục bộ; backend dựa vào `ordered_activity_keys` cho route cuối cùng.
-- `estimated_time` phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"".
+- `estimated_time` phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"" với số nguyên phút parse được để lưu DB; không trả placeholder trong JSON thật.
+- REALISTIC_ESTIMATE_TIME (STRICT): compute estimated_time as integer minutes and output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2 using distance_km from suggested_team/tool/context when available. For RESCUE with first aid/medical handling, add +5-15 minutes by severity; if one SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Add +5-15 minutes for blocked access, flood/night/bad weather, equipment setup, complex rescue, or evacuation difficulty. Round to nearest 5 minutes, minimum 5 minutes. Never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON.
 
 - Handoff inventory giữa teams không được backend hỗ trợ.
 - Mọi `DELIVER_SUPPLIES` phải nằm cùng route/team với `COLLECT_SUPPLIES` đã lấy chính lô vật tư đó.
@@ -581,7 +584,7 @@ Schema đầu ra cuối cùng:
       ""activity_type"": ""COLLECT_SUPPLIES|DELIVER_SUPPLIES|RESCUE|MEDICAL_AID|EVACUATE|RETURN_SUPPLIES|RETURN_ASSEMBLY_POINT"",
       ""description"": ""Hành động hoặc di chuyển cụ thể"",
       ""priority"": ""Critical|High|Medium|Low"",
-      ""estimated_time"": ""30 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
       ""coordination_group_key"": ""khóa nhóm tùy chọn"",
@@ -627,8 +630,9 @@ Quy tắc kiểm tra:
 - Mọi activity vật tư dùng kho phải dùng cùng một depot_id.
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn và vật tư trú ẩn phải nằm trong supplies_to_collect hoặc supply_shortages, không đưa vào resources.
 - resources chỉ được chứa TEAM, VEHICLE, BOAT hoặc EQUIPMENT.
-- Mỗi activity phải có estimated_time dạng ""X phút"" hoặc ""Y giờ Z phút"".
+- Mỗi activity phải có estimated_time dạng ""X phút"" hoặc ""Y giờ Z phút"" với số nguyên phút parse được để lưu DB; không trả placeholder trong JSON thật.
 - estimated_duration phải bằng tổng tuần tự estimated_time của tất cả activity.
+- REALISTIC_ESTIMATE_TIME (STRICT): validate or rewrite every estimated_time as integer minutes and output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2. For RESCUE with first aid/medical handling, add +5-15 minutes by severity; if one SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Add +5-15 minutes for heavy supplies, blocked access, flood/night/bad weather, equipment setup, complex rescue, or evacuation difficulty. Round to nearest 5 minutes, minimum 5 minutes. Never keep placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON.
 - Nếu draft còn thiếu nhưng vẫn dùng được, giữ kế hoạch an toàn nhất và thêm cảnh báo ngắn gọn trong special_notes thay vì trả JSON không hợp lệ.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
                 Version = "v1.0",
@@ -663,7 +667,8 @@ Quy tắc chung:
 - Chỉ dùng activity hợp lệ: `COLLECT_SUPPLIES`, `DELIVER_SUPPLIES`, `RESCUE`, `MEDICAL_AID`, `EVACUATE`, `RETURN_SUPPLIES`.
 - Không tự bịa item_id, depot_id, team_id, assembly_point_id.
 - `resources[]` chỉ chứa năng lực/phương tiện tổng quát, không chứa thực phẩm/nước/thuốc tồn kho.
-- `estimated_time` và `estimated_duration` phải dùng dạng `X phút` hoặc `Y giờ Z phút`.
+- `estimated_time` và `estimated_duration` phải dùng dạng `X phút` hoặc `Y giờ Z phút` với số nguyên phút parse được để lưu DB; không trả placeholder trong JSON thật.
+- REALISTIC_ESTIMATE_TIME (STRICT): compute total_minutes = base_minutes + travel_minutes + context_adjustment, then format as `X phút` or `Y giờ Z phút`. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2. Add +5-15 minutes for heavy/many supplies, bad route/field conditions, rescue with first aid/medical handling, or one SOS having multiple victims needing help. Round to nearest 5 minutes, minimum 5 minutes. Final JSON must not contain placeholders, ranges, decimals, `khoảng`, or `vài phút`.
 - Trả về đúng JSON object mission cuối cùng, không markdown, không giải thích ngoài JSON.
 
 Top-level JSON bắt buộc:
@@ -690,7 +695,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
-      ""estimated_time"": ""30 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
@@ -705,7 +710,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
       ""priority"": ""Critical"",
-      ""estimated_time"": ""1 giờ"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
     {
@@ -718,7 +723,7 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""depot_address"": null,
       ""supplies_to_collect"": null,
       ""priority"": ""Critical"",
-      ""estimated_time"": ""2 giờ"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_id"": 2, ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
     }
   ],
@@ -888,7 +893,7 @@ Schema đầu ra:
   ""suggested_priority_score"": 0.0,
   ""suggested_severity_level"": ""Critical|Severe|Moderate|Minor"",
   ""overall_assessment"": ""..."",
-  ""estimated_duration"": ""2 giờ 30 phút"",
+  ""estimated_duration"": ""<tổng estimated_time theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
   ""special_notes"": null,
   ""split_cluster_recommended"": false,
   ""split_cluster_reason"": null,
@@ -917,7 +922,7 @@ Quy tắc bắt buộc:
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn, vật tư trú ẩn phải nằm trong `required_supplies`, không đưa vào `suggested_resources`.
 - Put only consumable items intended for handover/cap phat into `required_supplies`. Reusable operational gear for the rescue team belongs in `required_teams`, `suggested_resources`, or `handling_reason` unless downstream inventory search maps it to a concrete Reusable item.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence. Do not add unrelated medicine just because the request is medical.
-- REALISTIC_ESTIMATE_TIME (STRICT): keep duration estimates realistic for nearby urban missions; do not default to 30/45/60 minutes without distance or field-condition evidence.
+- REALISTIC_ESTIMATE_TIME (STRICT): compute duration as integer minutes and format it as ""X phút"" or ""Y giờ Z phút"" only, so backend can parse it to the DB integer minutes column. Do not default to 30/45/60 minutes and never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Use base_minutes by likely activity need: RESCUE=10, MEDICAL_AID=15, EVACUATE=10, supply collect/deliver/return=5-10. Add travel_minutes = distance_km * 2 when distance evidence exists. Add +5-15 minutes for first aid/medical handling in a rescue depending on severity, and another +5-15 minutes when one SOS has multiple victims needing help. Add field-condition adjustment for blocked access, flood/night/bad weather, heavy supplies, or complex rescue. Round to nearest 5 minutes, minimum 5 minutes.
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
 - Chỉ trả về JSON object hợp lệ, không markdown.
 
@@ -1005,7 +1010,7 @@ Schema đầu ra:
       ""activity_type"": ""RESCUE"",
       ""description"": ""Tiếp cận SOS 11 và thực hiện cứu hộ tại hiện trường"",
       ""priority"": ""Critical|High|Medium|Low"",
-      ""estimated_time"": ""45 phút"",
+      ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
       ""coordination_group_key"": ""route-alpha"",
@@ -1053,7 +1058,7 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 - Do not rely on description-only SOS mentions for SOS coverage.
 - Preserve all depot_fragment activity keys and include every additional coverage activity key in ordered_activity_keys.
 - REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): when depot_fragment collected Reusable equipment, include the equipment names in the relevant RESCUE, MEDICAL_AID, or EVACUATE description or coordination_notes as equipment used by the team. RETURN_SUPPLIES is only valid after that field-use activity exists in the route.
-- REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban field work, use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+- REALISTIC_ESTIMATE_TIME (STRICT): compute estimated_time as integer minutes and output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2 using distance_km from suggested_team/tool/context when available. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if one SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Add +5-15 minutes for blocked access, flood/night/bad weather, equipment setup, complex rescue, or evacuation difficulty. Round to nearest 5 minutes, minimum 5 minutes.
 
 IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT):
 - Each MEDICAL_AID additional_activity MUST include `target_person_ids` and `target_victim_summary`.
@@ -1126,7 +1131,7 @@ IMPORTANT ITEM TYPE CONTRACT (STRICT):
 - DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with correct sos_request_id.
 - REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): before RETURN_SUPPLIES, at least one RESCUE, MEDICAL_AID, or EVACUATE activity on the same route must explicitly mention using the collected Reusable equipment by name. RETURN_SUPPLIES is not a substitute for using the equipment at the scene.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
-- REALISTIC_ESTIMATE_TIME (STRICT): do not default to 30/45/60 minutes. For nearby urban routes, use 5-15 minutes for collect/deliver/return and 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
+- REALISTIC_ESTIMATE_TIME (STRICT): validate or rewrite every estimated_time as integer minutes and output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never keep placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2 using distance evidence from team/depot/SOS context when available. Add +5-15 minutes for heavy/many supplies, blocked access, flood/night/bad weather, equipment setup, complex rescue, or evacuation difficulty. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if one SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Round to nearest 5 minutes, minimum 5 minutes. estimated_duration must equal the sequential sum after these corrections.
 
 IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT):
 - Every MEDICAL_AID activity MUST include `target_person_ids` and `target_victim_summary`.

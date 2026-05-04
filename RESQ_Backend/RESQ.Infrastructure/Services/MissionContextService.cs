@@ -498,8 +498,8 @@ public class MissionContextService(
             "lacking",
             "partially lacking",
             "partially_lacking",
-            "khong du",
-            "thieu");
+            "không đủ",
+            "thiếu");
     }
 
     private static bool MentionsColdExposure(string value)
@@ -507,13 +507,13 @@ public class MissionContextService(
         var normalized = NormalizeSupplyText(value);
         return ContainsAny(
             normalized,
-            "mat nhiet",
-            "ha than nhiet",
+            "mất nhiệt",
+            "hạ thân nhiệt",
             "hypothermia",
-            "lanh",
-            "giu am",
-            "chan",
-            "men");
+            "lạnh",
+            "giữ ấm",
+            "chân",
+            "màn");
     }
 
     private static bool MentionsFractureOrImmobilization(string value)
@@ -522,9 +522,9 @@ public class MissionContextService(
         return ContainsAny(
             normalized,
             "fracture",
-            "gay xuong",
-            "nep",
-            "cang",
+            "gãy xương",
+            "nẻp",
+            "cáng",
             "immobilize",
             "immobilization");
     }
@@ -655,12 +655,12 @@ public class MissionContextService(
             ["FOOD"]             = ["food", "gao", "mi", "luong thuc", "thuc pham", "banh", "do an"],
             ["WATER"]            = ["water", "nuoc"],
             ["MEDICINE"]         = ["medicine", "thuoc", "y te", "medical", "bang", "bong", "so cuu"],
-            ["RESCUE_EQUIPMENT"] = ["rescue", "cuu ho", "day", "phao", "xuong", "thuyen", "boat", "cano", "canoe", "ca no", "cang", "ao phao"],
+            ["RESCUE_EQUIPMENT"] = ["rescue", "cuu ho", "day", "phao", "xuong", "thuyen", "boat", "cano", "canoe", "ca no", "cáng", "ao phao"],
             ["HYGIENE"]          = ["hygiene", "ve sinh", "xa phong", "khan", "giay ve sinh"],
             ["SHELTER"]          = ["shelter", "leu", "bat", "tam che"],
-            ["BLANKET"]          = ["blanket", "chan", "men", "giu am", "suoi", "giu nhiet", "chan man"],
+            ["BLANKET"]          = ["blanket", "chân", "màn", "giữ ấm", "suoi", "giữ nhiệt", "chăn"],
             ["CLOTHES"]          = ["clothes", "clothing", "quan ao", "ao", "quan", "ao am", "bo quan ao"],
-            ["CLOTHING"]         = ["clothing", "quan ao", "ao", "chan", "men", "giu am"],
+            ["CLOTHING"]         = ["clothing", "quan ao", "ao", "chân", "màn", "giữ ấm"],
             ["TRANSPORTATION"]   = ["transportation", "transport", "vehicle", "xe", "phuong tien", "boat", "cano", "canoe", "ca no", "xuong", "thuyen", "ambulance", "truck"],
         };
 
@@ -702,8 +702,8 @@ public class MissionContextService(
             "co lap",
             "mac ket",
             "chia cat",
-            "khong the tiep can",
-            "khong tiep can",
+            "không thể tiếp cận",
+            "không tiếp cận",
             "trapped",
             "isolated",
             "stranded",
@@ -729,7 +729,7 @@ public class MissionContextService(
             "cuu ho",
             "phao",
             "day",
-            "cang",
+            "cáng",
             "ao phao",
             "rescue equipment");
 

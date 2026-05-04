@@ -86,7 +86,7 @@ namespace RESQ.Presentation.Controllers.System
             return Ok(result);
         }
 
-        /// <summary>Cap nhat draft prompt AI (chi gui truong can thay doi).</summary>
+        /// <summary>Cạp nhạt draft prompt AI (chỉ guỉ truừơng càn tháy đỏi).</summary>
         [HttpPut("drafts/{id:int}")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdatePromptRequestDto dto)

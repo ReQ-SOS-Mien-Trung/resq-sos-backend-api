@@ -62,13 +62,13 @@ public class MissionContextServiceTests
             {
                 Id = 362,
                 SosType = "RESCUE",
-                RawMessage = "[CUU HO] Tinh trang: Mac ket. Bi thuong: gay xuong. Ba gia Chu dang bi mat nhiet.",
+                RawMessage = "[CUU HO] Tinh trang: Mac ket. Bi thuong: gãy xuương. Ba gia Chu dang bi mất nhiệt.",
                 StructuredData =
                     """
                     {
                       "group_needs": null,
                       "incident": {
-                        "additional_description": "Ba gia Chu dang bi mat nhiet. Can cuu gap!",
+                        "additional_description": "Ba gia Chu dang bi mất nhiệt. Can cuu gap!",
                         "need_medical": true,
                         "has_injured": true,
                         "situation": "TRAPPED"

@@ -9,7 +9,7 @@ public class ConfirmDeliverySuppliesResponse
     public string Status { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 
-    /// <summary>ID cua RETURN_SUPPLIES activity duoc tao/cap nhat neu con hang can tra, null neu khong co.</summary>
+    /// <summary>ID của RETURN_SUPPLIES activity được tạo/cập nhật nếu còn hàng cần trả, null nếu không có.</summary>
     public int? SurplusReturnActivityId { get; set; }
 
     /// <summary>Chi tiet so luong ke hoach va thuc te cua tung loai vat pham.</summary>
