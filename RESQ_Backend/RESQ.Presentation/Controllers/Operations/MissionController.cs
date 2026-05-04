@@ -162,6 +162,8 @@ public class MissionController(IMediator mediator) : ControllerBase
                 activity.TargetLatitude,
                 activity.TargetLongitude,
                 activity.Items,
+                activity.TargetVictimSummary,
+                activity.TargetVictims,
                 activity.AssemblyPointId))
             .ToList()
         );

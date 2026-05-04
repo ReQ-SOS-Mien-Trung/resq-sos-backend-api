@@ -98,10 +98,15 @@ public class MissionPendingActivityUpdateService(
             if (projectedActivity.SosRequestId.HasValue
                 && victimContexts.TryGetValue(projectedActivity.SosRequestId.Value, out var victimContext))
             {
+                var targetVictimSummary =
+                    NormalizeOptionalText(patch.TargetVictimSummary)
+                    ?? MissionActivityVictimContextHelper.ExtractSummaryFromDescription(projectedActivity.Description)
+                    ?? victimContext.Summary;
+
                 projectedActivity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
                     projectedActivity.ActivityType,
                     projectedActivity.Description,
-                    victimContext.Summary);
+                    targetVictimSummary);
             }
 
             plans.Add(new ActivityUpdatePlan(activity, projectedActivity, patch, currentItems, nextItems, shouldReplaceItems));
@@ -291,6 +296,15 @@ public class MissionPendingActivityUpdateService(
     {
         return string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase)
             && activity.Status == MissionActivityStatus.OnGoing;
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return trimmed.Length == 0 ? null : trimmed;
     }
 
     private static bool IsSameStep(MissionActivityModel activity, UpdateMissionActivityPatch patch) =>

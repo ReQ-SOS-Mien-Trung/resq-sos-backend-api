@@ -102,10 +102,13 @@ public class AddMissionActivityCommandHandler(
         }
 
         var victimContext = await LoadVictimContextAsync(request.SosRequestId, cancellationToken);
+        var targetVictimSummary =
+            MissionActivityVictimContextHelper.ExtractSummaryFromDescription(request.Description)
+            ?? victimContext?.Summary;
         var enrichedDescription = MissionActivityVictimContextHelper.ApplySummaryToDescription(
             request.ActivityType,
             request.Description,
-            victimContext?.Summary);
+            targetVictimSummary);
 
         var activity = new MissionActivityModel
         {
@@ -267,4 +270,3 @@ public class AddMissionActivityCommandHandler(
         return victimContexts.GetValueOrDefault(sosRequestId.Value);
     }
 }
-

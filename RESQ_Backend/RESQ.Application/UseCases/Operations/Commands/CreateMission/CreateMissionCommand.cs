@@ -1,4 +1,5 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.UseCases.Operations.Commands.CreateMission;
 
@@ -31,6 +32,8 @@ public class CreateActivityItemDto
     public string? Target { get; set; }
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
+    public string? TargetVictimSummary { get; set; }
+    public List<MissionActivityTargetVictimDto>? TargetVictims { get; set; }
     /// <summary>Rescue team ID from AI suggestion (suggestedTeam.id)</summary>
     public int? RescueTeamId { get; set; }
 }

@@ -360,6 +360,8 @@ public class CreateMissionCommandHandler(
         Target = activity.Target,
         TargetLatitude = activity.TargetLatitude,
         TargetLongitude = activity.TargetLongitude,
+        TargetVictimSummary = NormalizeOptionalText(activity.TargetVictimSummary),
+        TargetVictims = MissionActivityVictimContextHelper.CloneVictims(activity.TargetVictims),
         RescueTeamId = activity.RescueTeamId
     };
 
@@ -383,10 +385,23 @@ public class CreateMissionCommandHandler(
                 continue;
             }
 
+            var targetVictimSummary =
+                NormalizeOptionalText(activity.TargetVictimSummary)
+                ?? MissionActivityVictimContextHelper.ExtractSummaryFromDescription(activity.Description)
+                ?? victimContext.Summary;
+
+            activity.TargetVictimSummary = targetVictimSummary;
+            if (activity.TargetVictims is not { Count: > 0 })
+            {
+                activity.TargetVictims = MissionActivityVictimContextHelper.SelectVictimsForSummary(
+                    victimContext,
+                    targetVictimSummary);
+            }
+
             activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
                 activity.ActivityType,
                 activity.Description,
-                victimContext.Summary);
+                targetVictimSummary);
         }
     }
 
@@ -1006,6 +1021,15 @@ public class CreateMissionCommandHandler(
     private static bool IsReturnAssemblyPointActivity(CreateActivityItemDto activity) =>
         string.Equals(activity.ActivityType, ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase);
 
+    private static string? NormalizeOptionalText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return trimmed.Length == 0 ? null : trimmed;
+    }
+
     private static bool IsReusableItem(
         int itemId,
         IReadOnlyDictionary<int, RESQ.Domain.Entities.Logistics.ItemModelRecord> itemLookup) =>
@@ -1055,5 +1079,3 @@ public class CreateMissionCommandHandler(
         return string.Join(", ", ids);
     }
 }
-
-

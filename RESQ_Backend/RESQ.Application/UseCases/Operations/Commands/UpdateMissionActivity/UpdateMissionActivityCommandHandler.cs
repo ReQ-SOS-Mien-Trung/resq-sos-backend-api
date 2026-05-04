@@ -141,10 +141,13 @@ public class UpdateMissionActivityCommandHandler(
         }
 
         var victimContext = await LoadVictimContextAsync(activity.SosRequestId, cancellationToken);
+        var targetVictimSummary =
+            MissionActivityVictimContextHelper.ExtractSummaryFromDescription(activity.Description)
+            ?? victimContext?.Summary;
         activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
             activity.ActivityType,
             activity.Description,
-            victimContext?.Summary);
+            targetVictimSummary);
 
         await _activityRepository.UpdateAsync(activity, cancellationToken);
         await _unitOfWork.SaveAsync();

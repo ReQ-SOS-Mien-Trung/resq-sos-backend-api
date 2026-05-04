@@ -250,12 +250,18 @@ internal static class MissionActivityDtoHelper
                 continue;
             }
 
-            activity.TargetVictimSummary = victimContext.Summary;
-            activity.TargetVictims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims);
+            var targetVictimSummary =
+                MissionActivityVictimContextHelper.ExtractSummaryFromDescription(activity.Description)
+                ?? victimContext.Summary;
+
+            activity.TargetVictimSummary = targetVictimSummary;
+            activity.TargetVictims = MissionActivityVictimContextHelper.SelectVictimsForSummary(
+                victimContext,
+                targetVictimSummary);
             activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
                 activity.ActivityType,
                 activity.Description,
-                victimContext.Summary);
+                targetVictimSummary);
         }
     }
 }

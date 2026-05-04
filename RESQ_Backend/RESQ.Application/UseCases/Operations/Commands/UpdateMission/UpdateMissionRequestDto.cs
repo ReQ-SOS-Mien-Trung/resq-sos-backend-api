@@ -1,4 +1,5 @@
 using RESQ.Application.Services;
+using RESQ.Application.Common.Models;
 
 namespace RESQ.Application.UseCases.Operations.Commands.UpdateMission;
 
@@ -21,4 +22,6 @@ public class UpdateMissionActivityRequestItemDto
     public double? TargetLatitude { get; set; }
     public double? TargetLongitude { get; set; }
     public List<SupplyToCollectDto>? Items { get; set; }
+    public string? TargetVictimSummary { get; set; }
+    public List<MissionActivityTargetVictimDto>? TargetVictims { get; set; }
 }
