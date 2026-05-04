@@ -83,7 +83,8 @@ public class ReportMissionTeamIncidentCommandHandlerTests
     [Fact]
     public async Task Handle_ContinueMission_ReturnsWithoutFailingActivities()
     {
-        var handler = BuildHandler();
+        var adminRealtimeHubService = new StubAdminRealtimeHubService();
+        var handler = BuildHandler(adminRealtimeHubService: adminRealtimeHubService);
 
         var command = BuildCommand(missionDecision: "continue_mission");
         var result = await handler.Handle(command, CancellationToken.None);
@@ -91,6 +92,14 @@ public class ReportMissionTeamIncidentCommandHandlerTests
         Assert.Equal("continue_mission", result.DecisionCode);
         Assert.Equal("Reported", result.Status);
         Assert.True(result.IncidentId > 0);
+
+        var realtimeUpdate = Assert.Single(adminRealtimeHubService.MissionExecutionProgressUpdates);
+        Assert.Equal("MissionIncidentReported", realtimeUpdate.Action);
+        Assert.Equal(10, realtimeUpdate.MissionId);
+        Assert.Equal(1, realtimeUpdate.MissionTeamId);
+        Assert.Equal(3, realtimeUpdate.RescueTeamId);
+        Assert.Equal(result.IncidentId, realtimeUpdate.IncidentId);
+        Assert.Equal(TeamIncidentScope.Mission.ToString(), realtimeUpdate.IncidentScope);
     }
 
     // ─── HandoverMission resets assignments ───────────────────────
@@ -212,7 +221,8 @@ public class ReportMissionTeamIncidentCommandHandlerTests
         StubMissionTeamRepo? missionTeamRepo = null,
         StubActivityRepo? activityRepo = null,
         StubRescueTeamRepo? rescueTeamRepo = null,
-        RecordingMediator? mediator = null)
+        RecordingMediator? mediator = null,
+        StubAdminRealtimeHubService? adminRealtimeHubService = null)
     {
         return new ReportMissionTeamIncidentCommandHandler(
             missionRepo ?? new StubMissionRepo(new MissionModel { Id = 10, Status = MissionStatus.OnGoing }),
@@ -228,6 +238,7 @@ public class ReportMissionTeamIncidentCommandHandlerTests
             mediator ?? new RecordingMediator(),
             new StubUnitOfWork(),
             new StubSosRequestRealtimeHubService(),
+            adminRealtimeHubService ?? new StubAdminRealtimeHubService(),
             NullLogger<ReportMissionTeamIncidentCommandHandler>.Instance);
     }
 

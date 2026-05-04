@@ -68,17 +68,46 @@ public class UpdateActivityStatusCommandHandler(
 
         if (executionResult is not null)
         {
+            var activityId = executionResult.ActivityId > 0
+                ? executionResult.ActivityId
+                : request.ActivityId;
+            var missionId = executionResult.MissionId ?? request.MissionId;
+
             await adminRealtimeHubService.PushMissionActivityUpdateAsync(
                 new AdminMissionActivityRealtimeUpdate
                 {
-                    EntityId = executionResult.ActivityId,
+                    EntityId = activityId,
                     EntityType = "MissionActivity",
-                    ActivityId = executionResult.ActivityId,
-                    MissionId = executionResult.MissionId,
+                    ActivityId = activityId,
+                    MissionId = missionId,
                     DepotId = executionResult.DepotId,
                     Action = "StatusChanged",
                     Status = executionResult.EffectiveStatus.ToString(),
                     ChangedAt = DateTime.UtcNow
+                },
+                cancellationToken);
+
+            await adminRealtimeHubService.PushMissionExecutionProgressUpdateAsync(
+                new AdminMissionExecutionProgressRealtimeUpdate
+                {
+                    EntityId = activityId,
+                    EntityType = "MissionActivity",
+                    MissionId = missionId,
+                    ActivityId = activityId,
+                    MissionTeamId = executionResult.MissionTeamId,
+                    RescueTeamId = executionResult.RescueTeamId,
+                    DepotId = executionResult.DepotId,
+                    Step = executionResult.Step,
+                    ActivityType = executionResult.ActivityType,
+                    Action = "ActivityStatusChanged",
+                    Status = executionResult.EffectiveStatus.ToString(),
+                    PreviousStatus = executionResult.PreviousStatus?.ToString(),
+                    RequestedStatus = request.Status.ToString(),
+                    EffectiveStatus = executionResult.EffectiveStatus.ToString(),
+                    ImageUrl = executionResult.ImageUrl,
+                    ChangedBy = request.DecisionBy,
+                    ChangedAt = DateTime.UtcNow,
+                    RequeryRecommended = true
                 },
                 cancellationToken);
         }

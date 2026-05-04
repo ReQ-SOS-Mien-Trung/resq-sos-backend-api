@@ -110,7 +110,10 @@ public class ReportMissionActivityIncidentCommandHandlerTests
     public async Task Handle_CannotContinueActivity_FailsActivities()
     {
         var activity = BuildActivity();
-        var handler = BuildHandler(activityRepo: new StubActivityRepo([activity]));
+        var adminRealtimeHubService = new StubAdminRealtimeHubService();
+        var handler = BuildHandler(
+            activityRepo: new StubActivityRepo([activity]),
+            adminRealtimeHubService: adminRealtimeHubService);
 
         var payload = BuildPayload(canContinue: false, needReassign: false);
         var command = new ReportMissionActivityIncidentCommand(10, 1, payload, ReporterId);
@@ -119,6 +122,15 @@ public class ReportMissionActivityIncidentCommandHandlerTests
 
         Assert.Equal("cannot_continue_activity", result.DecisionCode);
         Assert.Equal("Reported", result.Status);
+
+        var realtimeUpdate = Assert.Single(adminRealtimeHubService.MissionExecutionProgressUpdates);
+        Assert.Equal("ActivityIncidentReported", realtimeUpdate.Action);
+        Assert.Equal(10, realtimeUpdate.MissionId);
+        Assert.Equal(1, realtimeUpdate.MissionTeamId);
+        Assert.Equal(3, realtimeUpdate.RescueTeamId);
+        Assert.Equal(100, realtimeUpdate.ActivityId);
+        Assert.Equal(result.IncidentId, realtimeUpdate.IncidentId);
+        Assert.Equal(TeamIncidentScope.Activity.ToString(), realtimeUpdate.IncidentScope);
     }
 
     // ─── ReassignActivity → resets to Planned ─────────────────────
@@ -224,7 +236,8 @@ public class ReportMissionActivityIncidentCommandHandlerTests
         StubMissionRepo? missionRepo = null,
         StubMissionTeamRepo? missionTeamRepo = null,
         StubActivityRepo? activityRepo = null,
-        RecordingMediator? mediator = null)
+        RecordingMediator? mediator = null,
+        StubAdminRealtimeHubService? adminRealtimeHubService = null)
     {
         return new ReportMissionActivityIncidentCommandHandler(
             missionRepo ?? new StubMissionRepo(new MissionModel { Id = 10, Status = MissionStatus.OnGoing }),
@@ -239,6 +252,7 @@ public class ReportMissionActivityIncidentCommandHandlerTests
             mediator ?? new RecordingMediator(),
             new StubUnitOfWork(),
             new StubSosRequestRealtimeHubService(),
+            adminRealtimeHubService ?? new StubAdminRealtimeHubService(),
             NullLogger<ReportMissionActivityIncidentCommandHandler>.Instance);
     }
 

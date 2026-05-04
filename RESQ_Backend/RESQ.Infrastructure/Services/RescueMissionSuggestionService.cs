@@ -309,6 +309,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
         foreach (var sos in sosRequests)
         {
+            AddTargetVictimMilkNeeds(needs, sos);
+
             if (string.IsNullOrWhiteSpace(sos.StructuredData))
                 continue;
 
@@ -421,6 +423,47 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         return needs;
     }
 
+    private static void AddTargetVictimMilkNeeds(
+        ICollection<MandatoryStructuredSupplyNeed> needs,
+        SosRequestSummary sos)
+    {
+        var victimLabels = sos.TargetVictims
+            .Where(TargetVictimNeedsMilk)
+            .Select(ResolveTargetVictimMilkNeedLabel)
+            .Where(label => !string.IsNullOrWhiteSpace(label))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (victimLabels.Count == 0)
+            return;
+
+        AddMilkMandatoryNeed(
+            needs,
+            sos.Id,
+            victimLabels.Count,
+            $"Nhu cầu sữa từ targetVictims/specialDietDescription của nạn nhân {string.Join(", ", victimLabels)}.");
+    }
+
+    private static bool TargetVictimNeedsMilk(MissionActivityTargetVictimDto victim)
+    {
+        if (IsPositiveMilkNeedDescription(victim.SpecialDietDescription))
+            return true;
+
+        return victim.MedicalIssues.Any(issue =>
+            string.Equals(issue, "INFANT_NEEDS_MILK", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveTargetVictimMilkNeedLabel(MissionActivityTargetVictimDto victim)
+    {
+        if (!string.IsNullOrWhiteSpace(victim.DisplayName))
+            return victim.DisplayName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(victim.PersonId))
+            return victim.PersonId.Trim();
+
+        return victim.Index.HasValue ? $"#{victim.Index.Value}" : "không rõ tên";
+    }
+
     private static void AddStructuredMilkNeeds(
         ICollection<MandatoryStructuredSupplyNeed> needs,
         int sosRequestId,
@@ -436,12 +479,21 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             ? $"Nhu cầu sữa từ personal_needs.diet của nạn nhân {string.Join(", ", victimLabels)}."
             : "Nhu cầu MILK từ structuredData.";
 
+        AddMilkMandatoryNeed(needs, sosRequestId, quantity, note);
+    }
+
+    private static void AddMilkMandatoryNeed(
+        ICollection<MandatoryStructuredSupplyNeed> needs,
+        int sosRequestId,
+        int quantity,
+        string note)
+    {
         AddMandatoryNeed(
             needs,
             sosRequestId,
             "MILK",
             "Sữa bột trẻ em",
-            quantity,
+            Math.Max(quantity, 1),
             "gói",
             "Food",
             note,

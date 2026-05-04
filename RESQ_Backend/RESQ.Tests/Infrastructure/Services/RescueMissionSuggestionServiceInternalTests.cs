@@ -640,6 +640,58 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void AugmentRequirementsFromStructuredData_AddsMilkFromTargetVictimSpecialDiet()
+    {
+        var requirements = new MissionRequirementsFragment
+        {
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 25,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 25,
+                StructuredData = """{"incident":{"people_count":{"adult":1,"child":1,"elderly":0}}}""",
+                TargetVictims =
+                [
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "adult_1",
+                        DisplayName = "Khoa",
+                        SpecialDietDescription = "Di ung thit"
+                    },
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "child_1",
+                        DisplayName = "Thao",
+                        SpecialDietDescription = "can sua"
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "AugmentRequirementsFromStructuredData",
+            requirements,
+            sosRequests);
+
+        var milk = Assert.Single(
+            Assert.Single(requirements.SosRequirements).RequiredSupplies,
+            supply => supply.ItemName == "Sữa bột trẻ em");
+        Assert.Equal(1, milk.Quantity);
+        Assert.Contains("Thao", milk.Notes);
+    }
+
+    [Fact]
     public void BackfillItemIds_CanonicalizesGenericSupplyNameToInventoryName()
     {
         var activities = new List<SuggestedActivityDto>

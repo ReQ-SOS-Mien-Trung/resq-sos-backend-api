@@ -86,6 +86,33 @@ public sealed class AdminMissionActivityRealtimeUpdate : AdminRealtimeUpdateBase
     public int? DepotId { get; set; }
 }
 
+public sealed class AdminMissionExecutionProgressRealtimeUpdate : AdminRealtimeUpdateBase
+{
+    public Guid EventId { get; set; } = Guid.NewGuid();
+    public int MissionId { get; set; }
+    public int? ActivityId { get; set; }
+    public int? MissionTeamId { get; set; }
+    public int? RescueTeamId { get; set; }
+    public int? DepotId { get; set; }
+    public int? Step { get; set; }
+    public string? ActivityType { get; set; }
+    public string? PreviousStatus { get; set; }
+    public string? RequestedStatus { get; set; }
+    public string? EffectiveStatus { get; set; }
+    public string? ImageUrl { get; set; }
+    public Guid? ChangedBy { get; set; }
+    public Guid? ClientMutationId { get; set; }
+    public string? SyncOutcome { get; set; }
+    public int? IncidentId { get; set; }
+    public string? IncidentScope { get; set; }
+    public List<IncidentAffectedActivityDto> AffectedActivities { get; set; } = [];
+    public string? Note { get; set; }
+    public DateTime? SafetyLatestCheckInAt { get; set; }
+    public DateTime? SafetyTimeoutAt { get; set; }
+    public string? SafetyStatus { get; set; }
+    public bool RequeryRecommended { get; set; } = true;
+}
+
 public sealed class AdminRescueTeamRealtimeUpdate : AdminRealtimeUpdateBase
 {
     public int? TeamId { get; set; }

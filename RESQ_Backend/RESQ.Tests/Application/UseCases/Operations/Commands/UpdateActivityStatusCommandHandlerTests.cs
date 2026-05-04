@@ -20,7 +20,16 @@ public class UpdateActivityStatusCommandHandlerTests
             {
                 EffectiveStatus = MissionActivityStatus.PendingConfirmation,
                 CurrentServerStatus = MissionActivityStatus.PendingConfirmation,
+                PreviousStatus = MissionActivityStatus.OnGoing,
+                RequestedStatus = MissionActivityStatus.Succeed,
                 ImageUrl = imageUrl,
+                ActivityId = 34,
+                MissionId = 12,
+                MissionTeamId = 56,
+                RescueTeamId = 78,
+                DepotId = 90,
+                Step = 2,
+                ActivityType = "DELIVER_SUPPLIES",
                 ConsumedItems =
                 [
                     new SupplyExecutionItemDto
@@ -34,10 +43,11 @@ public class UpdateActivityStatusCommandHandlerTests
             }
         };
         var unitOfWork = new StubUnitOfWork();
+        var adminRealtimeHubService = new StubAdminRealtimeHubService();
         var handler = new UpdateActivityStatusCommandHandler(
             executionService,
             new StubOperationalHubService(),
-            new StubAdminRealtimeHubService(),
+            adminRealtimeHubService,
             unitOfWork,
             NullLogger<UpdateActivityStatusCommandHandler>.Instance);
 
@@ -63,6 +73,17 @@ public class UpdateActivityStatusCommandHandlerTests
         Assert.Equal(imageUrl, response.ImageUrl);
         Assert.Single(response.ConsumedItems);
         Assert.Equal(7, response.ConsumedItems[0].ItemModelId);
+
+        var realtimeUpdate = Assert.Single(adminRealtimeHubService.MissionExecutionProgressUpdates);
+        Assert.Equal("ActivityStatusChanged", realtimeUpdate.Action);
+        Assert.Equal(12, realtimeUpdate.MissionId);
+        Assert.Equal(34, realtimeUpdate.ActivityId);
+        Assert.Equal(56, realtimeUpdate.MissionTeamId);
+        Assert.Equal(78, realtimeUpdate.RescueTeamId);
+        Assert.Equal(MissionActivityStatus.PendingConfirmation.ToString(), realtimeUpdate.Status);
+        Assert.Equal(MissionActivityStatus.OnGoing.ToString(), realtimeUpdate.PreviousStatus);
+        Assert.Equal(MissionActivityStatus.Succeed.ToString(), realtimeUpdate.RequestedStatus);
+        Assert.True(realtimeUpdate.RequeryRecommended);
     }
 
     private sealed class StubMissionActivityStatusExecutionService : IMissionActivityStatusExecutionService

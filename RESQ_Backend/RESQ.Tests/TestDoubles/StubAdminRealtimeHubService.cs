@@ -6,6 +6,8 @@ namespace RESQ.Tests.TestDoubles;
 /// <summary>No-op stub for IAdminRealtimeHubService used in unit tests.</summary>
 internal sealed class StubAdminRealtimeHubService : IAdminRealtimeHubService
 {
+    public List<AdminMissionExecutionProgressRealtimeUpdate> MissionExecutionProgressUpdates { get; } = [];
+
     public Task PushFundingRequestUpdateAsync(AdminFundingRequestRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushCampaignUpdateAsync(AdminCampaignRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushDisbursementUpdateAsync(AdminDisbursementRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -17,6 +19,12 @@ internal sealed class StubAdminRealtimeHubService : IAdminRealtimeHubService
     public Task PushSOSClusterUpdateAsync(AdminSOSClusterRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushMissionUpdateAsync(AdminMissionRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushMissionActivityUpdateAsync(AdminMissionActivityRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task PushMissionExecutionProgressUpdateAsync(AdminMissionExecutionProgressRealtimeUpdate update, CancellationToken cancellationToken = default)
+    {
+        MissionExecutionProgressUpdates.Add(update);
+        return Task.CompletedTask;
+    }
+
     public Task PushRescueTeamUpdateAsync(AdminRescueTeamRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushRescuerScoresUpdateAsync(AdminRescuerScoresRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PushSystemConfigUpdateAsync(AdminSystemConfigRealtimeUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;

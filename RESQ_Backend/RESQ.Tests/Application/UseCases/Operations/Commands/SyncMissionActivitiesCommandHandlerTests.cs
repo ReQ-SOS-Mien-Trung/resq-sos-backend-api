@@ -249,15 +249,84 @@ public class SyncMissionActivitiesCommandHandlerTests
         Assert.Equal(conflictImageUrl, response.Results[1].ImageUrl);
     }
 
+    [Fact]
+    public async Task Handle_PushesRealtimeOnlyForNewlyAppliedItems()
+    {
+        var appliedMutationId = Guid.NewGuid();
+        var replayMutationId = Guid.NewGuid();
+        var replayResult = new MissionActivitySyncResultDto
+        {
+            ClientMutationId = replayMutationId,
+            MissionId = 15,
+            ActivityId = 70,
+            TargetStatus = MissionActivityStatus.Succeed,
+            BaseServerStatus = MissionActivityStatus.OnGoing,
+            Outcome = MissionActivitySyncOutcomes.Applied,
+            EffectiveStatus = MissionActivityStatus.Succeed,
+            CurrentServerStatus = MissionActivityStatus.Succeed
+        };
+
+        var activityRepository = new InMemoryMissionActivityRepository();
+        activityRepository.Upsert(new MissionActivityModel { Id = 70, MissionId = 15, Status = MissionActivityStatus.Succeed, ActivityType = "RESCUE" });
+        activityRepository.Upsert(new MissionActivityModel { Id = 71, MissionId = 15, Status = MissionActivityStatus.OnGoing, ActivityType = "RESCUE", MissionTeamId = 8, Step = 3 });
+
+        var mutationRepository = new InMemoryMissionActivitySyncMutationRepository();
+        mutationRepository.Seed(replayResult, Guid.NewGuid(), new DateTimeOffset(2026, 4, 10, 14, 0, 0, TimeSpan.Zero));
+
+        var executionService = new StubMissionActivityStatusExecutionService(activityRepository)
+        {
+            ResultFactory = item => new MissionActivityStatusExecutionResult
+            {
+                EffectiveStatus = MissionActivityStatus.Succeed,
+                CurrentServerStatus = MissionActivityStatus.Succeed,
+                PreviousStatus = MissionActivityStatus.OnGoing,
+                RequestedStatus = item.requestedStatus,
+                ActivityId = item.activityId,
+                MissionId = item.expectedMissionId,
+                MissionTeamId = 8,
+                RescueTeamId = 9,
+                Step = 3,
+                ActivityType = "RESCUE"
+            }
+        };
+        var adminRealtimeHubService = new StubAdminRealtimeHubService();
+        var handler = BuildHandler(
+            activityRepository,
+            mutationRepository,
+            executionService,
+            new StubUnitOfWork(),
+            adminRealtimeHubService);
+
+        await handler.Handle(
+            new SyncMissionActivitiesCommand(Guid.Parse("aaaaaaaa-3333-3333-3333-333333333333"),
+            [
+                CreateItem(replayMutationId, 15, 70, new DateTimeOffset(2026, 4, 10, 14, 0, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed),
+                CreateItem(appliedMutationId, 15, 71, new DateTimeOffset(2026, 4, 10, 14, 1, 0, TimeSpan.Zero), MissionActivityStatus.OnGoing, MissionActivityStatus.Succeed)
+            ]),
+            CancellationToken.None);
+
+        var realtimeUpdate = Assert.Single(adminRealtimeHubService.MissionExecutionProgressUpdates);
+        Assert.Equal("ActivitySyncApplied", realtimeUpdate.Action);
+        Assert.Equal(15, realtimeUpdate.MissionId);
+        Assert.Equal(71, realtimeUpdate.ActivityId);
+        Assert.Equal(8, realtimeUpdate.MissionTeamId);
+        Assert.Equal(9, realtimeUpdate.RescueTeamId);
+        Assert.Equal(appliedMutationId, realtimeUpdate.ClientMutationId);
+        Assert.Equal(MissionActivitySyncOutcomes.Applied, realtimeUpdate.SyncOutcome);
+        Assert.True(realtimeUpdate.RequeryRecommended);
+    }
+
     private static SyncMissionActivitiesCommandHandler BuildHandler(
         InMemoryMissionActivityRepository activityRepository,
         InMemoryMissionActivitySyncMutationRepository mutationRepository,
         StubMissionActivityStatusExecutionService executionService,
-        StubUnitOfWork unitOfWork)
+        StubUnitOfWork unitOfWork,
+        StubAdminRealtimeHubService? adminRealtimeHubService = null)
         => new(
             activityRepository,
             mutationRepository,
             executionService,
+            adminRealtimeHubService ?? new StubAdminRealtimeHubService(),
             unitOfWork,
             NullLogger<SyncMissionActivitiesCommandHandler>.Instance);
 

@@ -32,6 +32,7 @@ public sealed class AdminRealtimeHubService(
     private const string SOSClusterEvent = "ReceiveSOSClusterUpdate";
     private const string MissionEvent = "ReceiveMissionUpdate";
     private const string MissionActivityEvent = "ReceiveMissionActivityUpdate";
+    private const string MissionExecutionProgressEvent = "ReceiveMissionExecutionProgress";
     private const string RescueTeamEvent = "ReceiveRescueTeamUpdate";
     private const string RescuerScoresEvent = "ReceiveRescuerScoresUpdate";
     private const string SystemConfigEvent = "ReceiveSystemConfigUpdate";
@@ -425,6 +426,39 @@ public sealed class AdminRealtimeHubService(
                 "[AdminOperationsHub] Failed to push {Event} for ActivityId={ActivityId}",
                 MissionActivityEvent,
                 update.ActivityId);
+        }
+    }
+
+    public async Task PushMissionExecutionProgressUpdateAsync(
+        AdminMissionExecutionProgressRealtimeUpdate update,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            update.EventId = update.EventId == Guid.Empty ? Guid.NewGuid() : update.EventId;
+            update.ChangedAt = NormalizeChangedAt(update.ChangedAt);
+
+            var groups = new HashSet<string>(StringComparer.Ordinal)
+            {
+                AdminOperationsHub.RescueTeamsGroup,
+                AdminOperationsHub.MissionGroup(update.MissionId),
+                AdminOperationsHub.MissionActivitiesGroup(update.MissionId),
+                AdminOperationsHub.MissionExecutionGroup(update.MissionId)
+            };
+
+            if (update.RescueTeamId.HasValue)
+                groups.Add(AdminOperationsHub.RescueTeamGroup(update.RescueTeamId.Value));
+
+            await SendToOperationsGroupsAsync(groups, MissionExecutionProgressEvent, update, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "[AdminOperationsHub] Failed to push {Event} for MissionId={MissionId} ActivityId={ActivityId} MissionTeamId={MissionTeamId}",
+                MissionExecutionProgressEvent,
+                update.MissionId,
+                update.ActivityId,
+                update.MissionTeamId);
         }
     }
 

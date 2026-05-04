@@ -1,7 +1,9 @@
 using MediatR;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Shared;
 using RESQ.Domain.Enum.Operations;
 
@@ -10,6 +12,7 @@ namespace RESQ.Application.UseCases.Operations.Commands.CompleteMissionTeamExecu
 public class CompleteMissionTeamExecutionCommandHandler(
     IMissionTeamRepository missionTeamRepository,
     IRescueTeamMissionLifecycleSyncService rescueTeamMissionLifecycleSyncService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork)
     : IRequestHandler<CompleteMissionTeamExecutionCommand, CompleteMissionTeamExecutionResponse>
 {
@@ -46,6 +49,24 @@ public class CompleteMissionTeamExecutionCommandHandler(
                 rescueTeamLifecycleSyncResult,
                 cancellationToken);
         }
+
+        await adminRealtimeHubService.PushMissionExecutionProgressUpdateAsync(
+            new AdminMissionExecutionProgressRealtimeUpdate
+            {
+                EntityId = request.MissionTeamId,
+                EntityType = "MissionTeam",
+                MissionId = request.MissionId,
+                MissionTeamId = request.MissionTeamId,
+                RescueTeamId = missionTeam.RescuerTeamId,
+                Action = "TeamExecutionCompleted",
+                Status = nextStatus,
+                EffectiveStatus = nextStatus,
+                ChangedBy = request.CompletedBy,
+                ChangedAt = DateTime.UtcNow,
+                Note = request.Note,
+                RequeryRecommended = true
+            },
+            cancellationToken);
 
         return new CompleteMissionTeamExecutionResponse
         {
