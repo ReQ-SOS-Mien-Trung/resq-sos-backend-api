@@ -135,7 +135,7 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
-    public void EnrichVictimTargets_MedicalAidWithoutAiTarget_DoesNotFallbackToAllVictims()
+    public void EnrichVictimTargets_MedicalAidWithoutAiTarget_FallsBackToMedicalVictimsOnly()
     {
         var activities = new List<SuggestedActivityDto>
         {
@@ -151,12 +151,13 @@ public class RescueMissionSuggestionServiceInternalTests
         InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
 
         var activity = Assert.Single(activities);
-        Assert.Empty(activity.TargetVictims);
-        Assert.Null(activity.TargetVictimSummary);
+        var victim = Assert.Single(activity.TargetVictims);
+        Assert.Equal("adult_1", victim.PersonId);
+        Assert.Equal("Nguoi lon 1", activity.TargetVictimSummary);
     }
 
     [Fact]
-    public void EnrichVictimTargets_RescueWithoutAiTarget_KeepsExistingVictimFallback()
+    public void EnrichVictimTargets_RescueWithoutAiTarget_UsesNeedRescueVictimsOnly()
     {
         var activities = new List<SuggestedActivityDto>
         {
@@ -172,13 +173,13 @@ public class RescueMissionSuggestionServiceInternalTests
         InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
 
         var activity = Assert.Single(activities);
-        Assert.Equal(2, activity.TargetVictims.Count);
-        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "adult_1");
+        var victim = Assert.Single(activity.TargetVictims);
         Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "child_1");
+        Assert.Equal("child_1", victim.PersonId);
     }
 
     [Fact]
-    public void EnrichVictimTargets_RescueWithEmptyAiTarget_KeepsExistingVictimFallback()
+    public void EnrichVictimTargets_RescueWithEmptyAiTarget_UsesNeedRescueVictimsOnly()
     {
         var activities = new List<SuggestedActivityDto>
         {
@@ -195,9 +196,77 @@ public class RescueMissionSuggestionServiceInternalTests
         InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
 
         var activity = Assert.Single(activities);
-        Assert.Equal(2, activity.TargetVictims.Count);
-        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "adult_1");
-        Assert.Contains(activity.TargetVictims, victim => victim.PersonId == "child_1");
+        var victim = Assert.Single(activity.TargetVictims);
+        Assert.Equal("child_1", victim.PersonId);
+    }
+
+    [Fact]
+    public void RemoveRescueEvacuationActivitiesWithoutNeedRescue_RemovesMedicalOnlyRescueActivity()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "RESCUE",
+                Description = "Tiep can hien truong",
+                SosRequestId = 29
+            },
+            new()
+            {
+                ActivityType = "MEDICAL_AID",
+                Description = "Cham soc y te",
+                SosRequestId = 29
+            }
+        };
+        var sosLookup = BuildMedicalOnlySosLookup();
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
+        var removed = InvokeStaticResult<bool>(
+            nameof(RescueMissionSuggestionService),
+            "RemoveRescueEvacuationActivitiesWithoutNeedRescue",
+            activities);
+
+        Assert.True(removed);
+        var activity = Assert.Single(activities);
+        Assert.Equal("MEDICAL_AID", activity.ActivityType);
+        Assert.Equal("adult_2", Assert.Single(activity.TargetVictims).PersonId);
+    }
+
+    [Fact]
+    public void EnrichVictimTargets_RescueWithoutNeedRescueField_DoesNotFallbackToVictims()
+    {
+        var activities = new List<SuggestedActivityDto>
+        {
+            new()
+            {
+                ActivityType = "RESCUE",
+                Description = "Tiep can hien truong",
+                SosRequestId = 30
+            }
+        };
+        var sosLookup = new Dictionary<int, SosRequestSummary>
+        {
+            [30] = new()
+            {
+                Id = 30,
+                TargetVictims =
+                [
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "adult_1",
+                        DisplayName = "Nguoi lon 1",
+                        PersonType = "ADULT",
+                        Index = 1
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "EnrichVictimTargets", activities, sosLookup);
+
+        var activity = Assert.Single(activities);
+        Assert.Empty(activity.TargetVictims);
+        Assert.Null(activity.TargetVictimSummary);
     }
 
     [Fact]
@@ -1851,18 +1920,21 @@ public class RescueMissionSuggestionServiceInternalTests
     [Theory]
     [InlineData(PromptType.MissionRequirementsAssessment, "MEDICAL_ITEM_SELECTION (STRICT)")]
     [InlineData(PromptType.MissionRequirementsAssessment, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
+    [InlineData(PromptType.MissionRequirementsAssessment, "NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)")]
     [InlineData(PromptType.MissionRequirementsAssessment, "Bo so cuu co ban")]
     [InlineData(PromptType.MissionRequirementsAssessment, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "Do NOT list Consumable items in COLLECT_SUPPLIES")]
     [InlineData(PromptType.MissionDepotPlanning, "Backend will automatically sum up DELIVER_SUPPLIES items")]
     [InlineData(PromptType.MissionDepotPlanning, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "MEDICAL_ITEM_SELECTION (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "5-15 minutes for collect/deliver/return")]
     [InlineData(PromptType.MissionDepotPlanning, "15-35 minutes for rescue/medical/evacuate")]
     [InlineData(PromptType.MissionTeamPlanning, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
+    [InlineData(PromptType.MissionTeamPlanning, "NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)")]
     [InlineData(PromptType.MissionTeamPlanning, "RETURN_SUPPLIES is only valid after")]
     [InlineData(PromptType.MissionTeamPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
     [InlineData(PromptType.MissionTeamPlanning, "15-35 minutes for rescue/medical/evacuate")]
@@ -1871,6 +1943,7 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionPlanValidation, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "Do NOT add Consumable items to COLLECT")]
     [InlineData(PromptType.MissionPlanValidation, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "explicitly mention using the collected Reusable equipment by name")]
     [InlineData(PromptType.MissionPlanValidation, "MEDICAL_ITEM_SELECTION (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
@@ -1987,14 +2060,42 @@ public class RescueMissionSuggestionServiceInternalTests
                         PersonId = "adult_1",
                         DisplayName = "Nguoi lon 1",
                         PersonType = "ADULT",
-                        Index = 1
+                        Index = 1,
+                        NeedRescue = false,
+                        Severity = "MODERATE",
+                        MedicalIssues = ["DIABETES"]
                     },
                     new MissionActivityTargetVictimDto
                     {
                         PersonId = "child_1",
                         DisplayName = "Tre em 1",
                         PersonType = "CHILD",
-                        Index = 1
+                        Index = 1,
+                        NeedRescue = true
+                    }
+                ]
+            }
+        };
+
+    private static Dictionary<int, SosRequestSummary> BuildMedicalOnlySosLookup() =>
+        new()
+        {
+            [29] = new SosRequestSummary
+            {
+                Id = 29,
+                TargetVictimSummary = "Nguoi lon 2 (adult)",
+                TargetVictims =
+                [
+                    new MissionActivityTargetVictimDto
+                    {
+                        PersonId = "adult_2",
+                        DisplayName = "Nguoi lon 2",
+                        PersonType = "ADULT",
+                        Index = 2,
+                        NeedRescue = false,
+                        IsInjured = false,
+                        Severity = "MODERATE",
+                        MedicalIssues = ["BLOOD_PRESSURE"]
                     }
                 ]
             }

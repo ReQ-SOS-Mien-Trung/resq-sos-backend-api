@@ -271,12 +271,15 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 ghi_chu_su_co_moi_nhat = sos.LatestIncidentNote,
                 lich_su_su_co = sos.IncidentNotes,
                 doi_tuong_can_ho_tro = victimContext.Summary,
+                doi_tuong_can_giai_cuu = victimContext.RescueSummary,
                 danh_sach_nan_nhan = victimContext.Victims.Select(victim => new
                 {
                     person_id = victim.PersonId,
                     ten = victim.DisplayName,
                     loai = victim.PersonType,
                     index = victim.Index,
+                    need_rescue = victim.NeedRescue == true,
+                    can_giai_cuu = victim.NeedRescue == true,
                     muc_do = victim.Severity,
                     bi_thuong = victim.IsInjured,
                     van_de_y_te = victim.MedicalIssues,
@@ -981,9 +984,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             - `DELIVER_SUPPLIES`: chỉ chứa vật phẩm `Consumable` được bàn giao/cấp phát trực tiếp cho SOS request. Không đưa item `Reusable` vào `DELIVER_SUPPLIES` trong mọi trường hợp.
             - Item `Reusable` là đồ đội cứu hộ mang theo để thao tác hiện trường như xe, xuồng, áo phao, cáng, dây, thiết bị cứu hộ, thiết bị y tế dùng lại. Các item này đi trong `COLLECT_SUPPLIES`, được dùng ở `RESCUE`/`MEDICAL_AID`/`EVACUATE`, rồi được đưa vào `RETURN_SUPPLIES` với số lượng BẰNG ĐÚNG số lượng đã lấy ở `COLLECT_SUPPLIES`.
             - Nếu `COLLECT_SUPPLIES` có cả `Consumable` và `Reusable`, `DELIVER_SUPPLIES.supplies_to_collect` chỉ được chứa phần `Consumable`; `RETURN_SUPPLIES.supplies_to_collect` chỉ chứa phần `Reusable` cần trả kho. Nếu tất cả item đã lấy là `Reusable`, không tạo `DELIVER_SUPPLIES` chỉ để mô tả đội mang thiết bị tới hiện trường.
-            - `RESCUE`: luôn tạo nếu hiện trường cần cứu người, kể cả khi thiết bị cứu hộ bị thiếu; thiếu gì thì ghi vào `supply_shortages` và `special_notes`.
-            - `MEDICAL_AID`: nếu thiếu vật phẩm y tế thì vẫn có thể tạo activity, nhưng phải ghi rõ thiếu hụt.
-            - `EVACUATE`: không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
+            - `RESCUE`: chỉ tạo cho nạn nhân có `need_rescue = true`. Không tạo RESCUE cho `need_rescue = false` hoặc thiếu/null, kể cả khi người đó có thông tin y tế.
+            - `MEDICAL_AID`: độc lập với `need_rescue`; nếu có `medical_issues`, `severity`, hoặc `is_injured = true` thì vẫn tạo/chỉ định y tế khi cần, nhưng không biến thành rescue/evacuation.
+            - `EVACUATE`: chỉ tạo cho nạn nhân có `need_rescue = true`, không lấy vật phẩm ở bước này; phải chọn `assembly_point_id` gần nạn nhân nhất.
             - `resources[]`: chỉ dùng cho năng lực tổng quát khi không map được thành item tồn kho cụ thể. Nếu kho đã có item phù hợp, ưu tiên hiện nó trong activity lấy đồ.
 
             ## QUY TẮC TEAM VÀ ASSEMBLY POINT
@@ -2723,7 +2726,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             sos =>
             {
                 requirementLookup.TryGetValue(sos.Id, out var requirement);
-                var isRescueLike = SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType);
+                var isRescueLike = SosRequestAiAnalysisHelper.IsRescueLikeRequestType(sos.SosType)
+                    && SosHasNeedRescueVictim(sos);
                 var needsImmediateSafeTransfer =
                     requirement?.UrgentRescueRequiresImmediateSafeTransfer
                     ?? requirement?.NeedsImmediateSafeTransfer
@@ -2929,6 +2933,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             return new MissionActivityVictimContext
             {
                 Summary = sosRequest.TargetVictimSummary,
+                RescueSummary = BuildTargetVictimSummary(sosRequest.TargetVictims
+                    .Where(MissionActivityVictimContextHelper.NeedsRescue)
+                    .ToList()),
                 Victims = MissionActivityVictimContextHelper.CloneVictims(sosRequest.TargetVictims)
             };
         }
@@ -2953,9 +2960,34 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             var targetPersonIds = activity.TargetPersonIds;
             var hasExplicitTargetIds = targetPersonIds is not null;
             var hasSelectedTargetIds = targetPersonIds is { Count: > 0 };
+
+            if (IsRescueOrEvacuateActivity(activity))
+            {
+                var rescueContext = FilterVictimContext(
+                    victimContext,
+                    MissionActivityVictimContextHelper.NeedsRescue);
+                var targetVictims = hasSelectedTargetIds
+                    ? SelectTargetVictims(rescueContext, targetPersonIds ?? [])
+                    : MissionActivityVictimContextHelper.CloneVictims(rescueContext.Victims);
+                var targetSummary = BuildTargetVictimSummary(targetVictims);
+
+                activity.TargetVictimSummary = targetSummary;
+                activity.TargetVictims = targetVictims;
+                activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
+                    activity.ActivityType,
+                    activity.Description,
+                    targetSummary) ?? string.Empty;
+                continue;
+            }
+
             if (hasSelectedTargetIds || (hasExplicitTargetIds && IsMedicalAidActivity(activity)))
             {
-                var targetVictims = SelectTargetVictims(victimContext, targetPersonIds ?? []);
+                var selectionContext = IsMedicalAidActivity(activity)
+                    ? FilterVictimContext(
+                        victimContext,
+                        MissionActivityVictimContextHelper.NeedsMedicalAid)
+                    : victimContext;
+                var targetVictims = SelectTargetVictims(selectionContext, targetPersonIds ?? []);
                 var targetSummary = NormalizeOptionalText(activity.TargetVictimSummary)
                     ?? BuildTargetVictimSummary(targetVictims);
 
@@ -2970,12 +3002,16 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
             if (IsMedicalAidActivity(activity))
             {
-                activity.TargetVictimSummary = NormalizeOptionalText(activity.TargetVictimSummary);
-                activity.TargetVictims = [];
+                var medicalVictims = MissionActivityVictimContextHelper.CloneVictims(
+                    victimContext.Victims.Where(MissionActivityVictimContextHelper.NeedsMedicalAid));
+                var targetSummary = BuildTargetVictimSummary(medicalVictims);
+
+                activity.TargetVictimSummary = targetSummary;
+                activity.TargetVictims = medicalVictims;
                 activity.Description = MissionActivityVictimContextHelper.ApplySummaryToDescription(
                     activity.ActivityType,
                     activity.Description,
-                    activity.TargetVictimSummary) ?? string.Empty;
+                    targetSummary) ?? string.Empty;
                 continue;
             }
 
@@ -2990,6 +3026,47 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
     private static bool IsMedicalAidActivity(SuggestedActivityDto activity) =>
         string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRescueOrEvacuateActivity(SuggestedActivityDto activity) =>
+        string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase);
+
+    private static MissionActivityVictimContext FilterVictimContext(
+        MissionActivityVictimContext victimContext,
+        Func<MissionActivityTargetVictimDto, bool> predicate)
+    {
+        var victims = MissionActivityVictimContextHelper.CloneVictims(victimContext.Victims.Where(predicate));
+        return new MissionActivityVictimContext
+        {
+            Summary = BuildTargetVictimSummary(victims),
+            RescueSummary = BuildTargetVictimSummary(victims
+                .Where(MissionActivityVictimContextHelper.NeedsRescue)
+                .ToList()),
+            Victims = victims
+        };
+    }
+
+    private static bool RemoveRescueEvacuationActivitiesWithoutNeedRescue(List<SuggestedActivityDto> activities)
+    {
+        var removedCount = activities.RemoveAll(activity =>
+            activity.SosRequestId.HasValue
+            && IsRescueOrEvacuateActivity(activity)
+            && activity.TargetVictims.Count == 0);
+
+        return removedCount > 0;
+    }
+
+    private static void RemoveRescueTransportResourcesWithoutNeedRescue(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        var hasNeedRescueVictim = sosRequests.Any(SosHasNeedRescueVictim);
+        var hasRescueEvacuationActivity = result.SuggestedActivities.Any(IsRescueOrEvacuateActivity);
+        if (hasNeedRescueVictim || hasRescueEvacuationActivity)
+            return;
+
+        result.SuggestedResources.RemoveAll(IsInventoryBackedTransportResource);
+    }
 
     private static List<MissionActivityTargetVictimDto> SelectTargetVictims(
         MissionActivityVictimContext victimContext,
@@ -5007,6 +5084,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         RescueMissionSuggestionResult result,
         IReadOnlyCollection<SosRequestSummary> sosRequests)
     {
+        var hasNeedRescueVictim = sosRequests.Any(SosHasNeedRescueVictim);
+        var hasRescueEvacuationActivity = result.SuggestedActivities.Any(IsRescueOrEvacuateActivity);
+        if (!hasNeedRescueVictim && !hasRescueEvacuationActivity)
+            return [];
+
         var relatedSosIds = ResolveInventoryBackedResourceSosIds(result.SuggestedActivities, sosRequests);
         var signals = InferOperationalTransportSignals(sosRequests, result.SuggestedActivities);
 
@@ -5139,6 +5221,11 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         IReadOnlyCollection<SosRequestSummary> sosRequests,
         IReadOnlyCollection<SuggestedActivityDto> activities)
     {
+        var hasNeedRescueVictim = sosRequests.Any(SosHasNeedRescueVictim);
+        var hasRescueEvacuationActivity = activities.Any(IsRescueOrEvacuateActivity);
+        if (!hasNeedRescueVictim && !hasRescueEvacuationActivity)
+            return new OperationalTransportSignals(false, false, false);
+
         var context = NormalizeItemName(string.Join(
             ' ',
             sosRequests.SelectMany(sos => new[]
@@ -5183,7 +5270,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 "đưa đến nơi an toàn");
         var mentionsRescueGear = activities.Any(activity =>
                 string.Equals(activity.ActivityType, "RESCUE", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(activity.ActivityType, "MEDICAL_AID", StringComparison.OrdinalIgnoreCase))
+                || string.Equals(activity.ActivityType, "EVACUATE", StringComparison.OrdinalIgnoreCase))
             || ContainsOperationalKeyword(
                 context,
                 "cuu ho",
@@ -5198,6 +5285,61 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             RequiresWaterTransport: mentionsFlooding || mentionsIsolation,
             RequiresEvacuationTransport: mentionsEvacuation,
             RequiresRescueEquipment: mentionsFlooding || mentionsIsolation || mentionsRescueGear);
+    }
+
+    private static bool SosHasNeedRescueVictim(SosRequestSummary sos)
+    {
+        if (sos.TargetVictims.Any(MissionActivityVictimContextHelper.NeedsRescue))
+            return true;
+
+        return StructuredDataHasNeedRescueVictim(sos.StructuredData);
+    }
+
+    private static bool StructuredDataHasNeedRescueVictim(string? structuredDataJson)
+    {
+        if (string.IsNullOrWhiteSpace(structuredDataJson))
+            return false;
+
+        try
+        {
+            using var document = JsonDocument.Parse(structuredDataJson);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("victims", out var victims)
+                || victims.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            return victims.EnumerateArray().Any(victim =>
+                victim.ValueKind == JsonValueKind.Object
+                && IsTrueJsonProperty(victim, "need_rescue"));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsTrueJsonProperty(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object
+            || !source.TryGetProperty(propertyName, out var property))
+        {
+            return false;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.String => bool.TryParse(property.GetString(), out var parsed) && parsed,
+            JsonValueKind.Number => property.TryGetInt32(out var number) && number != 0,
+            _ => false
+        };
     }
 
     private static bool ContainsOperationalKeyword(string normalizedText, params string[] keywords) =>

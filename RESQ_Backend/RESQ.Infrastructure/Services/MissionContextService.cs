@@ -242,12 +242,14 @@ public class MissionContextService(
         var needed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var sos in sosRequests)
         {
+            var hasNeedRescueVictim = false;
             if (!string.IsNullOrWhiteSpace(sos.StructuredData))
             {
                 try
                 {
                     using var doc = JsonDocument.Parse(sos.StructuredData);
                     var root = doc.RootElement;
+                    hasNeedRescueVictim = HasNeedRescueVictim(root);
 
                     // Dual-read: try new nested format first, fallback to old flat.
                     // Some SOS payloads include group_needs:null, so guard object reads strictly.
@@ -346,7 +348,7 @@ public class MissionContextService(
                         }
                     }
 
-                    ExtractIncidentVictimSupplies(root, needed);
+                    ExtractIncidentVictimSupplies(root, needed, hasNeedRescueVictim);
                 }
                 catch (JsonException)
                 {
@@ -358,13 +360,16 @@ public class MissionContextService(
                 }
             }
 
-            ApplyOperationalSupplyHeuristics(needed, BuildOperationalSignalText(sos));
+            ApplyOperationalSupplyHeuristics(needed, BuildOperationalSignalText(sos), hasNeedRescueVictim);
         }
 
         return needed;
     }
 
-    private static void ExtractIncidentVictimSupplies(JsonElement root, ISet<string> needed)
+    private static void ExtractIncidentVictimSupplies(
+        JsonElement root,
+        ISet<string> needed,
+        bool hasNeedRescueVictim)
     {
         if (root.ValueKind != JsonValueKind.Object)
             return;
@@ -378,10 +383,11 @@ public class MissionContextService(
             if (TryGetStringProperty(incident, "situation", out var situation))
             {
                 var normalizedSituation = NormalizeSupplyText(situation);
-                if (normalizedSituation.Contains("trapped", StringComparison.Ordinal)
+                if (hasNeedRescueVictim
+                    && (normalizedSituation.Contains("trapped", StringComparison.Ordinal)
                     || normalizedSituation.Contains("mac ket", StringComparison.Ordinal)
                     || normalizedSituation.Contains("collapsed", StringComparison.Ordinal)
-                    || normalizedSituation.Contains("sap do", StringComparison.Ordinal))
+                    || normalizedSituation.Contains("sap do", StringComparison.Ordinal)))
                 {
                     needed.Add("RESCUE_EQUIPMENT");
                 }
@@ -418,7 +424,8 @@ public class MissionContextService(
                     needed.Add("MEDICINE");
 
                     if (issues.EnumerateArray().Any(issue => TryReadString(issue, out var text)
-                            && MentionsFractureOrImmobilization(text)))
+                            && MentionsFractureOrImmobilization(text))
+                        && hasNeedRescueVictim)
                     {
                         needed.Add("RESCUE_EQUIPMENT");
                     }
@@ -443,6 +450,20 @@ public class MissionContextService(
                 }
             }
         }
+    }
+
+    private static bool HasNeedRescueVictim(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("victims", out var victims)
+            || victims.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        return victims.EnumerateArray().Any(victim =>
+            victim.ValueKind == JsonValueKind.Object
+            && IsTrueProperty(victim, "need_rescue"));
     }
 
     private static bool TryGetStringProperty(JsonElement source, string propertyName, out string value)
@@ -674,9 +695,12 @@ public class MissionContextService(
         return normalizedItemName.Contains(NormalizeSupplyText(supply), StringComparison.Ordinal);
     }
 
-    private static void ApplyOperationalSupplyHeuristics(ISet<string> needed, string operationalText)
+    private static void ApplyOperationalSupplyHeuristics(
+        ISet<string> needed,
+        string operationalText,
+        bool hasNeedRescueVictim)
     {
-        if (string.IsNullOrWhiteSpace(operationalText))
+        if (!hasNeedRescueVictim || string.IsNullOrWhiteSpace(operationalText))
             return;
 
         var mentionsFlooding = ContainsAny(

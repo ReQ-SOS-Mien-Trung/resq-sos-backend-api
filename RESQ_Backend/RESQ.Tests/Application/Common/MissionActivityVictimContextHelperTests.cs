@@ -1,4 +1,6 @@
+using System.Text.Json;
 using RESQ.Application.Common;
+using RESQ.Application.UseCases.Emergency.Commands.CreateSosRequest;
 
 namespace RESQ.Tests.Application.Common;
 
@@ -22,6 +24,7 @@ public class MissionActivityVictimContextHelperTests
                   "person_id": "victim-1",
                   "person_type": "CHILD",
                   "custom_name": "Khoa",
+                  "need_rescue": true,
                   "incident_status": {
                     "is_injured": true,
                     "severity": "SEVERE",
@@ -47,9 +50,83 @@ public class MissionActivityVictimContextHelperTests
         Assert.Equal(3, context.Victims.Count);
 
         var khoa = Assert.Single(context.Victims, victim => victim.DisplayName == "Khoa");
+        Assert.True(khoa.NeedRescue);
         Assert.True(khoa.IsInjured);
         Assert.Equal("SEVERE", khoa.Severity);
         Assert.Contains("FRACTURE", khoa.MedicalIssues);
+        Assert.NotNull(context.RescueSummary);
+        Assert.StartsWith("Khoa", context.RescueSummary);
+    }
+
+    [Fact]
+    public void BuildContext_RescueSummary_OnlyIncludesNeedRescueTrueVictims()
+    {
+        var context = MissionActivityVictimContextHelper.BuildContext(
+            """
+            {
+              "incident": {},
+              "victims": [
+                {
+                  "person_id": "adult_1",
+                  "person_type": "ADULT",
+                  "custom_name": "Anh Minh",
+                  "need_rescue": true
+                },
+                {
+                  "person_id": "adult_2",
+                  "person_type": "ADULT",
+                  "custom_name": "Chi Lan",
+                  "need_rescue": false,
+                  "incident_status": {
+                    "severity": "MODERATE",
+                    "medical_issues": ["DIABETES"]
+                  }
+                },
+                {
+                  "person_id": "child_1",
+                  "person_type": "CHILD",
+                  "custom_name": "Be Nam"
+                }
+              ]
+            }
+            """);
+
+        Assert.Equal(3, context.Victims.Count);
+        Assert.NotNull(context.RescueSummary);
+        Assert.StartsWith("Anh Minh", context.RescueSummary);
+        Assert.DoesNotContain("Chi Lan", context.RescueSummary);
+        Assert.False(context.Victims.Single(victim => victim.PersonId == "adult_2").NeedRescue);
+        Assert.Null(context.Victims.Single(victim => victim.PersonId == "child_1").NeedRescue);
+    }
+
+    [Fact]
+    public void StructuredDataDtos_SerializeNeedRescue()
+    {
+        var requestDto = JsonSerializer.Deserialize<StructuredDataDto>(
+            """
+            {
+              "incident": {},
+              "victims": [
+                {
+                  "person_id": "adult_2",
+                  "need_rescue": false,
+                  "incident_status": {
+                    "medical_issues": ["BLOOD_PRESSURE"]
+                  }
+                }
+              ]
+            }
+            """);
+
+        var victim = Assert.Single(requestDto!.Victims!);
+        Assert.False(victim.NeedRescue);
+
+        var responseDto = SosStructuredDataParser.Parse(JsonSerializer.Serialize(requestDto));
+        var responseVictim = Assert.Single(responseDto!.Victims!);
+        Assert.False(responseVictim.NeedRescue);
+
+        var serialized = JsonSerializer.Serialize(responseDto);
+        Assert.Contains("\"need_rescue\":false", serialized);
     }
 
     [Fact]
