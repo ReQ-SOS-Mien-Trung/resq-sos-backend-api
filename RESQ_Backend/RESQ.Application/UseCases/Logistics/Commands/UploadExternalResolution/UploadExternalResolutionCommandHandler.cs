@@ -22,6 +22,7 @@ public class UploadExternalResolutionCommandHandler(
     IDepotInventoryRepository inventoryRepository,
     IDepotFundRepository depotFundRepo,
     IOperationalHubService operationalHubService,
+    IAdminRealtimeHubService adminRealtimeHubService,
     IUnitOfWork unitOfWork,
     ILogger<UploadExternalResolutionCommandHandler> logger)
     : IRequestHandler<UploadExternalResolutionCommand, UploadExternalResolutionResponse>
@@ -207,6 +208,22 @@ public class UploadExternalResolutionCommandHandler(
             depotId,
             "ExternalResolutionUploaded",
             cancellationToken);
+
+        if (liquidationRevenue > 0)
+        {
+            await adminRealtimeHubService.PushDisbursementUpdateAsync(
+                new AdminDisbursementRealtimeUpdate
+                {
+                    EntityId = depotId,
+                    EntityType = "DepotFund",
+                    DepotId = depotId,
+                    Amount = liquidationRevenue,
+                    Action = "LiquidationRevenueCreated",
+                    Status = DepotFundTransactionType.LiquidationRevenue.ToString(),
+                    ChangedAt = now
+                },
+                cancellationToken);
+        }
 
         return new UploadExternalResolutionResponse
         {

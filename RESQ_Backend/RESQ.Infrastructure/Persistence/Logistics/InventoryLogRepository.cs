@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetInventoryTransactionHistory
 using RESQ.Domain.Entities.Logistics.Models;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
+using System.Text.RegularExpressions;
 
 namespace RESQ.Infrastructure.Persistence.Logistics;
 
@@ -318,7 +319,9 @@ public class InventoryLogRepository(IUnitOfWork unitOfWork) : IInventoryLogRepos
             return text;
         }
 
-        return text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
+        var normalized = text.Replace("\\r\\n", "\n").Replace("\\n", "\n");
+        var withoutFefo = Regex.Replace(normalized, @"[ \t]*\bFEFO\b[ \t]*", " ", RegexOptions.IgnoreCase);
+        return Regex.Replace(withoutFefo, @"[ \t]{2,}", " ").Trim();
     }
 
     private async Task<Dictionary<(int DepotId, int ItemModelId), int>> BuildCurrentQuantityMapAsync(

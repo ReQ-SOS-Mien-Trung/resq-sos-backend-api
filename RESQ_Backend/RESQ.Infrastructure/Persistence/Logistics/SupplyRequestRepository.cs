@@ -608,7 +608,7 @@ public class SupplyRequestRepository(IUnitOfWork unitOfWork) : ISupplyRequestRep
                         SourceType             = InventorySourceType.Transfer.ToString(),
                         SourceId               = supplyRequestId,
                         PerformedBy            = performedBy,
-                        Note                   = $"Xuất tiếp tế FEFO lô #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {reservation.ReservedQuantity} cho yêu cầu #{supplyRequestId}",
+                        Note                   = $"Xuất tiếp tế lô #{lot.Id} {itemModel.Name} (#{itemModelId}) SL {reservation.ReservedQuantity} cho yêu cầu #{supplyRequestId}",
                         CreatedAt              = now
                     });
                 }

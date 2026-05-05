@@ -8,6 +8,7 @@ namespace RESQ.Presentation.Services;
 
 public sealed class AdminRealtimeHubService(
     IHubContext<AdminFinanceHub> adminFinanceHubContext,
+    IHubContext<OperationalHub> operationalHubContext,
     IHubContext<AdminIdentityHub> adminIdentityHubContext,
     IHubContext<AdminOperationsHub> adminOperationsHubContext,
     IHubContext<AdminSystemHub> adminSystemHubContext,
@@ -15,6 +16,7 @@ public sealed class AdminRealtimeHubService(
     ILogger<AdminRealtimeHubService> logger) : IAdminRealtimeHubService
 {
     private readonly IHubContext<AdminFinanceHub> _adminFinanceHubContext = adminFinanceHubContext;
+    private readonly IHubContext<OperationalHub> _operationalHubContext = operationalHubContext;
     private readonly IHubContext<AdminIdentityHub> _adminIdentityHubContext = adminIdentityHubContext;
     private readonly IHubContext<AdminOperationsHub> _adminOperationsHubContext = adminOperationsHubContext;
     private readonly IHubContext<AdminSystemHub> _adminSystemHubContext = adminSystemHubContext;
@@ -25,6 +27,7 @@ public sealed class AdminRealtimeHubService(
     private const string CampaignEvent = "ReceiveCampaignUpdate";
     private const string DisbursementEvent = "ReceiveDisbursementUpdate";
     private const string SystemFundEvent = "ReceiveSystemFundUpdate";
+    private const string DepotFundsEvent = "ReceiveDepotFundsUpdate";
     private const string RescuerApplicationEvent = "ReceiveRescuerApplicationUpdate";
     private const string DepotEvent = "ReceiveDepotUpdate";
     private const string DepotClosureEvent = "ReceiveDepotClosureUpdate";
@@ -112,6 +115,7 @@ public sealed class AdminRealtimeHubService(
 
             await SendToFinanceGroupsAsync(groups, DisbursementEvent, update, cancellationToken);
             await SendDepotFundChartInvalidationsAsync(update.DepotId, update.Action, update.ChangedAt, cancellationToken);
+            await SendDepotFundsUpdateAsync(update.DepotId, update.Action, update.ChangedAt, cancellationToken);
 
             if (update.CampaignId.HasValue)
                 await SendCampaignFundFlowInvalidationAsync(update.CampaignId.Value, update.Action, update.ChangedAt, cancellationToken);
@@ -141,6 +145,9 @@ public sealed class AdminRealtimeHubService(
                 groups.Add(AdminFinanceHub.DepotFundsGroup(update.DepotId.Value));
 
             await SendToFinanceGroupsAsync(groups, SystemFundEvent, update, cancellationToken);
+
+            if (update.DepotId.HasValue)
+                await SendDepotFundsUpdateAsync(update.DepotId.Value, update.Action, update.ChangedAt, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -600,6 +607,23 @@ public sealed class AdminRealtimeHubService(
         await Task.WhenAll(tasks);
     }
 
+    private async Task SendToOperationalGroupsAsync(
+        IEnumerable<string> groups,
+        string eventName,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        var tasks = groups
+            .Where(group => !string.IsNullOrWhiteSpace(group))
+            .Select(group => _operationalHubContext.Clients.Group(group).SendAsync(eventName, payload, cancellationToken))
+            .ToList();
+
+        if (tasks.Count == 0)
+            return;
+
+        await Task.WhenAll(tasks);
+    }
+
     private async Task SendToIdentityGroupsAsync(
         IEnumerable<string> groups,
         string eventName,
@@ -728,6 +752,40 @@ public sealed class AdminRealtimeHubService(
 
         foreach (var payload in payloads)
             await SendToFinanceGroupsAsync(groups, ChartInvalidationEvent, payload, cancellationToken);
+    }
+
+    private async Task SendDepotFundsUpdateAsync(
+        int depotId,
+        string reason,
+        DateTime changedAt,
+        CancellationToken cancellationToken)
+    {
+        var payload = new
+        {
+            depotId,
+            endpoint = "/logistics/depot/funds",
+            scope = new { depotId },
+            reason,
+            changedAt = NormalizeChangedAt(changedAt)
+        };
+
+        await SendToFinanceGroupsAsync(
+            [
+                AdminFinanceHub.DepotFundsListGroup,
+                AdminFinanceHub.DepotFundsGroup(depotId)
+            ],
+            DepotFundsEvent,
+            payload,
+            cancellationToken);
+
+        await SendToOperationalGroupsAsync(
+            [
+                OperationalHub.DepotFundsGroup,
+                OperationalHub.DepotFundGroup(depotId)
+            ],
+            DepotFundsEvent,
+            payload,
+            cancellationToken);
     }
 
     private async Task SendCampaignFundFlowInvalidationAsync(

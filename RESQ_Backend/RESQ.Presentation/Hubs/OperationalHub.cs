@@ -8,6 +8,7 @@ public class OperationalHub : Hub
 {
     internal const string AssemblyPointsGroup = "operational:assembly-points";
     internal const string LogisticsGroup = "operational:logistics";
+    internal const string DepotFundsGroup = "operational:depot-funds";
 
     public override async Task OnConnectedAsync()
     {
@@ -40,6 +41,18 @@ public class OperationalHub : Hub
 
     public Task UnsubscribeDepotCharts(int depotId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotChartsGroup(depotId));
+
+    public Task SubscribeDepotFunds() =>
+        Groups.AddToGroupAsync(Context.ConnectionId, DepotFundsGroup);
+
+    public Task UnsubscribeDepotFunds() =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotFundsGroup);
+
+    public Task SubscribeDepotFund(int depotId) =>
+        Groups.AddToGroupAsync(Context.ConnectionId, DepotFundGroup(depotId));
+
+    public Task UnsubscribeDepotFund(int depotId) =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotFundGroup(depotId));
 
     public Task SubscribeCluster(int clusterId) =>
         Groups.AddToGroupAsync(Context.ConnectionId, ClusterGroup(clusterId));
@@ -110,6 +123,7 @@ public class OperationalHub : Hub
     internal static string DepotGroup(int depotId) => $"operational:depot:{depotId}";
     internal static string InventoryLotsGroup(int depotId, int itemModelId) => $"operational:inventory-lots:depot:{depotId}:item:{itemModelId}";
     internal static string DepotChartsGroup(int depotId) => $"operational:depot-charts:{depotId}";
+    internal static string DepotFundGroup(int depotId) => $"operational:depot-funds:{depotId}";
     internal static string ClusterGroup(int clusterId) => $"operational:cluster:{clusterId}";
     internal static string SupplyRequestsDepotGroup(int depotId) => $"operational:supply-requests:depot:{depotId}";
     internal static string SupplyRequestGroup(int requestId) => $"operational:supply-request:{requestId}";
