@@ -100,23 +100,13 @@ public class GetSosRequestsByBoundsQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_AppliesLatestVictimUpdate_AndLatestIncidentNote()
+    public async Task Handle_UsesSosRequestRowData_AndLatestIncidentNote()
     {
         var sos = BuildSos(1, 10.75, 106.66, SosRequestStatus.Pending, new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc));
+        sos.RawMessage = "Updated SOS message";
+        sos.SosType = "MEDICAL";
         var repository = new StubSosRequestMapReadRepository([sos]);
         var updateRepository = new StubSosRequestUpdateRepository(
-            victimUpdates: new Dictionary<int, SosRequestVictimUpdateModel>
-            {
-                [1] = new()
-                {
-                    Id = 11,
-                    SosRequestId = 1,
-                    RawMessage = "Updated SOS message",
-                    SosType = "MEDICAL",
-                    UpdatedByUserId = UserId,
-                    UpdatedAt = new DateTime(2026, 4, 2, 0, 0, 0, DateTimeKind.Utc)
-                }
-            },
             incidentHistory: new Dictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>
             {
                 [1] =
@@ -239,7 +229,6 @@ public class GetSosRequestsByBoundsQueryHandlerTests
     }
 
     private sealed class StubSosRequestUpdateRepository(
-        Dictionary<int, SosRequestVictimUpdateModel>? victimUpdates = null,
         Dictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>? incidentHistory = null)
         : ISosRequestUpdateRepository
     {
@@ -260,12 +249,6 @@ public class GetSosRequestsByBoundsQueryHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(
                 new Dictionary<int, IReadOnlyCollection<int>>());
-
-        public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(
-            IEnumerable<int> sosRequestIds,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>>(
-                victimUpdates ?? new Dictionary<int, SosRequestVictimUpdateModel>());
 
         public Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(
             IEnumerable<int> sosRequestIds,

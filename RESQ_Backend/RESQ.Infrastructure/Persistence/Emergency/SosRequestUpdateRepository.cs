@@ -3,7 +3,6 @@ using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Emergency;
-using RESQ.Domain.Entities.Logistics.ValueObjects;
 
 namespace RESQ.Infrastructure.Persistence.Emergency;
 
@@ -140,31 +139,6 @@ public class SosRequestUpdateRepository(IUnitOfWork unitOfWork) : ISosRequestUpd
                     .ToList());
     }
 
-    public async Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(
-        IEnumerable<int> sosRequestIds,
-        CancellationToken cancellationToken = default)
-    {
-        var ids = sosRequestIds.Distinct().ToList();
-        if (ids.Count == 0)
-        {
-            return new Dictionary<int, SosRequestVictimUpdateModel>();
-        }
-
-        var entities = await _unitOfWork.GetRepository<SosRequestUpdate>()
-            .GetAllByPropertyAsync(update => update.SosRequestId.HasValue
-                && ids.Contains(update.SosRequestId.Value)
-                && update.Type == VictimUpdateType);
-
-        return entities
-            .GroupBy(update => update.SosRequestId!.Value)
-            .ToDictionary(
-                group => group.Key,
-                group => ToVictimUpdateModel(group
-                    .OrderByDescending(update => update.CreatedAt)
-                    .ThenByDescending(update => update.Id)
-                    .First()));
-    }
-
     public async Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(
         IEnumerable<int> sosRequestIds,
         CancellationToken cancellationToken = default)
@@ -212,40 +186,6 @@ public class SosRequestUpdateRepository(IUnitOfWork unitOfWork) : ISosRequestUpd
         };
     }
 
-    private static SosRequestVictimUpdateModel ToVictimUpdateModel(SosRequestUpdate entity)
-    {
-        var content = ParseVictimUpdateContent(entity.Content);
-
-        GeoLocation? location = null;
-        if (content?.Latitude.HasValue == true && content.Longitude.HasValue)
-        {
-            location = new GeoLocation(content.Latitude.Value, content.Longitude.Value);
-        }
-
-        return new SosRequestVictimUpdateModel
-        {
-            Id = entity.Id,
-            SosRequestId = entity.SosRequestId ?? 0,
-            PacketId = content?.PacketId,
-            Location = location,
-            LocationAccuracy = content?.LocationAccuracy,
-            SosType = content?.SosType,
-            RawMessage = content?.RawMessage ?? string.Empty,
-            StructuredData = content?.StructuredData,
-            NetworkMetadata = content?.NetworkMetadata,
-            SenderInfo = content?.SenderInfo,
-            VictimInfo = content?.VictimInfo,
-            ReporterInfo = content?.ReporterInfo,
-            IsSentOnBehalf = content?.IsSentOnBehalf ?? false,
-            OriginId = content?.OriginId,
-            Timestamp = content?.Timestamp,
-            ClientCreatedAt = content?.ClientCreatedAt,
-            UpdatedByUserId = content?.UpdatedByUserId ?? Guid.Empty,
-            UpdatedAt = entity.CreatedAt ?? DateTime.UtcNow,
-            UpdatedByMode = content?.UpdatedByMode
-        };
-    }
-
     private static IncidentUpdateContent? ParseContent(string? content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -260,23 +200,6 @@ public class SosRequestUpdateRepository(IUnitOfWork unitOfWork) : ISosRequestUpd
         catch
         {
             return new IncidentUpdateContent { Note = content };
-        }
-    }
-
-    private static VictimUpdateContent? ParseVictimUpdateContent(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return null;
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<VictimUpdateContent>(content);
-        }
-        catch
-        {
-            return null;
         }
     }
 

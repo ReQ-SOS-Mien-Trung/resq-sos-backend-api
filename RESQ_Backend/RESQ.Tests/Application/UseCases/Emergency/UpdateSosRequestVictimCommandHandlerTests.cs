@@ -102,7 +102,6 @@ public class UpdateSosRequestVictimCommandHandlerTests
     {
         var sos = BuildSos(1, OwnerId, status: status);
         var sosRepo = new StubSosRequestRepository(sos);
-
         var handler = BuildHandler(
             sosRepo,
             new StubSosRequestCompanionRepository(isCompanion: false));
@@ -118,28 +117,75 @@ public class UpdateSosRequestVictimCommandHandlerTests
     {
         var sos = BuildSos(1, OwnerId);
         var sosRepo = new StubSosRequestRepository(sos);
+        var updateRepo = new StubSosRequestUpdateRepository();
+        var updatedLocation = new GeoLocation(10.780000, 106.690000);
+        var packetId = Guid.Parse("dddddddd-0000-0000-0000-000000000004");
+        var clientCreatedAt = new DateTime(2026, 5, 5, 3, 30, 0, DateTimeKind.Utc);
 
         var handler = BuildHandler(
             sosRepo,
-            new StubSosRequestCompanionRepository(isCompanion: false));
+            new StubSosRequestCompanionRepository(isCompanion: false),
+            updateRepo);
 
-        var response = await handler.Handle(
-            BuildCommand(1, OwnerId, "Tình hình nguy cấp, 3 người bị thương"),
-            CancellationToken.None);
+        var command = new UpdateSosRequestVictimCommand(
+            SosRequestId: 1,
+            ReporterUserId: OwnerId,
+            Location: updatedLocation,
+            RawMessage: "  Tình hình nguy cấp, 3 người bị thương  ",
+            PacketId: packetId,
+            OriginId: "origin-updated",
+            LocationAccuracy: 7.5,
+            SosType: "Medical",
+            StructuredData: """{"severity":"high"}""",
+            NetworkMetadata: """{"network":"mesh"}""",
+            SenderInfo: """{"user_id":"aaaaaaaa-0000-0000-0000-000000000001"}""",
+            Timestamp: 123456789,
+            ClientCreatedAt: clientCreatedAt,
+            VictimInfo: """{"name":"Victim"}""",
+            IsSentOnBehalf: true,
+            ReporterInfo: """{"user_id":"aaaaaaaa-0000-0000-0000-000000000001"}""");
+
+        var response = await handler.Handle(command, CancellationToken.None);
 
         Assert.Equal(1, response.SosRequestId);
         Assert.Equal("VictimUpdate", response.UpdateType);
         Assert.True(sosRepo.UpdateAsyncWasCalled);
+        Assert.NotNull(sosRepo.LastUpdatedSos);
+        Assert.Equal(packetId, sosRepo.LastUpdatedSos!.PacketId);
+        Assert.Equal(updatedLocation.Latitude, sosRepo.LastUpdatedSos.Location?.Latitude);
+        Assert.Equal(updatedLocation.Longitude, sosRepo.LastUpdatedSos.Location?.Longitude);
+        Assert.Equal(7.5, sosRepo.LastUpdatedSos.LocationAccuracy);
+        Assert.Equal("Medical", sosRepo.LastUpdatedSos.SosType);
+        Assert.Equal(command.RawMessage.Trim(), sosRepo.LastUpdatedSos.RawMessage);
+        Assert.Equal("""{"severity":"high"}""", sosRepo.LastUpdatedSos.StructuredData);
+        Assert.Equal("""{"network":"mesh"}""", sosRepo.LastUpdatedSos.NetworkMetadata);
+        Assert.Equal("""{"user_id":"aaaaaaaa-0000-0000-0000-000000000001"}""", sosRepo.LastUpdatedSos.SenderInfo);
+        Assert.Equal("""{"name":"Victim"}""", sosRepo.LastUpdatedSos.VictimInfo);
+        Assert.Equal("""{"user_id":"aaaaaaaa-0000-0000-0000-000000000001"}""", sosRepo.LastUpdatedSos.ReporterInfo);
+        Assert.True(sosRepo.LastUpdatedSos.IsSentOnBehalf);
+        Assert.Equal("origin-updated", sosRepo.LastUpdatedSos.OriginId);
+        Assert.Equal(123456789, sosRepo.LastUpdatedSos.Timestamp);
+        Assert.Equal(clientCreatedAt, sosRepo.LastUpdatedSos.CreatedAt);
+        Assert.Equal(response.UpdatedAt, sosRepo.LastUpdatedSos.LastUpdatedAt);
+
+        Assert.NotNull(updateRepo.LastVictimUpdate);
+        Assert.Equal(sosRepo.LastUpdatedSos.RawMessage, updateRepo.LastVictimUpdate!.RawMessage);
+        Assert.Equal(sosRepo.LastUpdatedSos.StructuredData, updateRepo.LastVictimUpdate.StructuredData);
+        Assert.Equal(sosRepo.LastUpdatedSos.Location?.Latitude, updateRepo.LastVictimUpdate.Location?.Latitude);
+        Assert.Equal(OwnerId, updateRepo.LastVictimUpdate.UpdatedByUserId);
+        Assert.Equal("Owner", updateRepo.LastVictimUpdate.UpdatedByMode);
     }
 
     [Fact]
     public async Task Handle_ReturnsSuccess_WhenCompanionUpdatesPendingUngroupedSos()
     {
         var sos = BuildSos(2, OwnerId);
+        var updateRepo = new StubSosRequestUpdateRepository();
 
         var handler = BuildHandler(
             new StubSosRequestRepository(sos),
-            new StubSosRequestCompanionRepository(isCompanion: true));
+            new StubSosRequestCompanionRepository(isCompanion: true),
+            updateRepo);
 
         var response = await handler.Handle(
             BuildCommand(2, CompanionId, "Nước dâng nhanh"),
@@ -147,6 +193,7 @@ public class UpdateSosRequestVictimCommandHandlerTests
 
         Assert.Equal(2, response.SosRequestId);
         Assert.Equal("VictimUpdate", response.UpdateType);
+        Assert.Equal("Companion", updateRepo.LastVictimUpdate?.UpdatedByMode);
     }
 
     [Fact]
@@ -205,7 +252,13 @@ public class UpdateSosRequestVictimCommandHandlerTests
 
     private sealed class StubSosRequestUpdateRepository : ISosRequestUpdateRepository
     {
-        public Task AddVictimUpdateAsync(SosRequestVictimUpdateModel update, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public SosRequestVictimUpdateModel? LastVictimUpdate { get; private set; }
+
+        public Task AddVictimUpdateAsync(SosRequestVictimUpdateModel update, CancellationToken cancellationToken = default)
+        {
+            LastVictimUpdate = update;
+            return Task.CompletedTask;
+        }
         public Task AddIncidentRangeAsync(IEnumerable<SosRequestIncidentUpdateModel> updates, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetSosRequestIdsByTeamIncidentIdsAsync(IEnumerable<int> teamIncidentIds, CancellationToken cancellationToken = default)
@@ -213,9 +266,6 @@ public class UpdateSosRequestVictimCommandHandlerTests
 
         public Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetTeamIncidentIdsBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(new Dictionary<int, IReadOnlyCollection<int>>());
-
-        public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>>(new Dictionary<int, SosRequestVictimUpdateModel>());
 
         public Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(IEnumerable<int> sosRequestIds, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>>(new Dictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>());

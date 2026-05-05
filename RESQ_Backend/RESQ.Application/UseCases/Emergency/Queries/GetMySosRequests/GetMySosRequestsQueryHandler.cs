@@ -28,11 +28,10 @@ public class GetMySosRequestsQueryHandler(
             .Concat(companionRequests.Select(x => x.Id))
             .Distinct()
             .ToList();
-        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(requestIds, cancellationToken);
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(requestIds, cancellationToken);
 
-        var ownDtos = ownRequests.Select(x => MapToDto(x, isCompanion: false, incidentLookup, victimUpdateLookup));
-        var companionDtos = companionRequests.Select(x => MapToDto(x, isCompanion: true, incidentLookup, victimUpdateLookup));
+        var ownDtos = ownRequests.Select(x => MapToDto(x, isCompanion: false, incidentLookup));
+        var companionDtos = companionRequests.Select(x => MapToDto(x, isCompanion: true, incidentLookup));
 
         // Merge own + companion, deduplicate by Id, order by CreatedAt desc
         var merged = ownDtos.Concat(companionDtos)
@@ -50,11 +49,9 @@ public class GetMySosRequestsQueryHandler(
     private static SosRequestDto MapToDto(
         RESQ.Domain.Entities.Emergency.SosRequestModel x,
         bool isCompanion,
-        IReadOnlyDictionary<int, IReadOnlyList<RESQ.Domain.Entities.Emergency.SosRequestIncidentUpdateModel>> incidentLookup,
-        IReadOnlyDictionary<int, RESQ.Domain.Entities.Emergency.SosRequestVictimUpdateModel> victimUpdateLookup)
+        IReadOnlyDictionary<int, IReadOnlyList<RESQ.Domain.Entities.Emergency.SosRequestIncidentUpdateModel>> incidentLookup)
     {
-        victimUpdateLookup.TryGetValue(x.Id, out var latestVictimUpdate);
-        var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(x, latestVictimUpdate);
+        var effectiveSosRequest = x;
 
         incidentLookup.TryGetValue(x.Id, out var incidents);
         var latestIncident = incidents?.FirstOrDefault();

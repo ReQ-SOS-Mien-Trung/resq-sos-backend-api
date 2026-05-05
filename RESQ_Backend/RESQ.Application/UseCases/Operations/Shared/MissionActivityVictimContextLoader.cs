@@ -58,19 +58,13 @@ public static class MissionActivityVictimContextLoader
         if (sosRequests.Count == 0)
             return new Dictionary<int, MissionActivityVictimContext>();
 
-        var latestVictimUpdates = await sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-            sosRequests.Select(request => request.Id),
-            cancellationToken);
-
         return sosRequests.ToDictionary(
             request => request.Id,
             request =>
             {
-                latestVictimUpdates.TryGetValue(request.Id, out var latestVictimUpdate);
-                var effectiveRequest = SosRequestVictimUpdateOverlay.Apply(request, latestVictimUpdate);
                 return MissionActivityVictimContextHelper.BuildContext(
-                    effectiveRequest.StructuredData,
-                    effectiveRequest.Id);
+                    request.StructuredData,
+                    request.Id);
             });
     }
 }

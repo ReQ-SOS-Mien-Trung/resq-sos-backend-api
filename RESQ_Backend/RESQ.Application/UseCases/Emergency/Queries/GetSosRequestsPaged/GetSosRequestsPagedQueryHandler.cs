@@ -41,17 +41,13 @@ public class GetSosRequestsPagedQueryHandler(
             normalizedSosTypes,
             sortOptions,
             cancellationToken);
-        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-            pagedResult.Items.Select(x => x.Id),
-            cancellationToken);
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             pagedResult.Items.Select(x => x.Id),
             cancellationToken);
 
         var dtos = pagedResult.Items.Select(x =>
         {
-            victimUpdateLookup.TryGetValue(x.Id, out var latestVictimUpdate);
-            var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(x, latestVictimUpdate);
+            var effectiveSosRequest = x;
 
             incidentLookup.TryGetValue(x.Id, out var incidents);
             var latestIncident = incidents?.FirstOrDefault();

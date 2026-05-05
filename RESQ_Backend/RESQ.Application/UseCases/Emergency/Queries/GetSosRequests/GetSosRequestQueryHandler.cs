@@ -42,9 +42,7 @@ public class GetSosRequestQueryHandler(
                 throw new ForbiddenException("Bạn không có quyền xem SOS request này");
         }
 
-        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync([sosRequest.Id], cancellationToken);
-        victimUpdateLookup.TryGetValue(sosRequest.Id, out var latestVictimUpdate);
-        var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(sosRequest, latestVictimUpdate);
+        var effectiveSosRequest = sosRequest;
 
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync([sosRequest.Id], cancellationToken);
         incidentLookup.TryGetValue(sosRequest.Id, out var incidents);

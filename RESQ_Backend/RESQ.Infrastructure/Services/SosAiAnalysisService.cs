@@ -79,11 +79,7 @@ public class SosAiAnalysisService : ISosAiAnalysisService
                 return;
             }
 
-            var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-                [task.SosRequestId],
-                cancellationToken);
-            victimUpdateLookup.TryGetValue(task.SosRequestId, out var latestVictimUpdate);
-            var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(sosRequest, latestVictimUpdate);
+            var effectiveSosRequest = sosRequest;
             var currentFingerprint = SosAiAnalysisTask.BuildContentFingerprint(
                 effectiveSosRequest.StructuredData,
                 effectiveSosRequest.RawMessage,

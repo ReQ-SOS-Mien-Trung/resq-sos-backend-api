@@ -10,6 +10,7 @@ public class AdminFinanceHub : Hub
     internal const string CampaignsGroup = "admin-finance:campaigns";
     internal const string DisbursementsGroup = "admin-finance:disbursements";
     internal const string SystemFundGroup = "admin-finance:system-fund";
+    internal const string DepotFundsListGroup = "admin-finance:depot-funds";
 
     public Task SubscribeFundingRequests() =>
         Groups.AddToGroupAsync(Context.ConnectionId, FundingRequestsGroup);
@@ -46,6 +47,12 @@ public class AdminFinanceHub : Hub
 
     public Task UnsubscribeDepotFundCharts(int depotId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotFundChartsGroup(depotId));
+
+    public Task SubscribeDepotFundsList() =>
+        Groups.AddToGroupAsync(Context.ConnectionId, DepotFundsListGroup);
+
+    public Task UnsubscribeDepotFundsList() =>
+        Groups.RemoveFromGroupAsync(Context.ConnectionId, DepotFundsListGroup);
 
     public Task SubscribeDepotFunds(int depotId) =>
         Groups.AddToGroupAsync(Context.ConnectionId, DepotFundsGroup(depotId));

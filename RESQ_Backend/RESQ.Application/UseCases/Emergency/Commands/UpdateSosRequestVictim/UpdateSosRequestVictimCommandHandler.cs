@@ -36,36 +36,48 @@ public class UpdateSosRequestVictimCommandHandler(
 
         SosRequestVictimMutationGuard.EnsureCanUpdate(sos);
 
-        var latestVictimUpdateLookup = await sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync([sos.Id], cancellationToken);
-        latestVictimUpdateLookup.TryGetValue(sos.Id, out var latestVictimUpdate);
-
-        var currentView = SosRequestVictimUpdateOverlay.Apply(sos, latestVictimUpdate);
         var updatedAt = DateTime.UtcNow;
         var trimmedRawMessage = request.RawMessage.Trim();
-        var effectiveStructuredData = request.StructuredData ?? currentView.StructuredData;
-        var effectiveSosType = request.SosType ?? currentView.SosType;
+        var effectiveStructuredData = request.StructuredData ?? sos.StructuredData;
+        var effectiveSosType = request.SosType ?? sos.SosType;
         var contentChanged =
-            !string.Equals(trimmedRawMessage, currentView.RawMessage?.Trim(), StringComparison.Ordinal) ||
-            !string.Equals(effectiveStructuredData, currentView.StructuredData, StringComparison.Ordinal) ||
-            !string.Equals(effectiveSosType, currentView.SosType, StringComparison.OrdinalIgnoreCase);
+            !string.Equals(trimmedRawMessage, sos.RawMessage?.Trim(), StringComparison.Ordinal) ||
+            !string.Equals(effectiveStructuredData, sos.StructuredData, StringComparison.Ordinal) ||
+            !string.Equals(effectiveSosType, sos.SosType, StringComparison.OrdinalIgnoreCase);
+
+        sos.PacketId = request.PacketId ?? sos.PacketId;
+        sos.Location = request.Location;
+        sos.LocationAccuracy = request.LocationAccuracy ?? sos.LocationAccuracy;
+        sos.SosType = effectiveSosType;
+        sos.RawMessage = trimmedRawMessage;
+        sos.StructuredData = effectiveStructuredData;
+        sos.NetworkMetadata = request.NetworkMetadata ?? sos.NetworkMetadata;
+        sos.SenderInfo = request.SenderInfo ?? sos.SenderInfo;
+        sos.VictimInfo = request.VictimInfo ?? sos.VictimInfo;
+        sos.ReporterInfo = request.ReporterInfo ?? sos.ReporterInfo;
+        sos.IsSentOnBehalf = request.IsSentOnBehalf ?? sos.IsSentOnBehalf;
+        sos.OriginId = request.OriginId ?? sos.OriginId;
+        sos.Timestamp = request.Timestamp ?? sos.Timestamp;
+        sos.CreatedAt = request.ClientCreatedAt ?? sos.CreatedAt;
+        sos.LastUpdatedAt = updatedAt;
 
         var victimUpdate = new SosRequestVictimUpdateModel
         {
             SosRequestId = sos.Id,
-            PacketId = request.PacketId ?? currentView.PacketId,
-            Location = request.Location,
-            LocationAccuracy = request.LocationAccuracy ?? currentView.LocationAccuracy,
-            SosType = effectiveSosType,
-            RawMessage = trimmedRawMessage,
-            StructuredData = effectiveStructuredData,
-            NetworkMetadata = request.NetworkMetadata ?? currentView.NetworkMetadata,
-            SenderInfo = request.SenderInfo ?? currentView.SenderInfo,
-            VictimInfo = request.VictimInfo ?? currentView.VictimInfo,
-            ReporterInfo = request.ReporterInfo ?? currentView.ReporterInfo,
-            IsSentOnBehalf = request.IsSentOnBehalf ?? currentView.IsSentOnBehalf,
-            OriginId = request.OriginId ?? currentView.OriginId,
-            Timestamp = request.Timestamp ?? currentView.Timestamp,
-            ClientCreatedAt = request.ClientCreatedAt ?? currentView.CreatedAt,
+            PacketId = sos.PacketId,
+            Location = sos.Location,
+            LocationAccuracy = sos.LocationAccuracy,
+            SosType = sos.SosType,
+            RawMessage = sos.RawMessage,
+            StructuredData = sos.StructuredData,
+            NetworkMetadata = sos.NetworkMetadata,
+            SenderInfo = sos.SenderInfo,
+            VictimInfo = sos.VictimInfo,
+            ReporterInfo = sos.ReporterInfo,
+            IsSentOnBehalf = sos.IsSentOnBehalf,
+            OriginId = sos.OriginId,
+            Timestamp = sos.Timestamp,
+            ClientCreatedAt = sos.CreatedAt,
             UpdatedByUserId = request.ReporterUserId,
             UpdatedAt = updatedAt,
             UpdatedByMode = isOwner ? "Owner" : "Companion"

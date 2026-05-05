@@ -235,11 +235,6 @@ public class MissionContextServiceTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyDictionary<int, IReadOnlyCollection<int>>>(new Dictionary<int, IReadOnlyCollection<int>>());
 
-        public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(
-            IEnumerable<int> sosRequestIds,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>>(new Dictionary<int, SosRequestVictimUpdateModel>());
-
         public Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(
             IEnumerable<int> sosRequestIds,
             CancellationToken cancellationToken = default)

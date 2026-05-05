@@ -12,9 +12,6 @@ public interface ISosRequestUpdateRepository
     Task<IReadOnlyDictionary<int, IReadOnlyCollection<int>>> GetTeamIncidentIdsBySosRequestIdsAsync(
         IEnumerable<int> sosRequestIds,
         CancellationToken cancellationToken = default);
-    Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(
-        IEnumerable<int> sosRequestIds,
-        CancellationToken cancellationToken = default);
     Task<IReadOnlyDictionary<int, IReadOnlyList<SosRequestIncidentUpdateModel>>> GetIncidentHistoryBySosRequestIdsAsync(
         IEnumerable<int> sosRequestIds,
         CancellationToken cancellationToken = default);

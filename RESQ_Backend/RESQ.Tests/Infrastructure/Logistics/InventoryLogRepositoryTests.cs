@@ -91,6 +91,32 @@ public class InventoryLogRepositoryTests
     }
 
     [Fact]
+    public async Task GetInventoryLogsPagedAsync_RemovesFefoFromReturnedNotes()
+    {
+        await using var context = CreateContext();
+        SeedFefoStockMovementLog(context);
+
+        var repository = CreateRepository(context);
+
+        var result = await repository.GetInventoryLogsPagedAsync(
+            depotId: 3,
+            itemModelId: null,
+            actionTypes: null,
+            sourceTypes: null,
+            fromDate: null,
+            toDate: null,
+            search: null,
+            pageNumber: 1,
+            pageSize: 10);
+
+        var log = Assert.Single(result.Items);
+        Assert.Equal("Xuat tiep te lo #89 Thuoc cam cum SL 20 cho yeu cau #96", log.Note);
+
+        var detail = Assert.Single(log.LotDetails);
+        Assert.Equal("Xuat tiep te lo #89 Thuoc cam cum SL 20 cho yeu cau #96", detail.Note);
+    }
+
+    [Fact]
     public async Task GetTransactionHistoryAsync_GroupsMissionReturnActivityLogsAcrossReturnedAndLostItems()
     {
         await using var context = CreateContext();
@@ -227,6 +253,66 @@ public class InventoryLogRepositoryTests
                 Note = "Bao tri bo dam 2",
                 CreatedAt = new DateTime(2026, 4, 21, 2, 0, 0, DateTimeKind.Utc)
             });
+
+        context.SaveChanges();
+    }
+
+    private static void SeedFefoStockMovementLog(ResQDbContext context)
+    {
+        context.Categories.Add(new Category
+        {
+            Id = 20,
+            Code = "Medicine",
+            Name = "Medicine"
+        });
+
+        context.Depots.Add(new Depot
+        {
+            Id = 3,
+            Name = "Kho HCM",
+            Status = "Available"
+        });
+
+        context.ItemModels.Add(new ItemModel
+        {
+            Id = 301,
+            CategoryId = 20,
+            Name = "Thuoc cam cum",
+            Unit = "hop",
+            ItemType = "Consumable"
+        });
+
+        context.SupplyInventories.Add(new SupplyInventory
+        {
+            Id = 3001,
+            DepotId = 3,
+            ItemModelId = 301,
+            Quantity = 80
+        });
+
+        context.SupplyInventoryLots.Add(new SupplyInventoryLot
+        {
+            Id = 89,
+            SupplyInventoryId = 3001,
+            Quantity = 100,
+            RemainingQuantity = 80,
+            ReceivedDate = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            CreatedAt = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)
+        });
+
+        context.InventoryLogs.Add(new InventoryLog
+        {
+            Id = 7001,
+            DepotSupplyInventoryId = 3001,
+            SupplyInventoryLotId = 89,
+            ItemModelId = 301,
+            ActionType = nameof(InventoryActionType.Export),
+            QuantityChange = -20,
+            SourceType = "SupplyRequest",
+            SourceId = 96,
+            Note = "Xuat tiep te FEFO lo #89 Thuoc cam cum SL 20 cho yeu cau #96",
+            CreatedAt = new DateTime(2026, 4, 25, 3, 0, 0, DateTimeKind.Utc)
+        });
 
         context.SaveChanges();
     }

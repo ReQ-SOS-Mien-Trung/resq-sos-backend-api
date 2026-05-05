@@ -218,7 +218,7 @@ public class SosRequestController(IMediator mediator, IAuthorizationService auth
     }
 
     /// <summary>
-    /// Victim hoặc companion cập nhật nội dung SOS request; dữ liệu được lưu vào lịch sử update thay vì ghi đè row gốc.
+    /// Victim hoặc companion cập nhật nội dung SOS request; dữ liệu được ghi vào row SOS request và lưu lịch sử update làm audit log.
     /// </summary>
     [HttpPatch("{id:int}/victim-update")]
     [Authorize(Policy = PermissionConstants.PolicySosRequestAccess)]
