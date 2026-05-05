@@ -1479,6 +1479,66 @@ public class RescueMissionSuggestionServiceInternalTests
     }
 
     [Fact]
+    public void ReconcileSupplyShortagesWithInventory_DoesNotClearMilkShortageWithChildClothingStock()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    DepotId = 1,
+                    DepotName = "Kho Hue"
+                }
+            ],
+            SupplyShortages =
+            [
+                new SupplyShortageDto
+                {
+                    SosRequestId = 21,
+                    ItemName = "S\u1EEFa b\u1ED9t tr\u1EBB em",
+                    Unit = "h\u1ED9p",
+                    SelectedDepotId = 1,
+                    SelectedDepotName = "Kho Hue",
+                    NeededQuantity = 1,
+                    AvailableQuantity = 0,
+                    MissingQuantity = 1
+                }
+            ]
+        };
+
+        var depots = new List<DepotSummary>
+        {
+            new()
+            {
+                Id = 1,
+                Name = "Kho Hue",
+                Inventories =
+                [
+                    new DepotInventoryItemDto
+                    {
+                        ItemId = 53,
+                        ItemName = "B\u1ED9 qu\u1EA7n \u00E1o tr\u1EBB em",
+                        Unit = "b\u1ED9",
+                        AvailableQuantity = 16
+                    }
+                ]
+            }
+        };
+
+        InvokeStatic(nameof(RescueMissionSuggestionService), "ReconcileSupplyShortagesWithInventory", result.SupplyShortages, depots, result.SuggestedActivities);
+        InvokeStatic(nameof(RescueMissionSuggestionService), "NormalizeSupplyShortages", result);
+
+        var shortage = Assert.Single(result.SupplyShortages);
+        Assert.Equal("S\u1EEFa b\u1ED9t tr\u1EBB em", shortage.ItemName);
+        Assert.Equal(0, shortage.AvailableQuantity);
+        Assert.Equal(1, shortage.MissingQuantity);
+        Assert.Contains("kho \u0111\u01B0\u1EE3c ch\u1ECDn \u0111ang thi\u1EBFu s\u1EEFa, c\u1EA7n b\u1ED5 sung", result.SpecialNotes ?? string.Empty);
+    }
+
+    [Fact]
     public void ApplySingleDepotConstraint_FlagsManualReviewWhenMultipleDepotsAppear()
     {
         var result = new RescueMissionSuggestionResult

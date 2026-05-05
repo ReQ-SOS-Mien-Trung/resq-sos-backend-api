@@ -1608,6 +1608,160 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
     }
 
+    private async Task CanonicalizeSupplyShortageMetadataAsync(
+        List<SupplyShortageDto> shortages,
+        CancellationToken cancellationToken)
+    {
+        var namedShortages = shortages
+            .Where(shortage => !string.IsNullOrWhiteSpace(shortage.ItemName) || shortage.ItemId.HasValue)
+            .ToList();
+
+        if (namedShortages.Count == 0)
+            return;
+
+        var unresolvedShortages = namedShortages;
+        var existingItemIds = namedShortages
+            .Where(shortage => shortage.ItemId.HasValue)
+            .Select(shortage => shortage.ItemId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (existingItemIds.Count > 0)
+        {
+            var itemLookup = await _itemModelMetadataRepository.GetByIdsAsync(existingItemIds, cancellationToken);
+            foreach (var shortage in namedShortages)
+            {
+                if (!shortage.ItemId.HasValue || !itemLookup.TryGetValue(shortage.ItemId.Value, out var item))
+                    continue;
+
+                ApplySupplyShortageItemMetadata(shortage, item);
+            }
+
+            unresolvedShortages = namedShortages
+                .Where(shortage => !shortage.ItemId.HasValue || !itemLookup.ContainsKey(shortage.ItemId.Value))
+                .ToList();
+        }
+
+        if (unresolvedShortages.Count == 0)
+            return;
+
+        var metadataItems = await _itemModelMetadataRepository.GetAllForMetadataAsync(cancellationToken);
+        if (metadataItems.Count == 0)
+            return;
+
+        var resolvedIds = new List<int>();
+        foreach (var shortage in unresolvedShortages)
+        {
+            var metadata = FindBestSupplyShortageMetadataMatch(shortage, metadataItems);
+            if (metadata is null
+                || !int.TryParse(metadata.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out var itemId))
+            {
+                continue;
+            }
+
+            shortage.ItemId = itemId;
+            shortage.ItemName = metadata.Value.Trim();
+            resolvedIds.Add(itemId);
+        }
+
+        if (resolvedIds.Count == 0)
+            return;
+
+        var resolvedLookup = await _itemModelMetadataRepository.GetByIdsAsync(resolvedIds.Distinct().ToList(), cancellationToken);
+        foreach (var shortage in unresolvedShortages)
+        {
+            if (shortage.ItemId.HasValue && resolvedLookup.TryGetValue(shortage.ItemId.Value, out var item))
+                ApplySupplyShortageItemMetadata(shortage, item);
+        }
+    }
+
+    private static MetadataDto? FindBestSupplyShortageMetadataMatch(
+        SupplyShortageDto shortage,
+        IReadOnlyCollection<MetadataDto> metadataItems)
+    {
+        var normalizedShortageName = NormalizeItemName(shortage.ItemName);
+        if (string.IsNullOrWhiteSpace(normalizedShortageName))
+            return null;
+
+        return metadataItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key) && !string.IsNullOrWhiteSpace(item.Value))
+            .Select(item => new
+            {
+                Item = item,
+                Score = ScoreSupplyShortageMetadataMatch(normalizedShortageName, NormalizeItemName(item.Value))
+            })
+            .Where(entry => entry.Score > 0)
+            .OrderByDescending(entry => entry.Score)
+            .ThenBy(entry => entry.Item.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => entry.Item)
+            .FirstOrDefault();
+    }
+
+    private static int ScoreSupplyShortageMetadataMatch(
+        string normalizedShortageName,
+        string normalizedMetadataName)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedMetadataName))
+            return 0;
+
+        var isMilkShortage = IsMilkShortageLabel(normalizedShortageName);
+        if (isMilkShortage && !IsMilkShortageLabel(normalizedMetadataName))
+            return 0;
+
+        var score = 0;
+        if (string.Equals(normalizedMetadataName, normalizedShortageName, StringComparison.Ordinal))
+        {
+            score += 1000;
+        }
+        else if (normalizedMetadataName.Contains(normalizedShortageName, StringComparison.Ordinal)
+                 || normalizedShortageName.Contains(normalizedMetadataName, StringComparison.Ordinal))
+        {
+            score += 500;
+        }
+
+        var shortageTokens = SplitNormalizedItemNameTokens(normalizedShortageName);
+        var metadataTokens = SplitNormalizedItemNameTokens(normalizedMetadataName);
+        score += shortageTokens
+            .Where(metadataTokens.Contains)
+            .Sum(token => Math.Max(token.Length, 2) * 20);
+
+        if (isMilkShortage)
+        {
+            score += 250;
+
+            if (ContainsOperationalKeyword(normalizedShortageName, "tre em", "baby", "infant")
+                && ContainsOperationalKeyword(normalizedMetadataName, "tre em", "baby", "infant"))
+            {
+                score += 180;
+            }
+
+            if (ContainsOperationalKeyword(normalizedShortageName, "bot", "hop", "formula")
+                && ContainsOperationalKeyword(normalizedMetadataName, "bot", "hop", "formula"))
+            {
+                score += 80;
+            }
+        }
+
+        return score >= 180 ? score : 0;
+    }
+
+    private static HashSet<string> SplitNormalizedItemNameTokens(string normalizedName) =>
+        normalizedName
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => token.Length >= 2)
+            .ToHashSet(StringComparer.Ordinal);
+
+    private static void ApplySupplyShortageItemMetadata(
+        SupplyShortageDto shortage,
+        RESQ.Domain.Entities.Logistics.ItemModelRecord item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Name))
+            shortage.ItemName = item.Name;
+
+        if (!string.IsNullOrWhiteSpace(item.Unit))
+            shortage.Unit = item.Unit;
+    }
+
     private static readonly Dictionary<string, string[]> GenericShortageAliasTokens =
         new(StringComparer.Ordinal)
         {
@@ -1781,6 +1935,12 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         if (string.IsNullOrWhiteSpace(normalizedInventoryName))
             return 0;
 
+        if (IsMilkShortageLabel(normalizedShortageName)
+            && !IsMilkShortageLabel(normalizedInventoryName))
+        {
+            return 0;
+        }
+
         var score = 0;
 
         if (shortage.ItemId.HasValue && inventory.ItemId == shortage.ItemId)
@@ -1815,6 +1975,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             normalizedShortageName.Contains(alias, StringComparison.Ordinal)
             || alias.Contains(normalizedShortageName, StringComparison.Ordinal));
     }
+
+    private static bool IsMilkShortageLabel(string normalizedName) =>
+        ContainsOperationalKeyword(normalizedName, "sua", "milk", "formula");
 
     private static void NormalizeSupplyShortages(RescueMissionSuggestionResult result)
     {
@@ -2047,9 +2210,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        return details.Count == 0
+        var baseNote = details.Count == 0
             ? "Coordinator cần bổ sung thêm kho/nguồn cấp phát vì kho đã chọn không đủ vật phẩm."
             : "Coordinator cần bổ sung thêm kho/nguồn cấp phát. Thiếu: " + string.Join("; ", details) + ".";
+
+        return shortages.Any(shortage => IsMilkShortageLabel(NormalizeItemName(shortage.ItemName)))
+            ? "kho được chọn đang thiếu sữa, cần bổ sung. " + baseNote
+            : baseNote;
     }
 
     private static bool IsCollectActivity(SuggestedActivityDto activity) =>
@@ -4033,11 +4200,18 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             .Where(item => item.DepotId == activity.DepotId)
             .Where(item => item.AvailableQuantity > 0)
             .Where(item => IsSupplyInventoryCandidateAllowedForActivity(item, activity))
-            .OrderByDescending(item => ScoreSupplyInventoryMatch(item, activity, supply, currentMetadata))
-            .ThenByDescending(item => item.AvailableQuantity >= Math.Max(supply.Quantity, 1))
-            .ThenByDescending(item => item.AvailableQuantity)
-            .ThenByDescending(item => item.GoodAvailableCount ?? 0)
-            .ThenBy(item => item.ItemName)
+            .Select(item => new
+            {
+                Item = item,
+                Score = ScoreSupplyInventoryMatch(item, activity, supply, currentMetadata)
+            })
+            .Where(entry => entry.Score > 0)
+            .OrderByDescending(entry => entry.Score)
+            .ThenByDescending(entry => entry.Item.AvailableQuantity >= Math.Max(supply.Quantity, 1))
+            .ThenByDescending(entry => entry.Item.AvailableQuantity)
+            .ThenByDescending(entry => entry.Item.GoodAvailableCount ?? 0)
+            .ThenBy(entry => entry.Item.ItemName)
+            .Select(entry => entry.Item)
             .FirstOrDefault();
     }
 
@@ -4220,9 +4394,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     .Where(activity => ReferencesSos(activity, need.SosRequestId)),
                 need);
 
-            if (collectCoverage >= targetQuantity && deliveryCoverage >= targetQuantity)
-                continue;
-
             var inventoryMatch = await FindMandatoryStructuredSupplyMatchAsync(
                 selectedDepot.Id,
                 need,
@@ -4231,9 +4402,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
 
             if (inventoryMatch is null)
             {
-                if (TryBackfillMandatorySupplyFromExistingActivity(result, need, selectedDepot, targetQuantity))
-                    continue;
-
                 AddOrMergeMandatoryStructuredSupplyShortage(
                     result,
                     need,
@@ -4244,9 +4412,13 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 continue;
             }
 
-            var effectiveAvailableQuantity = Math.Max(
-                inventoryMatch.AvailableQuantity,
-                Math.Max(collectCoverage, deliveryCoverage));
+            if (collectCoverage >= targetQuantity && deliveryCoverage >= targetQuantity
+                && inventoryMatch.AvailableQuantity >= targetQuantity)
+            {
+                continue;
+            }
+
+            var effectiveAvailableQuantity = Math.Max(inventoryMatch.AvailableQuantity, 0);
             var coveredQuantity = Math.Min(targetQuantity, effectiveAvailableQuantity);
 
             if (coveredQuantity > 0)
@@ -4262,16 +4434,19 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                     selectedDepot,
                     deliverActivity);
 
+                var shouldCapPlannedQuantity = effectiveAvailableQuantity < targetQuantity;
                 AddOrUpdateMandatoryStructuredSupply(
                     collectActivity,
                     CreateMandatorySupply(inventoryMatch, coveredQuantity),
                     need,
-                    coveredQuantity);
+                    coveredQuantity,
+                    shouldCapPlannedQuantity);
                 AddOrUpdateMandatoryStructuredSupply(
                     deliverActivity,
                     CreateMandatorySupply(inventoryMatch, coveredQuantity),
                     need,
-                    coveredQuantity);
+                    coveredQuantity,
+                    shouldCapPlannedQuantity);
             }
 
             if (effectiveAvailableQuantity < targetQuantity)
@@ -4523,41 +4698,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         }
     }
 
-    private static bool TryBackfillMandatorySupplyFromExistingActivity(
-        RescueMissionSuggestionResult result,
-        MandatoryStructuredSupplyNeed need,
-        DepotSummary selectedDepot,
-        int targetQuantity)
-    {
-        var existingCollectSupply = FindMandatoryStructuredSupply(result.SuggestedActivities
-            .Where(IsCollectActivity)
-            .Where(activity => activity.DepotId == selectedDepot.Id), need);
-        var existingDeliverySupply = FindMandatoryStructuredSupply(result.SuggestedActivities
-            .Where(IsDeliverActivity)
-            .Where(activity => ReferencesSos(activity, need.SosRequestId)), need);
-
-        if (existingCollectSupply is null && existingDeliverySupply is null)
-            return false;
-
-        var deliverActivity = FindOrCreateMandatoryDeliverActivity(result, need, selectedDepot, []);
-        var collectActivity = FindOrCreateMandatoryCollectActivity(result, need, selectedDepot, deliverActivity);
-        var sourceSupply = existingCollectSupply ?? existingDeliverySupply!;
-
-        AddOrUpdateMandatoryStructuredSupply(collectActivity, sourceSupply, need, targetQuantity);
-        AddOrUpdateMandatoryStructuredSupply(deliverActivity, sourceSupply, need, targetQuantity);
-        return true;
-    }
-
-    private static SupplyToCollectDto? FindMandatoryStructuredSupply(
-        IEnumerable<SuggestedActivityDto> activities,
-        MandatoryStructuredSupplyNeed need)
-    {
-        return activities
-            .SelectMany(activity => activity.SuppliesToCollect ?? [])
-            .Where(supply => supply.Quantity > 0)
-            .FirstOrDefault(supply => MandatorySupplyMatchesNeed(supply, need));
-    }
-
     private static int GetMandatoryStructuredSupplyCoverage(
         IEnumerable<SuggestedActivityDto> activities,
         MandatoryStructuredSupplyNeed need)
@@ -4626,7 +4766,8 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         SuggestedActivityDto activity,
         SupplyToCollectDto sourceSupply,
         MandatoryStructuredSupplyNeed need,
-        int targetQuantity)
+        int targetQuantity,
+        bool capQuantityToTarget = false)
     {
         activity.SuppliesToCollect ??= [];
         var normalizedSourceName = NormalizeItemName(sourceSupply.ItemName);
@@ -4651,7 +4792,9 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
             existingSupply.Unit = sourceSupply.Unit;
         if (string.IsNullOrWhiteSpace(existingSupply.ImageUrl))
             existingSupply.ImageUrl = sourceSupply.ImageUrl;
-        existingSupply.Quantity = Math.Max(existingSupply.Quantity, targetQuantity);
+        existingSupply.Quantity = capQuantityToTarget
+            ? Math.Max(targetQuantity, 1)
+            : Math.Max(existingSupply.Quantity, targetQuantity);
     }
 
     private static void AddOrMergeMandatoryStructuredSupplyShortage(
