@@ -13,7 +13,6 @@ namespace RESQ.Application.UseCases.Operations.Commands.SelectSupportTopic;
 public class SelectSupportTopicCommandHandler(
     IConversationRepository conversationRepository,
     ISosRequestRepository sosRequestRepository,
-    ISosRequestUpdateRepository sosRequestUpdateRepository,
     IChatSupportAiService chatSupportAiService,
     ILogger<SelectSupportTopicCommandHandler> logger
 ) : IRequestHandler<SelectSupportTopicCommand, SelectSupportTopicResponse>
@@ -43,14 +42,7 @@ public class SelectSupportTopicCommandHandler(
             // AI truy vấn SOS requests của victim
             var sosRequests = (await sosRequestRepository.GetByUserIdAsync(
                 request.VictimId, cancellationToken)).ToList();
-            var victimUpdateLookup = await sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-                sosRequests.Select(x => x.Id),
-                cancellationToken);
-            var effectiveSosRequests = sosRequests.Select(sos =>
-            {
-                victimUpdateLookup.TryGetValue(sos.Id, out var latestVictimUpdate);
-                return SosRequestVictimUpdateOverlay.Apply(sos, latestVictimUpdate);
-            }).ToList();
+            var effectiveSosRequests = sosRequests;
 
             aiMessage = await chatSupportAiService.FormatSosRequestListMessageAsync(
                 effectiveSosRequests, cancellationToken);

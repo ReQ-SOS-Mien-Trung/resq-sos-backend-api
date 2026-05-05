@@ -50,17 +50,13 @@ public class GetSosRequestsByBoundsQueryHandler(
             sortOptions,
             cancellationToken);
 
-        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-            sosRequests.Select(x => x.Id),
-            cancellationToken);
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             sosRequests.Select(x => x.Id),
             cancellationToken);
 
         var dtos = sosRequests.Select(x =>
         {
-            victimUpdateLookup.TryGetValue(x.Id, out var latestVictimUpdate);
-            var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(x, latestVictimUpdate);
+            var effectiveSosRequest = x;
 
             incidentLookup.TryGetValue(x.Id, out var incidents);
             var latestIncident = incidents?.FirstOrDefault();

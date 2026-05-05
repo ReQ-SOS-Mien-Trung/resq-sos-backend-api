@@ -22,9 +22,6 @@ public class GetAllSosRequestsQueryHandler(
 
         var requests = await _sosRequestRepository.GetAllAsync(cancellationToken);
         var requestList = requests.ToList();
-        var victimUpdateLookup = await _sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-            requestList.Select(x => x.Id),
-            cancellationToken);
         var incidentLookup = await _sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             requestList.Select(x => x.Id),
             cancellationToken);
@@ -33,8 +30,7 @@ public class GetAllSosRequestsQueryHandler(
         {
             SosRequests = requestList.Select(x =>
             {
-                victimUpdateLookup.TryGetValue(x.Id, out var latestVictimUpdate);
-                var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(x, latestVictimUpdate);
+                var effectiveSosRequest = x;
 
                 incidentLookup.TryGetValue(x.Id, out var incidents);
                 var latestIncident = incidents?.FirstOrDefault();

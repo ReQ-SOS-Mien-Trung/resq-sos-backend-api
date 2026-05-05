@@ -425,11 +425,6 @@ public class SosAiAnalysisServiceTests
 
     private sealed class StubSosRequestUpdateRepository : ISosRequestUpdateRepository
     {
-        public Task<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>> GetLatestVictimUpdatesBySosRequestIdsAsync(
-            IEnumerable<int> sosRequestIds,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyDictionary<int, SosRequestVictimUpdateModel>>(
-                new Dictionary<int, SosRequestVictimUpdateModel>());
 
         public Task AddVictimUpdateAsync(SosRequestVictimUpdateModel update, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task AddIncidentRangeAsync(IEnumerable<SosRequestIncidentUpdateModel> updates, CancellationToken cancellationToken = default) => throw new NotImplementedException();

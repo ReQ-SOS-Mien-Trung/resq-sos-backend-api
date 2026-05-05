@@ -32,11 +32,7 @@ public sealed class SosRequestSnapshotBuilder(
         SosRequestModel sosRequest,
         CancellationToken cancellationToken = default)
     {
-        var victimUpdateLookup = await sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-            [sosRequest.Id],
-            cancellationToken);
-        victimUpdateLookup.TryGetValue(sosRequest.Id, out var latestVictimUpdate);
-        var effectiveSosRequest = SosRequestVictimUpdateOverlay.Apply(sosRequest, latestVictimUpdate);
+        var effectiveSosRequest = sosRequest;
 
         var incidentLookup = await sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             [sosRequest.Id],

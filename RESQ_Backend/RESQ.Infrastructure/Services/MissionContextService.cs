@@ -44,9 +44,6 @@ public class MissionContextService(
 
         var clusterSosRequests = await sosRequestRepository.GetByClusterIdAsync(clusterId, cancellationToken);
         var sosRequestList = clusterSosRequests.ToList();
-        var victimUpdateLookup = await sosRequestUpdateRepository.GetLatestVictimUpdatesBySosRequestIdsAsync(
-            sosRequestList.Select(x => x.Id),
-            cancellationToken);
         var incidentLookup = await sosRequestUpdateRepository.GetIncidentHistoryBySosRequestIdsAsync(
             sosRequestList.Select(x => x.Id),
             cancellationToken);
@@ -57,11 +54,7 @@ public class MissionContextService(
         if (sosRequestList.Count == 0)
             throw new BadRequestException($"Cluster {clusterId} không có SOS request nào");
 
-        var effectiveSosRequests = sosRequestList.Select(sos =>
-        {
-            victimUpdateLookup.TryGetValue(sos.Id, out var latestVictimUpdate);
-            return SosRequestVictimUpdateOverlay.Apply(sos, latestVictimUpdate);
-        }).ToList();
+        var effectiveSosRequests = sosRequestList;
 
         var sosRequestSummaries = effectiveSosRequests.Select(sos =>
         {
