@@ -7,6 +7,7 @@ public class MissionActivityTargetVictimDto
     public string? PersonType { get; set; }
     public string? PersonPhone { get; set; }
     public int? Index { get; set; }
+    public bool? NeedRescue { get; set; }
     public bool? IsInjured { get; set; }
     public string? Severity { get; set; }
     public List<string> MedicalIssues { get; set; } = [];

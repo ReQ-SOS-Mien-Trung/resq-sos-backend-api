@@ -151,6 +151,9 @@ public class SosVictimDto
     [JsonPropertyName("person_phone")]
     public string? PersonPhone { get; set; }
 
+    [JsonPropertyName("need_rescue")]
+    public bool? NeedRescue { get; set; }
+
     [JsonPropertyName("incident_status")]
     public SosVictimIncidentStatusDto? IncidentStatus { get; set; }
 

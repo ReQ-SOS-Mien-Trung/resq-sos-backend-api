@@ -36,7 +36,7 @@ public class MissionContextServiceTests
             {
                 Id = 1,
                 RawMessage = "Khu vuc ngap sau, bi co lap, can ca no de so tan nguoi mac ket.",
-                StructuredData = """{"group_needs":{"water":{"duration":"2 ngay"}}}"""
+                StructuredData = """{"group_needs":{"water":{"duration":"2 ngay"}},"victims":[{"need_rescue":true}]}"""
             }
         };
 
@@ -75,6 +75,7 @@ public class MissionContextServiceTests
                       },
                       "victims": [
                         {
+                          "need_rescue": true,
                           "incident_status": {
                             "is_injured": true,
                             "medical_issues": ["FRACTURE"],
@@ -96,6 +97,33 @@ public class MissionContextServiceTests
         Assert.Contains("MEDICINE", needed);
         Assert.Contains("RESCUE_EQUIPMENT", needed);
         Assert.Contains("CLOTHING", needed);
+    }
+
+    [Fact]
+    public void ExtractNeededSupplies_MissingNeedRescue_DoesNotInferRescueResources()
+    {
+        var method = typeof(MissionContextService).GetMethod(
+            "ExtractNeededSupplies",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+
+        var sosRequests = new List<SosRequestSummary>
+        {
+            new()
+            {
+                Id = 2,
+                RawMessage = "Khu vuc ngap sau, bi co lap, can ca no de so tan nguoi mac ket.",
+                StructuredData = """{"group_needs":{"water":{"duration":"2 ngay"}},"victims":[{"incident_status":{"medical_issues":["FRACTURE"]}}]}"""
+            }
+        };
+
+        var needed = (HashSet<string>)method!.Invoke(null, [sosRequests])!;
+
+        Assert.Contains("WATER", needed);
+        Assert.Contains("MEDICINE", needed);
+        Assert.DoesNotContain("TRANSPORTATION", needed);
+        Assert.DoesNotContain("RESCUE_EQUIPMENT", needed);
     }
 
     [Fact]

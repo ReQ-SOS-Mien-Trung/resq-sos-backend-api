@@ -85,13 +85,15 @@ public class PromptSeederTests
         Assert.Contains("exact sos_request_id", depot.SystemPrompt);
 
         Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", team.SystemPrompt);
-        Assert.Contains("RESCUE, MEDICAL_AID, or EVACUATE", team.SystemPrompt);
+        Assert.Contains("NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)", team.SystemPrompt);
+        Assert.Contains("need_rescue=true", team.SystemPrompt);
         Assert.Contains("description-only SOS mentions", team.SystemPrompt);
 
         Assert.Contains("IMPORTANT SOS COVERAGE CONTRACT (STRICT):", validation.SystemPrompt);
         Assert.Contains("IMPORTANT ITEM TYPE CONTRACT (STRICT):", validation.SystemPrompt);
         Assert.Contains("Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES", validation.SystemPrompt);
-        Assert.Contains("DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE", validation.SystemPrompt);
+        Assert.Contains("NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)", validation.SystemPrompt);
+        Assert.Contains("MEDICAL_AID for medical fields", validation.SystemPrompt);
         Assert.Contains("COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT", validation.SystemPrompt);
         Assert.Contains("description-only SOS mentions", validation.SystemPrompt);
     }
@@ -161,6 +163,7 @@ public class PromptSeederTests
             Assert.Contains("IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT)", prompt.SystemPrompt);
             Assert.Contains("target_person_ids", prompt.SystemPrompt);
             Assert.Contains("target_victim_summary", prompt.SystemPrompt);
+            Assert.Contains("NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)", prompt.SystemPrompt);
             Assert.Contains("adult_1", prompt.SystemPrompt);
             Assert.Contains("child_1", prompt.SystemPrompt);
             Assert.Contains("ông Khoa", prompt.SystemPrompt);

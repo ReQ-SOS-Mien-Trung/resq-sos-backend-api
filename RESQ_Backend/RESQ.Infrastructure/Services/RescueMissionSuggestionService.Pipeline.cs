@@ -185,8 +185,8 @@ public partial class RescueMissionSuggestionService
                             assembly_point_name = t.AssemblyPointName
                         }), PipelineJsonDeserializeOptions)
                     },
-                    "Assign available teams near the current operating area, add rescue/medical/evacuate activities as JSON fragments, and decide the exact final activity order. A mission may use many teams, but each individual activity must remain SingleTeam. Every SOS that needs rescue, medical aid, evacuation, or field work with depot-backed Reusable gear must receive a direct RESCUE, MEDICAL_AID, or EVACUATE activity with exact sos_request_id when team work is the correct coverage. Write every suggested_team.reason as one short, plain Vietnamese sentence for coordinators; do not mention pool, nearby teams, cluster, backend, team_id, or distance_km."),
-                "Only getTeams and getAssemblyPoints are available. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS that needs rescue, medical aid, evacuation, or field work with depot-backed Reusable gear must have at least one additional RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS when field work is required. Do not rely on description-only mentions. Do not invent team_id or assembly_point_id. Do not use SplitAcrossTeams, MultiTeam, or required_team_count > 1 on any activity or assignment. You may keep coordination_group_key only as a route-ordering hint, not as a multi-team split signal. Every additional activity should include activity_key when available. Return ordered_activity_keys when possible; if omitted, backend will keep the combined depot/team activity order. Non-urgent mixed routes may do COLLECT->DELIVER before rescue only for a real Consumable delivery branch. Urgent rescue routes should still prioritize rescue work before unrelated work; depot-backed COLLECT_SUPPLIES may appear before rescue when the same route must bring Reusable operational gear to the scene. A DELIVER_SUPPLIES activity must stay on the same route/team as the COLLECT_SUPPLIES that gathered its depot-backed Consumable supplies; cross-team inventory handoff is unsupported. Do not assign one team to COLLECT and another team to DELIVER the same collected Consumable supplies. suggested_team.reason must be plain Vietnamese for coordinators and must not contain pool, nearby teams, cluster, backend, team_id, or distance_km. Return JSON only.",
+                    "Assign available teams near the current operating area, add rescue/medical/evacuate activities as JSON fragments, and decide the exact final activity order. A mission may use many teams, but each individual activity must remain SingleTeam. Only victims with need_rescue=true may drive RESCUE or EVACUATE. Medical fields remain independent and may drive MEDICAL_AID even when need_rescue=false. Write every suggested_team.reason as one short, plain Vietnamese sentence for coordinators; do not mention pool, nearby teams, cluster, backend, team_id, or distance_km."),
+                "Only getTeams and getAssemblyPoints are available. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with victims need_rescue=true must have direct RESCUE or EVACUATE coverage when field rescue/evacuation is required; every SOS with medical fields (medical_issues, severity, or is_injured=true) must have MEDICAL_AID coverage when medical field work is required. Do not create RESCUE or EVACUATE for victims whose need_rescue is false or missing/null. Do not rely on description-only mentions. Do not invent team_id or assembly_point_id. Do not use SplitAcrossTeams, MultiTeam, or required_team_count > 1 on any activity or assignment. You may keep coordination_group_key only as a route-ordering hint, not as a multi-team split signal. Every additional activity should include activity_key when available. Return ordered_activity_keys when possible; if omitted, backend will keep the combined depot/team activity order. Non-urgent mixed routes may do COLLECT->DELIVER before rescue only for a real Consumable delivery branch. Urgent rescue routes should still prioritize rescue work before unrelated work; depot-backed COLLECT_SUPPLIES may appear before rescue when the same route must bring Reusable operational gear to the scene. A DELIVER_SUPPLIES activity must stay on the same route/team as the COLLECT_SUPPLIES that gathered its depot-backed Consumable supplies; cross-team inventory handoff is unsupported. Do not assign one team to COLLECT and another team to DELIVER the same collected Consumable supplies. suggested_team.reason must be plain Vietnamese for coordinators and must not contain pool, nearby teams, cluster, backend, team_id, or distance_km. Return JSON only.",
                 BuildAllowedTools("getTeams", "getAssemblyPoints"),
                 nearbyDepots,
                 nearbyTeams,
@@ -276,8 +276,8 @@ public partial class RescueMissionSuggestionService
                         ["sos_requests_data"] = BuildSosRequestsData(sosRequests),
                         ["mission_draft_body"] = draftJson
                     },
-                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed Reusable equipment inside COLLECT_SUPPLIES/RETURN_SUPPLIES. Keep the JSON contract unchanged. Every input SOS must appear in at least one final executable activity with exact sos_request_id."),
-                "No tools are available. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with exact sos_request_id. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES may include only Consumable supplies intended for handover to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS in sos_requests_data must be covered by at least one final DELIVER_SUPPLIES, RESCUE, MEDICAL_AID, or EVACUATE activity with sos_request_id exactly matching that SOS. Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage. If the draft misses coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available. Do not invent depot_id, item_id, team_id, or assembly_point_id. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
+                    "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed Reusable equipment inside COLLECT_SUPPLIES/RETURN_SUPPLIES. Keep the JSON contract unchanged. RESCUE and EVACUATE may target only victims with need_rescue=true; MEDICAL_AID remains independent for medical fields."),
+                "No tools are available. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with exact sos_request_id. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES may include only Consumable supplies intended for handover to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered. IMPORTANT SOS COVERAGE CONTRACT (STRICT): cover SOS entries through the minimal applicable activity types only: DELIVER_SUPPLIES for consumables, MEDICAL_AID for medical fields, and RESCUE/EVACUATE only for victims with need_rescue=true. Do not create RESCUE or EVACUATE for need_rescue=false or missing/null victims. Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage. If the draft misses applicable coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available. Do not invent depot_id, item_id, team_id, or assembly_point_id. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
                 aiConfig,
                 options,
                 cancellationToken);
@@ -592,6 +592,12 @@ public partial class RescueMissionSuggestionService
         var guardrails = promptType switch
         {
             PromptType.MissionRequirementsAssessment => """
+                NEED_RESCUE_ACTIVITY_CONTRACT (STRICT):
+                - Read danh_sach_nan_nhan[].need_rescue and du_lieu_chi_tiet.victims[].need_rescue.
+                - Only victims with need_rescue=true may create rescue, evacuation, safe-transfer, transportation, or rescue-equipment requirements.
+                - need_rescue=false or missing/null means the victim must not drive RESCUE or EVACUATE.
+                - Medical fields are independent: medical_issues, severity, and is_injured may still create medical requirements even when need_rescue=false.
+
                 MEDICAL_ITEM_SELECTION (STRICT):
                 - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
                 - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
@@ -606,6 +612,10 @@ public partial class RescueMissionSuggestionService
                 - Keep duration estimates realistic for nearby urban missions; do not default to 30/45/60 minutes without distance or field-condition evidence.
                 """,
             PromptType.MissionDepotPlanning => """
+                NEED_RESCUE_ACTIVITY_CONTRACT (STRICT):
+                - Search transportation or rescue reusable equipment only when SOS_REQUESTS_DATA has at least one victim with need_rescue=true or the route already has a valid RESCUE/EVACUATE branch.
+                - Do not infer rescue equipment from medical_issues alone; medical-only victims use MEDICAL_AID and medical supplies.
+
                 DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT):
                 - Do NOT list Consumable items in COLLECT_SUPPLIES.supplies_to_collect.
                 - List ALL Consumable items ONLY in their respective DELIVER_SUPPLIES activities with the exact sos_request_id they serve.
@@ -631,6 +641,12 @@ public partial class RescueMissionSuggestionService
                 - Use 15-35 minutes for rescue/medical/evacuate unless evidence requires longer.
                 """,
             PromptType.MissionTeamPlanning => """
+                NEED_RESCUE_ACTIVITY_CONTRACT (STRICT):
+                - Add RESCUE or EVACUATE only for victims with need_rescue=true.
+                - target_person_ids for RESCUE/EVACUATE must contain only person_id values whose need_rescue=true.
+                - Do not create RESCUE/EVACUATE for need_rescue=false or missing/null victims, even when they have medical_issues.
+                - A victim with need_rescue=false and medical_issues/severity/is_injured may still receive MEDICAL_AID.
+
                 REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT):
                 - When depot_fragment collected Reusable equipment, include the equipment names in the relevant RESCUE, MEDICAL_AID, or EVACUATE description or coordination_notes as equipment used by the team.
                 - RETURN_SUPPLIES is only valid after that field-use activity exists in the route.
@@ -647,6 +663,11 @@ public partial class RescueMissionSuggestionService
                 - If the target is uncertain, set target_person_ids to [] and explain the uncertainty in description.
                 """,
             PromptType.MissionPlanValidation => """
+                NEED_RESCUE_ACTIVITY_CONTRACT (STRICT):
+                - Final RESCUE/EVACUATE activities may target only victims with need_rescue=true.
+                - Remove or rewrite any RESCUE/EVACUATE activity that targets need_rescue=false or missing/null victims.
+                - Preserve MEDICAL_AID for victims with medical_issues, severity, or is_injured even when need_rescue=false.
+
                 DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT):
                 - COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT.
                 - All Consumable items must be listed in their respective DELIVER_SUPPLIES activities with correct sos_request_id.
@@ -2094,6 +2115,11 @@ public partial class RescueMissionSuggestionService
             var sosLookup = sosRequests.ToDictionary(sos => sos.Id);
             BackfillSosRequestIds(draftActivities, sosRequests);
             EnrichVictimTargets(draftActivities, sosLookup);
+            if (RemoveRescueEvacuationActivitiesWithoutNeedRescue(draftActivities))
+            {
+                NormalizeActivitySequence(draftActivities, sosLookup);
+                BackfillSosRequestIds(draftActivities, sosRequests);
+            }
         }
 
         var effectiveMetadata = metadata ?? CreateSuggestionMetadataForPipeline();
@@ -2154,6 +2180,13 @@ public partial class RescueMissionSuggestionService
         BackfillItemIds(result.SuggestedActivities, nearbyDepots ?? []);
         await BackfillInventoryBackedItemIdsAsync(result.SuggestedActivities, cancellationToken);
         BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
+        EnrichVictimTargets(result.SuggestedActivities, sosLookup);
+        if (RemoveRescueEvacuationActivitiesWithoutNeedRescue(result.SuggestedActivities))
+        {
+            NormalizeActivitySequence(result.SuggestedActivities, sosLookup);
+            BackfillSosRequestIds(result.SuggestedActivities, sosRequests);
+        }
+        RemoveRescueTransportResourcesWithoutNeedRescue(result, sosRequests);
         await EnsureInventoryBackedTransportSuppliesAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);
         ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         await EnsureMandatoryStructuredSupplyCoverageAsync(result, sosRequests, nearbyDepots ?? [], cancellationToken);

@@ -8,6 +8,7 @@ namespace RESQ.Application.Common;
 public sealed class MissionActivityVictimContext
 {
     public string? Summary { get; init; }
+    public string? RescueSummary { get; init; }
     public List<MissionActivityTargetVictimDto> Victims { get; init; } = [];
 }
 
@@ -39,10 +40,15 @@ public static class MissionActivityVictimContextHelper
 
         var victims = BuildVictims(structuredData);
         var summary = BuildSummary(victims, structuredData.Incident?.PeopleCount, sosRequestId);
+        var rescueSummary = BuildSummary(
+            victims.Where(NeedsRescue).ToList(),
+            peopleCount: null,
+            sosRequestId: null);
 
         return new MissionActivityVictimContext
         {
             Summary = summary,
+            RescueSummary = rescueSummary,
             Victims = victims
         };
     }
@@ -60,6 +66,7 @@ public static class MissionActivityVictimContextHelper
             PersonType = victim.PersonType,
             PersonPhone = victim.PersonPhone,
             Index = victim.Index,
+            NeedRescue = victim.NeedRescue,
             IsInjured = victim.IsInjured,
             Severity = victim.Severity,
             MedicalIssues = victim.MedicalIssues?.ToList() ?? [],
@@ -169,6 +176,7 @@ public static class MissionActivityVictimContextHelper
             PersonType = victim.PersonType,
             PersonPhone = victim.PersonPhone,
             Index = victim.Index,
+            NeedRescue = victim.NeedRescue,
             IsInjured = victim.IncidentStatus?.IsInjured,
             Severity = victim.IncidentStatus?.Severity,
             MedicalIssues = medicalIssues,
@@ -212,6 +220,14 @@ public static class MissionActivityVictimContextHelper
             });
         }
     }
+
+    public static bool NeedsRescue(MissionActivityTargetVictimDto victim) =>
+        victim.NeedRescue == true;
+
+    public static bool NeedsMedicalAid(MissionActivityTargetVictimDto victim) =>
+        victim.IsInjured == true
+        || !string.IsNullOrWhiteSpace(victim.Severity)
+        || victim.MedicalIssues.Count > 0;
 
     private static string? BuildSummary(
         IReadOnlyList<MissionActivityTargetVictimDto> victims,
