@@ -69,30 +69,6 @@ public static class FinanceSeed
             },
             new DepotFundTransaction
             {
-                Id = 4,
-                DepotFundId = 2,
-                TransactionType = DepotFundTransactionType.PersonalAdvance.ToString(),
-                Amount = 30_000_000m,
-                ReferenceType = "VatInvoice",
-                ReferenceId = 2,
-                Note = "Kho tự ứng khi nhập hàng vượt số dư",
-                CreatedBy = SeedConstants.Manager2UserId,
-                CreatedAt = new DateTime(2026, 2, 20, 4, 0, 0, DateTimeKind.Utc)
-            },
-            new DepotFundTransaction
-            {
-                Id = 5,
-                DepotFundId = 2,
-                TransactionType = DepotFundTransactionType.AdvanceRepayment.ToString(),
-                Amount = 20_000_000m,
-                ReferenceType = "FundingRequest",
-                ReferenceId = 1003,
-                Note = "Trả một phần nợ tự ứng sau khi được cấp bổ sung",
-                CreatedBy = SeedConstants.AdminUserId,
-                CreatedAt = new DateTime(2026, 3, 1, 1, 45, 0, DateTimeKind.Utc)
-            },
-            new DepotFundTransaction
-            {
                 Id = 6,
                 DepotFundId = 3,
                 TransactionType = DepotFundTransactionType.Allocation.ToString(),
