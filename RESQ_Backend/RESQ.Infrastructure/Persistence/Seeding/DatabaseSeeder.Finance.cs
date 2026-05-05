@@ -317,7 +317,6 @@ public sealed partial class DatabaseSeeder
             systemFund.Balance += initialRevenue;
         }
 
-        var outstandingAdvanceByDepot = seed.Depots.ToDictionary(depot => depot.Id, _ => 0m);
         foreach (var fund in depotFunds)
         {
             var managerId = seed.Managers[fund.DepotId % seed.Managers.Count].Id;
@@ -383,26 +382,7 @@ public sealed partial class DatabaseSeeder
                 }
             }
 
-            // 2. Personal Advance
-            var advanceAmount = 5_000_000m + fund.Id * 1_000_000m;
-            _db.DepotFundTransactions.Add(new DepotFundTransaction
-            {
-                DepotFundId = fund.Id,
-                TransactionType = DepotFundTransactionType.PersonalAdvance.ToString(),
-                Amount = advanceAmount,
-                ReferenceType = "InternalAdvance",
-                ReferenceId = fund.DepotId,
-                Note = "Cá nhân ứng trước cho kho khi cần nhập hàng nhanh",
-                CreatedBy = managerId,
-                ContributorName = FullName(seed.Managers[fund.DepotId % seed.Managers.Count]),
-                ContributorPhoneNumber = seed.Managers[fund.DepotId % seed.Managers.Count].Phone,
-                ContributorId = managerId,
-                CreatedAt = fundCreatedAt.AddHours(2)
-            });
-            fund.Balance += advanceAmount;
-            outstandingAdvanceByDepot[fund.DepotId] = outstandingAdvanceByDepot.GetValueOrDefault(fund.DepotId) + advanceAmount;
-
-            // 3. Deduction (VatInvoice)
+            // 2. Deduction (VatInvoice)
             var invoice = vatInvoices.Skip(fund.Id % Math.Max(1, vatInvoices.Count)).FirstOrDefault() ?? vatInvoices.FirstOrDefault();
             if (invoice != null)
             {
@@ -425,37 +405,6 @@ public sealed partial class DatabaseSeeder
                 }
             }
 
-            // 4. Advance Repayment
-            var repaymentAmount = advanceAmount / 2;
-            if (fund.Balance >= repaymentAmount)
-            {
-                _db.DepotFundTransactions.Add(new DepotFundTransaction
-                {
-                    DepotFundId = fund.Id,
-                    TransactionType = DepotFundTransactionType.AdvanceRepayment.ToString(),
-                    Amount = repaymentAmount,
-                    ReferenceType = "InternalRepayment",
-                    ReferenceId = fund.DepotId,
-                    Note = "Kho hoàn trả một phần tiền ứng cá nhân",
-                    CreatedBy = managerId,
-                    ContributorName = FullName(seed.Managers[fund.DepotId % seed.Managers.Count]),
-                    ContributorPhoneNumber = seed.Managers[fund.DepotId % seed.Managers.Count].Phone,
-                    ContributorId = managerId,
-                    CreatedAt = fundCreatedAt.AddHours(24)
-                });
-                fund.Balance -= repaymentAmount;
-                outstandingAdvanceByDepot[fund.DepotId] = outstandingAdvanceByDepot.GetValueOrDefault(fund.DepotId) - repaymentAmount;
-            }
-        }
-
-        foreach (var depot in seed.Depots)
-        {
-            var outstandingAdvance = Math.Max(0m, outstandingAdvanceByDepot.GetValueOrDefault(depot.Id));
-            depot.OutstandingAdvanceAmount = outstandingAdvance;
-            if (outstandingAdvance > depot.AdvanceLimit)
-            {
-                depot.AdvanceLimit = decimal.Round(outstandingAdvance * 1.25m, 0, MidpointRounding.AwayFromZero);
-            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);

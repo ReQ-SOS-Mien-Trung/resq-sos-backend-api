@@ -131,15 +131,15 @@ public sealed partial class DatabaseSeeder
     {
         var depotDefs = new[]
         {
-            ("Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", "46 Đống Đa, TP. Huế, Thừa Thiên Huế", 16.463040, 107.594184, "Available", 1_100_000m, 440_000m, 80_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg"),
-            ("Ủy ban MTTQVN TP Đà Nẵng", "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", 16.080298466000496, 108.22283205420794, "Available", 1_000_000m, 480_000m, 60_000_000m, 10_000_000m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy Ban MTTQ Tỉnh Hà Tĩnh", "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", 18.349622333272194, 105.90102499916586, "Available", 600_000m, 260_000m, 40_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg"),
-            ("Ủy ban MTTQVN Việt Nam", "46 Tràng Thi, Hoàn Kiếm, Hà Nội", 21.027819, 105.842191, "Available", 1_400_000m, 650_000m, 100_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Huyện Thăng Bình", "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", 15.6949, 108.4587, "Available", 250_000m, 120_000m, 12_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Huyện Quảng Ninh", "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", 17.4619, 106.6175, "Available", 280_000m, 140_000m, 14_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 150_000m, 5_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            (DepotClosureTestDepotNames[0], "Đại học Phú Yên, TP. Tuy Hòa, Phú Yên", 13.106332, 109.306890, "Available", 520_000m, 210_000m, 18_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
-            (DepotClosureTestDepotNames[1], "Ga đường sắt Sài Gòn, Quận 3, TP. Hồ Chí Minh", 10.782103, 106.678803, "Available", 900_000m, 360_000m, 30_000_000m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
+            ("Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế", "46 Đống Đa, TP. Huế, Thừa Thiên Huế", 16.463040, 107.594184, "Available", 1_100_000m, 440_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498626/uy-ban-nhan-dan-tinh-thua-thien-hue-image-01_wirqah.jpg"),
+            ("Ủy ban MTTQVN TP Đà Nẵng", "270 Trưng Nữ Vương, Hải Châu, Đà Nẵng", 16.080298466000496, 108.22283205420794, "Available", 1_000_000m, 480_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy Ban MTTQ Tỉnh Hà Tĩnh", "72 Phan Đình Phùng, TP. Hà Tĩnh, Hà Tĩnh", 18.349622333272194, 105.90102499916586, "Available", 600_000m, 260_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498522/z7659305045709_172210c769c874e8409fa13adbc8c47c_qieuum.jpg"),
+            ("Ủy ban MTTQVN Việt Nam", "46 Tràng Thi, Hoàn Kiếm, Hà Nội", 21.027819, 105.842191, "Available", 1_400_000m, 650_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Huyện Thăng Bình", "282 Tiểu La, thị trấn Hà Lam, huyện Thăng Bình, Quảng Nam", 15.6949, 108.4587, "Available", 250_000m, 120_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Huyện Quảng Ninh", "TT. Quán Hàu, huyện Quảng Ninh, Quảng Bình", 17.4619, 106.6175, "Available", 280_000m, 140_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            ("Ủy ban MTTQVN Tỉnh Nghệ An", "1 Phan Đăng Lưu, TP. Vinh, Nghệ An", 18.6732581, 105.6936046, "Available", 300_000m, 150_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            (DepotClosureTestDepotNames[0], "Đại học Phú Yên, TP. Tuy Hòa, Phú Yên", 13.106332, 109.306890, "Available", 520_000m, 210_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg"),
+            (DepotClosureTestDepotNames[1], "Ga đường sắt Sài Gòn, Quận 3, TP. Hồ Chí Minh", 10.782103, 106.678803, "Available", 900_000m, 360_000m, 0m, 0m, "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774498625/MTTQVN_nhbg68.jpg")
         };
         for (var i = 0; i < depotDefs.Length; i++)
         {
