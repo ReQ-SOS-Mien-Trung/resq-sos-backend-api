@@ -2167,6 +2167,7 @@ public partial class RescueMissionSuggestionService
         await BackfillDestinationInfoAsync(result.SuggestedActivities, nearbyDepots ?? [], sosRequests, cancellationToken);
         BackfillShortageItemIds(result.SupplyShortages, nearbyDepots ?? []);
         ReconcileSupplyShortagesWithInventory(result.SupplyShortages, nearbyDepots ?? [], result.SuggestedActivities);
+        await CanonicalizeSupplyShortageMetadataAsync(result.SupplyShortages, cancellationToken);
         NormalizeSupplyShortages(result);
         ApplySingleSelectedDepotToSupplyActivities(result, nearbyDepots ?? []);
         ApplySingleDepotConstraint(result);

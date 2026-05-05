@@ -583,6 +583,218 @@ public class RescueMissionSuggestionServicePreviewTests
     }
 
     [Fact]
+    public async Task GenerateSuggestionAsync_AddsMilkShortageWhenAiPlansMilkButSelectedDepotHasNoMilkStock()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationResponseOverride: """
+            {
+              "mission_title": "AI planned unavailable milk",
+              "mission_type": "MIXED",
+              "priority_score": 9,
+              "severity_level": "Critical",
+              "overall_assessment": "Need urgent rescue and milk delivery",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Collect milk from Kho Hue",
+                  "priority": "Critical",
+                  "estimated_time": "15 phut",
+                  "sos_request_id": 21,
+                  "depot_id": 1,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Le Loi",
+                  "supplies_to_collect": [
+                    { "item_id": 202, "item_name": "Sua bot tre em", "quantity": 1, "unit": "hop" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Nearby",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                },
+                {
+                  "step": 2,
+                  "activity_type": "DELIVER_SUPPLIES",
+                  "description": "Deliver milk to SOS 21",
+                  "priority": "Critical",
+                  "estimated_time": "15 phut",
+                  "sos_request_id": 21,
+                  "depot_id": 1,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Le Loi",
+                  "supplies_to_collect": [
+                    { "item_id": 202, "item_name": "Sua bot tre em", "quantity": 1, "unit": "hop" }
+                  ],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Continue",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "30 phut",
+              "special_notes": null,
+              "needs_additional_depot": false,
+              "supply_shortages": []
+            }
+            """);
+        var service = BuildPipelineService(
+            aiClient,
+            suggestionRepository,
+            CreateMandatoryStructuredSupplyDepotRepository(),
+            CreateMandatoryStructuredSupplyItemMetadataRepository());
+
+        var result = await service.GenerateSuggestionAsync(
+            [
+                new SosRequestSummary
+                {
+                    Id = 21,
+                    RawMessage = "Child Thao needs milk",
+                    StructuredData = StructuredMilkSpecialDietData,
+                    PriorityLevel = "Critical",
+                    Latitude = 16.469621,
+                    Longitude = 107.592778
+                }
+            ],
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi",
+                    Latitude = 16.4545,
+                    Longitude = 107.5680
+                }
+            ],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.True(result.NeedsAdditionalDepot);
+
+        var shortage = Assert.Single(result.SupplyShortages);
+        Assert.Equal(21, shortage.SosRequestId);
+        Assert.Equal("S\u1EEFa b\u1ED9t tr\u1EBB em", shortage.ItemName);
+        Assert.Equal(1, shortage.SelectedDepotId);
+        Assert.Equal(1, shortage.NeededQuantity);
+        Assert.Equal(0, shortage.AvailableQuantity);
+        Assert.Equal(1, shortage.MissingQuantity);
+        Assert.Contains(shortage.ItemName, result.SpecialNotes ?? string.Empty);
+        Assert.Contains("Coordinator", result.SpecialNotes ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task GenerateSuggestionAsync_CanonicalizesUnaccentedMilkShortageNameFromItemMetadata()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var aiClient = new PipelineStubAiProviderClient(validationResponseOverride: """
+            {
+              "mission_title": "AI returned unaccented shortage",
+              "mission_type": "MIXED",
+              "priority_score": 9,
+              "severity_level": "Critical",
+              "overall_assessment": "Need urgent rescue and milk delivery",
+              "activities": [
+                {
+                  "step": 1,
+                  "activity_type": "COLLECT_SUPPLIES",
+                  "description": "Collect available supplies from Kho Hue",
+                  "priority": "Critical",
+                  "estimated_time": "15 phut",
+                  "depot_id": 1,
+                  "depot_name": "Kho Hue",
+                  "depot_address": "1 Le Loi",
+                  "supplies_to_collect": [],
+                  "suggested_team": {
+                    "team_id": 1,
+                    "team_name": "Medical Team 1",
+                    "team_type": "Medical",
+                    "reason": "Nearby",
+                    "assembly_point_id": 10,
+                    "assembly_point_name": "Safe Point",
+                    "latitude": 16.0,
+                    "longitude": 107.0,
+                    "distance_km": 1.5
+                  }
+                }
+              ],
+              "resources": [],
+              "estimated_duration": "15 phut",
+              "special_notes": null,
+              "needs_additional_depot": true,
+              "supply_shortages": [
+                {
+                  "item_name": "Sua bot tre em",
+                  "selected_depot_id": 1,
+                  "selected_depot_name": "Kho Hue",
+                  "needed_quantity": 1,
+                  "available_quantity": 0,
+                  "missing_quantity": 1
+                }
+              ]
+            }
+            """);
+        var service = BuildPipelineService(
+            aiClient,
+            suggestionRepository,
+            CreateMandatoryStructuredSupplyDepotRepository(),
+            CreateMandatoryStructuredSupplyItemMetadataRepository());
+
+        var result = await service.GenerateSuggestionAsync(
+            [BuildValidSosRequest(id: 21, rawMessage: "Child needs support")],
+            [
+                new DepotSummary
+                {
+                    Id = 1,
+                    Name = "Kho Hue",
+                    Address = "1 Le Loi",
+                    Latitude = 16.4545,
+                    Longitude = 107.5680,
+                    Inventories =
+                    [
+                        new DepotInventoryItemDto
+                        {
+                            ItemId = 53,
+                            ItemName = "B\u1ED9 qu\u1EA7n \u00E1o tr\u1EBB em",
+                            Unit = "b\u1ED9",
+                            AvailableQuantity = 16
+                        }
+                    ]
+                }
+            ],
+            [BuildNearbyTeam()],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+
+        var shortage = Assert.Single(result.SupplyShortages);
+        Assert.Equal(202, shortage.ItemId);
+        Assert.Equal("S\u1EEFa b\u1ED9t tr\u1EBB em", shortage.ItemName);
+        Assert.Equal("h\u1ED9p", shortage.Unit);
+        Assert.Equal(1, shortage.MissingQuantity);
+        Assert.Contains("S\u1EEFa b\u1ED9t tr\u1EBB em", result.SpecialNotes ?? string.Empty);
+        Assert.DoesNotContain("Sua bot tre em", result.SpecialNotes ?? string.Empty);
+    }
+
+    [Fact]
     public async Task PreviewSuggestionAsync_LegacyPrompt_MapsBoatResourceIntoCollectAndReturnActivities()
     {
         var suggestionRepository = new RecordingMissionAiSuggestionRepository();
@@ -1154,28 +1366,48 @@ public class RescueMissionSuggestionServicePreviewTests
 
     private static IItemModelMetadataRepository CreateMandatoryStructuredSupplyItemMetadataRepository()
     {
-        var inventory = CreateMandatoryStructuredSupplyInventoryItems()
-            .ToDictionary(item => item.ItemId);
+        var records = CreateMandatoryStructuredSupplyItemMetadataRecords();
 
         return ThrowingProxy<IItemModelMetadataRepository>.Create((method, args) =>
             method?.Name switch
             {
+                nameof(IItemModelMetadataRepository.GetAllForMetadataAsync) => Task.FromResult(
+                    records.Values
+                        .Select(item => new MetadataDto { Key = item.Id.ToString(), Value = item.Name })
+                        .ToList()),
                 nameof(IItemModelMetadataRepository.GetByIdsAsync) => Task.FromResult(
                     ((IReadOnlyList<int>)args![0]!)
-                    .Where(inventory.ContainsKey)
+                    .Where(records.ContainsKey)
                     .Distinct()
-                    .ToDictionary(
-                        id => id,
-                        id => new ItemModelRecord
-                        {
-                            Id = id,
-                            CategoryId = 20,
-                            Name = inventory[id].ItemName,
-                            Unit = inventory[id].Unit,
-                            ItemType = inventory[id].ItemType
-                        })),
+                    .ToDictionary(id => id, id => records[id])),
                 _ => throw new NotImplementedException(method?.Name ?? typeof(IItemModelMetadataRepository).Name)
             });
+    }
+
+    private static Dictionary<int, ItemModelRecord> CreateMandatoryStructuredSupplyItemMetadataRecords()
+    {
+        var records = CreateMandatoryStructuredSupplyInventoryItems()
+            .ToDictionary(
+                item => item.ItemId,
+                item => new ItemModelRecord
+                {
+                    Id = item.ItemId,
+                    CategoryId = 20,
+                    Name = item.ItemName,
+                    Unit = item.Unit,
+                    ItemType = item.ItemType
+                });
+
+        records[202] = new ItemModelRecord
+        {
+            Id = 202,
+            CategoryId = 20,
+            Name = "S\u1EEFa b\u1ED9t tr\u1EBB em",
+            Unit = "h\u1ED9p",
+            ItemType = "Consumable"
+        };
+
+        return records;
     }
 
     private static List<AgentInventoryItem> CreateMandatoryStructuredSupplyInventoryItems() =>
