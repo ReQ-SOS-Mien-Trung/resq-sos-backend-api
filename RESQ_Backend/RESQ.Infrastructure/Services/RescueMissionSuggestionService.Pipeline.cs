@@ -914,7 +914,6 @@ public partial class RescueMissionSuggestionService
         NormalizeStringProperty(source, "description");
         NormalizeStringArrayProperty(source, "target_person_ids");
         NormalizeStringProperty(source, "target_victim_summary");
-        NormalizeStringProperty(source, "priority");
         NormalizeStringProperty(source, "estimated_time");
         NormalizeStringProperty(source, "execution_mode");
         NormalizeIntProperty(source, "required_team_count");
@@ -1933,7 +1932,6 @@ public partial class RescueMissionSuggestionService
             Description = activity.Description,
             TargetPersonIds = activity.TargetPersonIds?.ToList(),
             TargetVictimSummary = activity.TargetVictimSummary,
-            Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
             ExecutionMode = activity.ExecutionMode,
             RequiredTeamCount = activity.RequiredTeamCount,
@@ -1970,7 +1968,6 @@ public partial class RescueMissionSuggestionService
                 description = activity.Description,
                 target_person_ids = activity.TargetPersonIds,
                 target_victim_summary = activity.TargetVictimSummary,
-                priority = activity.Priority,
                 estimated_time = activity.EstimatedTime,
                 execution_mode = activity.ExecutionMode,
                 required_team_count = activity.RequiredTeamCount,
@@ -2411,7 +2408,6 @@ public partial class RescueMissionSuggestionService
             Description = activity.Description ?? string.Empty,
             TargetPersonIds = activity.TargetPersonIds?.ToList(),
             TargetVictimSummary = activity.TargetVictimSummary,
-            Priority = activity.Priority,
             EstimatedTime = activity.EstimatedTime,
             ExecutionMode = activity.ExecutionMode,
             RequiredTeamCount = activity.RequiredTeamCount,

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using RESQ.Application.Common;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Common.Logistics;
@@ -79,6 +80,7 @@ public class MissionActivityDto
     public string? ImageUrl { get; set; }
     public string? TargetVictimSummary { get; set; }
     public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
+    [JsonIgnore]
     public string? Priority { get; set; }
     public int? EstimatedTime { get; set; }
     public int? SosRequestId { get; set; }

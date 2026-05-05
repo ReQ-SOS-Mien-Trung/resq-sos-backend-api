@@ -152,7 +152,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""supplies_to_collect"": [
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
-      ""priority"": ""Critical"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
@@ -167,7 +166,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""supplies_to_collect"": [
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
-      ""priority"": ""Critical"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
@@ -180,7 +178,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""depot_name"": null,
       ""depot_address"": null,
       ""supplies_to_collect"": null,
-      ""priority"": ""Critical"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_id"": 2, ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
     }
@@ -352,7 +349,6 @@ Schema đầu ra:
       ""step"": 1,
       ""activity_type"": ""COLLECT_SUPPLIES"",
       ""description"": ""Di chuyển đến kho đã chọn và lấy đúng vật tư cần thiết"",
-      ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": null,
       ""required_team_count"": null,
@@ -378,7 +374,6 @@ Schema đầu ra:
       ""step"": 2,
       ""activity_type"": ""DELIVER_SUPPLIES"",
       ""description"": ""Giao vật tư đã lấy đến vị trí SOS"",
-      ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""sos_request_id"": 1,
       ""depot_id"": 1,
@@ -467,7 +462,6 @@ Schema đầu ra:
       ""step"": 3,
       ""activity_type"": ""RESCUE"",
       ""description"": ""Tiếp cận SOS 11 và thực hiện cứu hộ tại hiện trường"",
-      ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
@@ -537,7 +531,7 @@ IMPORTANT JSON RULES FOR activity_assignments (STRICT):
 
 IMPORTANT JSON RULES FOR additional_activities (STRICT):
 - `additional_activities` MUST be an array of JSON objects only.
-- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `target_person_ids`, `target_victim_summary`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
+- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `target_person_ids`, `target_victim_summary`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
 - `activity_key` must be a plain string duy nhất.
 - `step` must be integer.
 - `activity_type` must be one of `RESCUE|MEDICAL_AID|EVACUATE`.
@@ -585,7 +579,6 @@ Schema đầu ra cuối cùng:
       ""step"": 1,
       ""activity_type"": ""COLLECT_SUPPLIES|DELIVER_SUPPLIES|RESCUE|MEDICAL_AID|EVACUATE|RETURN_SUPPLIES|RETURN_ASSEMBLY_POINT"",
       ""description"": ""Hành động hoặc di chuyển cụ thể"",
-      ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
@@ -696,7 +689,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""supplies_to_collect"": [
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
-      ""priority"": ""Critical"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
@@ -711,7 +703,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""supplies_to_collect"": [
         { ""item_id"": 1, ""item_name"": ""Gạo"", ""quantity"": 50, ""unit"": ""kg"" }
       ],
-      ""priority"": ""Critical"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 5, ""team_name"": ""Đội A"", ""team_type"": ""RescueTeam"", ""reason"": ""Gần nhất"", ""assembly_point_id"": 1, ""assembly_point_name"": ""Trụ sở A"", ""latitude"": 16.46, ""longitude"": 107.59 }
     },
@@ -724,7 +715,6 @@ FORMAT JSON PHẢN HỒI (chỉ trả về JSON, không giải thích thêm)
       ""depot_name"": null,
       ""depot_address"": null,
       ""supplies_to_collect"": null,
-      ""priority"": ""Critical"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""suggested_team"": { ""team_id"": 6, ""team_name"": ""Đội B"", ""team_type"": ""MedicalTeam"", ""reason"": ""Có y tế"", ""assembly_point_id"": 2, ""assembly_point_name"": ""Trụ sở B"", ""latitude"": 16.50, ""longitude"": 107.55 }
     }
@@ -1013,7 +1003,6 @@ Schema đầu ra:
       ""step"": 3,
       ""activity_type"": ""RESCUE"",
       ""description"": ""Tiếp cận SOS 11 và thực hiện cứu hộ tại hiện trường"",
-      ""priority"": ""Critical|High|Medium|Low"",
       ""estimated_time"": ""<thời gian ước tính theo ngữ cảnh, format X phút hoặc Y giờ Z phút>"",
       ""execution_mode"": ""SingleTeam"",
       ""required_team_count"": 1,
@@ -1089,7 +1078,7 @@ IMPORTANT JSON RULES FOR activity_assignments (STRICT):
 
 IMPORTANT JSON RULES FOR additional_activities (STRICT):
 - `additional_activities` MUST be an array of JSON objects only.
-- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `target_person_ids`, `target_victim_summary`, `priority`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
+- Mỗi item phải có keys: `activity_key`, `step`, `activity_type`, `description`, `target_person_ids`, `target_victim_summary`, `estimated_time`, `execution_mode`, `required_team_count`, `coordination_group_key`, `coordination_notes`, `sos_request_id`, `depot_id`, `depot_name`, `depot_address`, `depot_latitude`, `depot_longitude`, `assembly_point_id`, `assembly_point_name`, `assembly_point_latitude`, `assembly_point_longitude`, `supplies_to_collect`, `suggested_team`.
 - `activity_key` must be a plain string duy nhất.
 - `step` must be integer.
 - `activity_type` must be one of `RESCUE|MEDICAL_AID|EVACUATE`.
