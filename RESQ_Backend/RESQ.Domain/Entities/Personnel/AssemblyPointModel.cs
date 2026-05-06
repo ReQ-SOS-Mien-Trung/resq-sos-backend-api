@@ -121,7 +121,8 @@ public class AssemblyPointModel
         var allowed = Status switch
         {
             AssemblyPointStatus.Created     => new[] { AssemblyPointStatus.Available, AssemblyPointStatus.Closed },
-            AssemblyPointStatus.Available   => new[] { AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.Available   => new[] { AssemblyPointStatus.PendingUnavailable, AssemblyPointStatus.Unavailable, AssemblyPointStatus.Closed },
+            AssemblyPointStatus.PendingUnavailable => new[] { AssemblyPointStatus.Unavailable, AssemblyPointStatus.Available, AssemblyPointStatus.Closed },
             AssemblyPointStatus.Unavailable => new[] { AssemblyPointStatus.Available, AssemblyPointStatus.Closed },
             _                               => Array.Empty<AssemblyPointStatus>()
         };

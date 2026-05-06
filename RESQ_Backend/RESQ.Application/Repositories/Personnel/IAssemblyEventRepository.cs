@@ -39,6 +39,8 @@ public interface IAssemblyEventRepository
     /// <summary>Kiểm tra rescuer đã check-in tại sự kiện chưa.</summary>
     Task<bool> IsParticipantCheckedInAsync(int eventId, Guid rescuerId, CancellationToken cancellationToken = default);
     Task<bool> HasCheckedInParticipantsAsync(int eventId, CancellationToken cancellationToken = default);
+    Task<bool> HasCheckedInParticipantsByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+        => Task.FromResult(false);
 
     /// <summary>Tìm event mới nhất trong một điểm tập kết mà rescuer đang check-in hợp lệ.</summary>
     Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(
@@ -78,6 +80,9 @@ public interface IAssemblyEventRepository
     Task UpdateEventStatusAsync(int eventId, string status, CancellationToken cancellationToken = default);
 
     Task<List<Guid>> GetParticipantIdsAsync(int eventId, CancellationToken cancellationToken = default);
+
+    Task CheckOutCheckedInParticipantsAsync(int assemblyPointId, IReadOnlyCollection<Guid> rescuerIds, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 
     /// <summary>Lấy event theo ID. Null nếu không tồn tại.</summary>
     Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(int eventId, CancellationToken cancellationToken = default);

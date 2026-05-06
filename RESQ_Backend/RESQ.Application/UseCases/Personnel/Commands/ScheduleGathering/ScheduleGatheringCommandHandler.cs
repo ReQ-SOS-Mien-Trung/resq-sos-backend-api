@@ -45,6 +45,9 @@ public class ScheduleGatheringCommandHandler(
 
             if (assemblyPoint.Status != Domain.Enum.Personnel.AssemblyPointStatus.Available)
             {
+                if (assemblyPoint.Status == Domain.Enum.Personnel.AssemblyPointStatus.PendingUnavailable)
+                    throw new ConflictException($"Điểm tập kết {assemblyPoint.Name} đang chờ đóng (PendingUnavailable), không thể lên lịch tập hợp.");
+
                 throw new BadRequestException(
                     $"Không thể tạo sự kiện tập trung vì điểm tập kết {assemblyPoint.Name} đang ở trạng thái {assemblyPoint.Status}. Chỉ cho phép khi điểm tập kết đang Available.");
             }

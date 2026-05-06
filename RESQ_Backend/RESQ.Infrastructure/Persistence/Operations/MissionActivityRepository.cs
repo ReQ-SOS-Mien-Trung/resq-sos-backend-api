@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
 using RESQ.Domain.Entities.Operations;
 using RESQ.Domain.Enum.Operations;
+using RESQ.Domain.Enum.Personnel;
 using RESQ.Infrastructure.Entities.Operations;
 using RESQ.Infrastructure.Mappers.Operations;
 
@@ -11,6 +13,11 @@ namespace RESQ.Infrastructure.Persistence.Operations;
 public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivityRepository
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private static readonly HashSet<string> AssemblyPointDependentActivityTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "EVACUATE",
+        "RETURN_ASSEMBLY_POINT"
+    };
 
     public async Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -64,6 +71,117 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
             .ToListAsync(cancellationToken);
 
         return entities.Select(MissionActivityMapper.ToDomain).ToList();
+    }
+
+    public async Task<List<AssemblyPointUnavailableRescueTeamImpactDto>> GetReassignableAssemblyPointImpactsAsync(
+        int assemblyPointId,
+        CancellationToken cancellationToken = default)
+    {
+        var openStatuses = OpenStatusStrings();
+
+        var entities = await _unitOfWork.Set<MissionActivity>()
+            .AsNoTracking()
+            .Where(x => x.AssemblyPointId == assemblyPointId && openStatuses.Contains(x.Status ?? string.Empty))
+            .Include(x => x.MissionTeam)
+                .ThenInclude(t => t!.RescuerTeam)
+                    .ThenInclude(t => t!.RescueTeamMembers)
+            .OrderBy(x => x.MissionTeamId)
+            .ThenBy(x => x.Step)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var reassignable = entities
+            .Where(x => IsAssemblyPointPhysicalActivity(x.ActivityType))
+            .Where(x => x.MissionTeam?.RescuerTeamId is not null)
+            .ToList();
+
+        return reassignable
+            .GroupBy(x => x.MissionTeam!.RescuerTeamId!.Value)
+            .Select(g =>
+            {
+                var first = g.First();
+                var rescueTeam = first.MissionTeam?.RescuerTeam;
+                var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+                return new AssemblyPointUnavailableRescueTeamImpactDto
+                {
+                    RescueTeamId = rescueTeam?.Id,
+                    RescueTeamCode = rescueTeam?.Code,
+                    RescueTeamName = rescueTeam?.Name,
+                    RescueTeamStatus = rescueTeam?.Status,
+                    MissionTeamId = first.MissionTeamId,
+                    ImpactReasons =
+                    [
+                        AssemblyPointUnavailableImpactReason.HasMissionActivityTargetingUnavailablePoint
+                    ],
+                    MemberUserIds = rescueTeam?.RescueTeamMembers
+                        .Where(m => m.Status == acceptedStatus)
+                        .Select(m => m.UserId)
+                        .Distinct()
+                        .ToList() ?? [],
+                    Activities = g.Select(x => new AssemblyPointUnavailableMissionActivityDto
+                    {
+                        MissionActivityId = x.Id,
+                        MissionId = x.MissionId,
+                        MissionTeamId = x.MissionTeamId,
+                        RescueTeamId = rescueTeam?.Id,
+                        RescueTeamCode = rescueTeam?.Code,
+                        RescueTeamName = rescueTeam?.Name,
+                        Step = x.Step,
+                        ActivityType = x.ActivityType,
+                        Status = x.Status ?? string.Empty,
+                        Description = x.Description
+                    }).ToList()
+                };
+            })
+            .ToList();
+    }
+
+    public async Task<HashSet<int>> ReassignAssemblyPointAsync(
+        int sourceAssemblyPointId,
+        IReadOnlyDictionary<int, int> activityAssignments,
+        Guid changedBy,
+        CancellationToken cancellationToken = default)
+    {
+        if (activityAssignments.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = activityAssignments.Keys.ToList();
+        var openStatuses = OpenStatusStrings();
+        var entities = await _unitOfWork.SetTracked<MissionActivity>()
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        if (entities.Count != ids.Count)
+        {
+            var foundIds = entities.Select(x => x.Id).ToHashSet();
+            var missing = ids.Where(id => !foundIds.Contains(id));
+            throw new InvalidOperationException($"Không tìm thấy mission activities: {string.Join(", ", missing)}.");
+        }
+
+        foreach (var entity in entities)
+        {
+            if (entity.AssemblyPointId != sourceAssemblyPointId)
+            {
+                throw new InvalidOperationException($"Mission activity #{entity.Id} không còn thuộc điểm tập kết nguồn.");
+            }
+
+            if (!openStatuses.Contains(entity.Status ?? string.Empty))
+            {
+                throw new InvalidOperationException($"Mission activity #{entity.Id} không còn ở trạng thái có thể điều phối.");
+            }
+
+            if (!IsAssemblyPointPhysicalActivity(entity.ActivityType))
+            {
+                throw new InvalidOperationException($"Mission activity #{entity.Id} không phải activity phụ thuộc vật lý vào điểm tập kết.");
+            }
+
+            entity.AssemblyPointId = activityAssignments[entity.Id];
+            entity.LastDecisionBy = changedBy;
+        }
+
+        return entities.Select(x => x.Id).ToHashSet();
     }
 
     public async Task<int> AddAsync(MissionActivityModel activity, CancellationToken cancellationToken = default)
@@ -163,5 +281,22 @@ public class MissionActivityRepository(IUnitOfWork unitOfWork) : IMissionActivit
     {
         await _unitOfWork.GetRepository<MissionActivity>().DeleteAsyncById(id);
         await _unitOfWork.SaveAsync();
+    }
+
+    internal static string[] OpenStatusStrings() =>
+    [
+        MissionActivityStatus.Planned.ToString(),
+        MissionActivityStatus.OnGoing.ToString(),
+        MissionActivityStatus.PendingConfirmation.ToString()
+    ];
+
+    internal static bool IsAssemblyPointPhysicalActivity(string? activityType)
+    {
+        if (string.IsNullOrWhiteSpace(activityType))
+        {
+            return false;
+        }
+
+        return AssemblyPointDependentActivityTypes.Contains(activityType.Trim());
     }
 }

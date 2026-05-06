@@ -263,7 +263,8 @@ public static class OperationsSeeder
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.OnGoing),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
-                MissionTeamId = 1 // Biệt đội Ca nô Hà Tĩnh
+                MissionTeamId = 1, // Biệt đội Ca nô Hà Tĩnh
+                AssemblyPointId = 2 // Nhà thi đấu TP. Hà Tĩnh
             },
             // Activity 3: Hỗ trợ y tế cho Mission 1 (bước 2, chưa bắt đầu)
             new MissionActivity
@@ -278,7 +279,8 @@ public static class OperationsSeeder
                 Status = MissionActivityMapper.ToDbString(MissionActivityStatus.Planned),
                 AssignedAt = now,
                 LastDecisionBy = SeedConstants.CoordinatorUserId,
-                MissionTeamId = 1
+                MissionTeamId = 1,
+                AssemblyPointId = 2 // Nhà thi đấu TP. Hà Tĩnh
             },
             // Activity 4: Di tản Mission 3 Phong Điền (Succeed)
             new MissionActivity
@@ -360,7 +362,8 @@ public static class OperationsSeeder
                 EstimatedTime = 30,
                 DepotId = 1,
                 DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
-                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế",
+                AssemblyPointId = 1 // Sân vận động Tự Do - Huế
             },
             // Activity 8: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
             // → Dùng để test: POST /operations/missions/5/activities/8/confirm-return
@@ -383,7 +386,8 @@ public static class OperationsSeeder
                 EstimatedTime = 30,
                 DepotId = 1,
                 DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
-                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế",
+                AssemblyPointId = 1 // Sân vận động Tự Do - Huế
             },
             // Activity 12: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
             // → Đơn demo manager01: chỉ trả reusable, có serial cụ thể.
@@ -405,7 +409,8 @@ public static class OperationsSeeder
                 EstimatedTime = 30,
                 DepotId = 1,
                 DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
-                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế",
+                AssemblyPointId = 1 // Sân vận động Tự Do - Huế
             },
             // Activity 13: RETURN_SUPPLIES cho Mission 5 tại kho Huế (PendingConfirmation)
             // → Đơn demo manager01: trả cả consumable theo lô và reusable có serial.
@@ -427,7 +432,8 @@ public static class OperationsSeeder
                 EstimatedTime = 30,
                 DepotId = 1,
                 DepotName = "Uỷ Ban MTTQVN Tỉnh Thừa Thiên Huế",
-                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế"
+                DepotAddress = "46 Đống Đa, TP. Huế, Thừa Thiên Huế",
+                AssemblyPointId = 1 // Sân vận động Tự Do - Huế
             },
             // Activity 9: RETURN_SUPPLIES hoàn thành cho Mission 4 tại kho Huế (Succeed)
             // → Lịch sử trả vật phẩm tiêu hao (consumable only) dư thừa sau phân phối Phong Điền

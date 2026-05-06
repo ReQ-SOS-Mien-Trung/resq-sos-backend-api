@@ -244,7 +244,7 @@ public class ReturnSupplyActivityQueryHandlerTests
                             Step = 4,
                             ActivityType = "RETURN_SUPPLIES",
                             Description = "Hoàn tất nhiệm vụ và trả đồ về kho.",
-                            Priority = "Medium",
+                            //Priority = "Medium",
                             EstimatedTime = 30,
                             Status = "Succeed",
                             AssignedAt = new DateTime(2026, 4, 9, 10, 0, 0, DateTimeKind.Utc),
