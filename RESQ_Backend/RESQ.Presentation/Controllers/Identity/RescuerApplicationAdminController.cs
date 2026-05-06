@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
+using RESQ.Application.UseCases.Identity.Commands.AdminAddCertificatesForRescuer;
 using RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationStatusMetadata;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationDetail;
@@ -69,6 +70,18 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.IsApproved,
                 dto.AdminNote
             );
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>Admin thêm chứng chỉ cho core rescuer (không cần đơn đăng ký).</summary>
+        [HttpPost("{userId:guid}/certificates")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
+        public async Task<IActionResult> AddCertificatesForRescuer(
+            [FromRoute] Guid userId,
+            [FromBody] AdminAddCertificatesForRescuerRequestDto dto)
+        {
+            var command = new AdminAddCertificatesForRescuerCommand(userId, dto.Documents);
             var result = await _mediator.Send(command);
             return Ok(result);
         }

@@ -85,6 +85,24 @@ internal static class MissionActivitySosRequestSyncHelper
             var allActivitiesSucceeded = nonCancelledActivities.All(activity => activity.Status == MissionActivityStatus.Succeed);
             var hasFailedActivity = nonCancelledActivities.Any(activity => activity.Status == MissionActivityStatus.Failed);
 
+            if (hasOpenActivities)
+            {
+                var targetStatus = DetermineOpenLifecycleStatus(nonCancelledActivities);
+                if (ShouldMoveToOpenLifecycleStatus(sosRequest.Status, targetStatus))
+                {
+                    sosRequest.SetStatus(targetStatus);
+                    await sosRequestRepository.UpdateAsync(sosRequest, cancellationToken);
+                    sosRequestOverrides[sosRequest.Id] = sosRequest;
+
+                    logger.LogInformation(
+                        "Reactivated SosRequestId={SosRequestId} to {Status} because it has open mission activities.",
+                        sosRequestId,
+                        targetStatus);
+                }
+
+                continue;
+            }
+
             if (allActivitiesSucceeded)
             {
                 if (sosRequest.Status == SosRequestStatus.Resolved)
@@ -146,6 +164,27 @@ internal static class MissionActivitySosRequestSyncHelper
     private static bool IsLifecycleActivity(MissionActivityModel activity) =>
         !string.Equals(activity.ActivityType, "RETURN_SUPPLIES", StringComparison.OrdinalIgnoreCase)
         && !string.Equals(activity.ActivityType, MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType, StringComparison.OrdinalIgnoreCase);
+
+    private static SosRequestStatus DetermineOpenLifecycleStatus(IEnumerable<MissionActivityModel> activities)
+    {
+        var hasActiveExecution = activities.Any(activity =>
+            activity.Status is MissionActivityStatus.OnGoing or MissionActivityStatus.PendingConfirmation);
+
+        return hasActiveExecution
+            ? SosRequestStatus.InProgress
+            : SosRequestStatus.Assigned;
+    }
+
+    private static bool ShouldMoveToOpenLifecycleStatus(
+        SosRequestStatus currentStatus,
+        SosRequestStatus targetStatus) =>
+        currentStatus switch
+        {
+            SosRequestStatus.Pending => true,
+            SosRequestStatus.Assigned => targetStatus == SosRequestStatus.InProgress,
+            SosRequestStatus.Resolved => true,
+            _ => false
+        };
 
     private static SosPriorityLevel EscalatePriority(
         SosPriorityLevel? currentPriority,

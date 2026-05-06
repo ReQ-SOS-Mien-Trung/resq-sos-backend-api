@@ -16,6 +16,7 @@ public class AssignTeamToActivityCommandHandler(
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
     ISosRequestRepository sosRequestRepository,
+    ISosClusterRepository sosClusterRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ITeamIncidentRepository teamIncidentRepository,
     IOperationalHubService operationalHubService,
@@ -56,14 +57,30 @@ public class AssignTeamToActivityCommandHandler(
 
         if (activity.SosRequestId.HasValue)
         {
-            await TeamIncidentStatusSyncHelper.SyncBySosRequestIdsAsync(
+            var missionActivities = (await activityRepository.GetByMissionIdAsync(request.MissionId, cancellationToken))
+                .ToList();
+            var assignedActivity = missionActivities.FirstOrDefault(item => item.Id == activity.Id);
+            if (assignedActivity is not null)
+            {
+                assignedActivity.MissionTeamId = missionTeamId;
+            }
+            else
+            {
+                activity.MissionTeamId = missionTeamId;
+                missionActivities.Add(activity);
+            }
+
+            await MissionActivitySosRequestSyncHelper.SyncTouchedSosRequestsAsync(
                 [activity.SosRequestId],
-                sosRequestUpdateRepository,
+                missionActivities,
                 sosRequestRepository,
+                sosClusterRepository,
+                sosRequestUpdateRepository,
                 activityRepository,
                 teamIncidentRepository,
                 logger,
                 cancellationToken);
+            await unitOfWork.SaveAsync();
         }
 
         if (activity.DepotId.HasValue

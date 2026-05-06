@@ -49,6 +49,17 @@ internal static class SosClusterStatusSyncHelper
 
             if (!effectiveSosRequests.All(IsTerminalForClusterCompletion))
             {
+                if (cluster.Status == SosClusterStatus.Completed)
+                {
+                    cluster.Status = SosClusterStatus.InProgress;
+                    cluster.LastUpdatedAt = DateTime.UtcNow;
+                    await sosClusterRepository.UpdateAsync(cluster, cancellationToken);
+
+                    logger.LogInformation(
+                        "Reopened SosClusterId={ClusterId} to InProgress because at least one SOS request is non-terminal.",
+                        clusterId);
+                }
+
                 continue;
             }
 

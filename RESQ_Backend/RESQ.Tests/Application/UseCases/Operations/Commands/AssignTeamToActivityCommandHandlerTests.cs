@@ -89,6 +89,36 @@ public class AssignTeamToActivityCommandHandlerTests
         Assert.Equal(activity.Id, result.ActivityId);
     }
 
+    [Fact]
+    public async Task Handle_WithResolvedSosRequest_ReactivatesSosAndCluster()
+    {
+        var activity = BuildActivity(sosRequestId: 100);
+        var existingTeam = new MissionTeamModel { Id = 5, MissionId = 10, RescuerTeamId = 3 };
+        var sosRequest = new SosRequestModel
+        {
+            Id = 100,
+            ClusterId = 20,
+            Status = SosRequestStatus.Resolved
+        };
+        var cluster = new SosClusterModel
+        {
+            Id = 20,
+            Status = SosClusterStatus.Completed,
+            SosRequestIds = [100]
+        };
+
+        var handler = BuildHandler(
+            activityRepo: new StubActivityRepo(activity),
+            missionTeamRepo: new StubMissionTeamRepo(existingTeam),
+            sosRequestRepo: new StubSosRequestRepo(sosRequest),
+            sosClusterRepo: new StubSosClusterRepo(cluster));
+
+        await handler.Handle(BuildCommand(), CancellationToken.None);
+
+        Assert.Equal(SosRequestStatus.Assigned, sosRequest.Status);
+        Assert.Equal(SosClusterStatus.InProgress, cluster.Status);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
 
     private static AssignTeamToActivityCommand BuildCommand(
@@ -107,12 +137,15 @@ public class AssignTeamToActivityCommandHandlerTests
     private static AssignTeamToActivityCommandHandler BuildHandler(
         StubActivityRepo? activityRepo = null,
         StubMissionTeamRepo? missionTeamRepo = null,
-        RecordingMediator? mediator = null)
+        RecordingMediator? mediator = null,
+        StubSosRequestRepo? sosRequestRepo = null,
+        StubSosClusterRepo? sosClusterRepo = null)
     {
         return new AssignTeamToActivityCommandHandler(
             activityRepo ?? new StubActivityRepo(BuildActivity()),
             missionTeamRepo ?? new StubMissionTeamRepo(new MissionTeamModel { Id = 5, MissionId = 10, RescuerTeamId = 3 }),
-            new StubSosRequestRepo(),
+            sosRequestRepo ?? new StubSosRequestRepo(),
+            sosClusterRepo ?? new StubSosClusterRepo(),
             new StubSosRequestUpdateRepo(),
             new StubTeamIncidentRepo(),
             new StubOperationalHubService(),
@@ -129,7 +162,10 @@ public class AssignTeamToActivityCommandHandlerTests
         public Task<MissionActivityModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(activity);
         public Task<int> AddAsync(MissionActivityModel a, CancellationToken ct = default) => Task.FromResult(a.Id);
         public Task UpdateAsync(MissionActivityModel a, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int mid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<MissionActivityModel>());
+        public Task<IEnumerable<MissionActivityModel>> GetByMissionIdAsync(int mid, CancellationToken ct = default)
+            => Task.FromResult(activity?.MissionId == mid
+                ? new[] { activity }.AsEnumerable()
+                : Enumerable.Empty<MissionActivityModel>());
         public Task<IEnumerable<MissionActivityModel>> GetBySosRequestIdsAsync(IEnumerable<int> ids, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<MissionActivityModel>());
         public Task<IReadOnlyList<MissionActivityModel>> GetOpenByAssemblyPointAsync(int apId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MissionActivityModel>>([]);
         public Task UpdateStatusAsync(int aid, RESQ.Domain.Enum.Operations.MissionActivityStatus s, Guid db, string? img = null, CancellationToken ct = default) => Task.CompletedTask;
@@ -151,18 +187,48 @@ public class AssignTeamToActivityCommandHandlerTests
         public Task<MissionTeamModel?> GetByMissionAndTeamAsync(int mid, int rtid, CancellationToken ct = default) => Task.FromResult(team);
     }
 
-    private sealed class StubSosRequestRepo : ISosRequestRepository
+    private sealed class StubSosRequestRepo(params SosRequestModel[] requests) : ISosRequestRepository
     {
+        private readonly Dictionary<int, SosRequestModel> _requests = requests.ToDictionary(request => request.Id);
+
         public Task CreateAsync(SosRequestModel sos, CancellationToken ct = default) => Task.CompletedTask;
-        public Task UpdateAsync(SosRequestModel sos, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateAsync(SosRequestModel sos, CancellationToken ct = default)
+        {
+            _requests[sos.Id] = sos;
+            return Task.CompletedTask;
+        }
         public Task<IEnumerable<SosRequestModel>> GetByUserIdAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
         public Task<IEnumerable<SosRequestModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
         public Task<RESQ.Application.Common.Models.PagedResult<SosRequestModel>> GetAllPagedAsync(int pn, int ps, System.Collections.Generic.IReadOnlyCollection<RESQ.Domain.Enum.Emergency.SosRequestStatus>? statuses = null, CancellationToken ct = default) => throw new NotImplementedException();
-        public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult<SosRequestModel?>(null);
-        public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int cid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
+        public Task<SosRequestModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(_requests.GetValueOrDefault(id));
+        public Task<IEnumerable<SosRequestModel>> GetByClusterIdAsync(int cid, CancellationToken ct = default)
+            => Task.FromResult(_requests.Values.Where(request => request.ClusterId == cid).AsEnumerable());
         public Task UpdateStatusAsync(int id, SosRequestStatus s, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateStatusByClusterIdAsync(int cid, SosRequestStatus s, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IEnumerable<SosRequestModel>> GetByCompanionUserIdAsync(Guid uid, CancellationToken ct = default) => Task.FromResult(Enumerable.Empty<SosRequestModel>());
+    }
+
+    private sealed class StubSosClusterRepo(params SosClusterModel[] clusters) : ISosClusterRepository
+    {
+        private readonly Dictionary<int, SosClusterModel> _clusters = clusters.ToDictionary(cluster => cluster.Id);
+
+        public Task<SosClusterModel?> GetByIdAsync(int id, CancellationToken ct = default) => Task.FromResult(_clusters.GetValueOrDefault(id));
+        public Task<IEnumerable<SosClusterModel>> GetAllAsync(CancellationToken ct = default) => Task.FromResult(_clusters.Values.AsEnumerable());
+        public Task<int> CreateAsync(SosClusterModel cluster, CancellationToken ct = default)
+        {
+            _clusters[cluster.Id] = cluster;
+            return Task.FromResult(cluster.Id);
+        }
+        public Task UpdateAsync(SosClusterModel cluster, CancellationToken ct = default)
+        {
+            _clusters[cluster.Id] = cluster;
+            return Task.CompletedTask;
+        }
+        public Task DeleteAsync(int id, CancellationToken ct = default)
+        {
+            _clusters.Remove(id);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubSosRequestUpdateRepo : ISosRequestUpdateRepository

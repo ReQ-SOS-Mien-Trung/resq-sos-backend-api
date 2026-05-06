@@ -199,4 +199,7 @@ public static class PermissionConstants
 
     /// <summary>MissionGlobalManage | MissionPointManage | MissionTeamUpdate | ActivityTeamManage | ActivityOwnManage</summary>
     public const string PolicyRouteAccess = "policy.route.access";
+
+    /// <summary>SystemUserManage | IdentityProfileUpdate</summary>
+    public const string PolicyUserAbilitiesManage = "policy.user.abilities.manage";
 }
