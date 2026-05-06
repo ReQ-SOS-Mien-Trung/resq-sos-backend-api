@@ -19,8 +19,16 @@ public static class SosPriorityRuleConfigSupport
         "BREATHING_DIFFICULTY",
         "CHEST_PAIN_STROKE",
         "DROWNING",
-        "SEVERELY_BLEEDING"
+        "SEVERELY_BLEEDING",
+        "HEAD_INJURY",
+        "CANNOT_MOVE"
     };
+
+    private static readonly string[] RequiredSevereMedicalIssues =
+    [
+        "HEAD_INJURY",
+        "CANNOT_MOVE"
+    ];
 
     private static readonly HashSet<string> SevereSituations = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -44,10 +52,13 @@ public static class SosPriorityRuleConfigSupport
     private static readonly HashSet<string> PriorityExpressionVariables = new(StringComparer.OrdinalIgnoreCase)
     {
         "MEDICAL_SCORE",
+        "MEDICAL_WEIGHT",
         "RELIEF_SCORE",
+        "RELIEF_WEIGHT",
         "SITUATION_MULTIPLIER",
         "RELIEF_PRESSURE_MULTIPLIER",
-        "REQUEST_TYPE_SCORE"
+        "REQUEST_TYPE_SCORE",
+        "REQUEST_TYPE_WEIGHT"
     };
 
     public static SosPriorityRuleConfigDocument DefaultConfig { get; } = new();
@@ -165,6 +176,8 @@ public static class SosPriorityRuleConfigSupport
     {
         config ??= new SosPriorityRuleConfigDocument();
         config.DisplayLabels ??= new SosDisplayLabelsConfig();
+        config.MedicalSevereIssues ??= [];
+        config.PriorityScore ??= new SosPriorityScoreConfig();
 
         MergeLabelMap(config.DisplayLabels.MedicalIssues, DefaultConfig.DisplayLabels.MedicalIssues);
         MergeLabelMap(config.DisplayLabels.Situations, DefaultConfig.DisplayLabels.Situations);
@@ -172,6 +185,12 @@ public static class SosPriorityRuleConfigSupport
         MergeLabelMap(config.DisplayLabels.FoodDuration, DefaultConfig.DisplayLabels.FoodDuration);
         MergeLabelMap(config.DisplayLabels.AgeGroups, DefaultConfig.DisplayLabels.AgeGroups);
         MergeLabelMap(config.DisplayLabels.RequestTypes, DefaultConfig.DisplayLabels.RequestTypes);
+        MergeOptionList(config.MedicalSevereIssues, RequiredSevereMedicalIssues);
+        if (config.PriorityScore.Expression is null
+            || IsLegacyDefaultPriorityFormula(config.PriorityScore.Formula))
+        {
+            config.PriorityScore.SyncFormulaFromWeights();
+        }
 
         return config;
     }
@@ -257,6 +276,20 @@ public static class SosPriorityRuleConfigSupport
         ValidateNonNegativeDictionary(config.SituationMultiplier, "situation_multiplier", errors, requirePositive: true);
         ValidateNonNegativeDictionary(config.ReliefScore.SupplyUrgencyScore.WaterUrgencyScore, "relief_score.supply_urgency_score.water_urgency_score", errors);
         ValidateNonNegativeDictionary(config.ReliefScore.SupplyUrgencyScore.FoodUrgencyScore, "relief_score.supply_urgency_score.food_urgency_score", errors);
+        if (config.PriorityScore.MedicalWeight < 0)
+        {
+            errors.Add("priority_score.medical_weight không được âm.");
+        }
+
+        if (config.PriorityScore.ReliefWeight < 0)
+        {
+            errors.Add("priority_score.relief_weight không được âm.");
+        }
+
+        if (config.PriorityScore.RequestTypeWeight < 0)
+        {
+            errors.Add("priority_score.request_type_weight không được âm.");
+        }
 
         if (!config.RequestTypeScores.Keys.Any(key => string.Equals(NormalizeKey(key), "OTHER", StringComparison.OrdinalIgnoreCase)))
         {
@@ -376,6 +409,40 @@ public static class SosPriorityRuleConfigSupport
 
             target[entry.Key] = entry.Value;
         }
+    }
+
+    private static void MergeOptionList(ICollection<string>? target, IEnumerable<string> defaults)
+    {
+        if (target is null)
+        {
+            return;
+        }
+
+        var existing = target
+            .Select(NormalizeKey)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var value in defaults.Select(NormalizeKey).Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            if (existing.Add(value))
+            {
+                target.Add(value);
+            }
+        }
+    }
+
+    private static bool IsLegacyDefaultPriorityFormula(string? formula)
+    {
+        if (string.IsNullOrWhiteSpace(formula))
+        {
+            return false;
+        }
+
+        var normalized = formula.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
+        return normalized.Contains("MEDICAL_SCORE*2", StringComparison.Ordinal)
+            && normalized.Contains("RELIEF_SCORE*1.1", StringComparison.Ordinal)
+            && normalized.Contains("REQUEST_TYPE_SCORE*0.15", StringComparison.Ordinal);
     }
 
     private static SosPriorityRuleConfigDocument BuildLegacyCompatibleConfig(SosPriorityRuleConfigModel model)

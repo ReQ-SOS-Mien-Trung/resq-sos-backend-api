@@ -589,24 +589,24 @@ public static class IdentitySeeder
             {
                 Id = 7,
                 ApplicationId = 4,
-                FileUrl = "https://storage.example.com/documents/applicant4_cccd_front.jpg",
-                FileTypeId = 9, // OTHER
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/nurse_wpabx6.png",
+                FileTypeId = 6, // NURSING_PRACTICE_LICENSE
                 UploadedAt = now.AddDays(1)
             },
             new RescuerApplicationDocument
             {
                 Id = 8,
                 ApplicationId = 4,
-                FileUrl = "https://storage.example.com/documents/applicant4_first_aid_cert.pdf",
-                FileTypeId = 5, // BASIC_MEDICAL_CERT
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/giay-phep-lai-xe-a1_jggx81.jpg",
+                FileTypeId = 7, // MOTORCYCLE_LICENSE
                 UploadedAt = now.AddDays(1)
             },
             new RescuerApplicationDocument
             {
                 Id = 9,
                 ApplicationId = 4,
-                FileUrl = "https://storage.example.com/documents/applicant4_experience_letter.pdf",
-                FileTypeId = 9, // OTHER
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778042023/ky_nang_boi_cuu_ho_cxucxc.jpg",
+                FileTypeId = 2, // WATER_RESCUE_CERT
                 UploadedAt = now.AddDays(1)
             },
             // Documents cho Applicant 5 (Rejected)
@@ -639,16 +639,24 @@ public static class IdentitySeeder
             {
                 Id = 11,
                 ApplicationId = 6,
-                FileUrl = "https://storage.resq-sos.vn/certs/rescuer_hai_water_cert.jpg",
-                FileTypeId = 2, // WATER_RESCUE_CERT
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/nurse_wpabx6.png",
+                FileTypeId = 6, // NURSING_PRACTICE_LICENSE
                 UploadedAt = now
             },
             new RescuerApplicationDocument
             {
                 Id = 12,
                 ApplicationId = 6,
-                FileUrl = "https://storage.resq-sos.vn/certs/rescuer_hai_first_aid_cert.jpg",
-                FileTypeId = 5, // BASIC_FIRST_AID_CERT
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/giay-phep-lai-xe-a1_jggx81.jpg",
+                FileTypeId = 7, // MOTORCYCLE_LICENSE
+                UploadedAt = now
+            },
+            new RescuerApplicationDocument
+            {
+                Id = 13,
+                ApplicationId = 6,
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778042023/ky_nang_boi_cuu_ho_cxucxc.jpg",
+                FileTypeId = 2, // WATER_RESCUE_CERT
                 UploadedAt = now
             }
         );
@@ -672,22 +680,29 @@ public static class IdentitySeeder
                 AdminNote = "Đủ điều kiện tham gia đội cứu hộ."
             });
 
-            // Core (i chẵn) → TECHNICAL_RESCUE_CERT(3), Volunteer (i lẻ) → BASIC_FIRST_AID_CERT(5)
-            var certTypeId = (i % 2 == 0) ? 3 : 5;
+            // Mỗi rescuer có đúng 3 chứng chỉ: Điều dưỡng, Lái xe máy, Cứu hộ dưới nước
             loopDocuments.Add(new RescuerApplicationDocument
             {
-                Id = 2 * i + 11, // 13, 15, 17, ..., 171
+                Id = 14 + (i - 1) * 3,
                 ApplicationId = appId,
-                FileUrl = $"https://storage.resq-sos.vn/certs/rescuer{i}_cert1.jpg",
-                FileTypeId = certTypeId,
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/nurse_wpabx6.png",
+                FileTypeId = 6, // NURSING_PRACTICE_LICENSE
                 UploadedAt = now.AddDays(i % 15)
             });
             loopDocuments.Add(new RescuerApplicationDocument
             {
-                Id = 2 * i + 12, // 14, 16, 18, ..., 172
+                Id = 15 + (i - 1) * 3,
                 ApplicationId = appId,
-                FileUrl = $"https://storage.resq-sos.vn/certs/rescuer{i}_id.jpg",
-                FileTypeId = 9, // OTHER (CCCD/ID photo)
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/giay-phep-lai-xe-a1_jggx81.jpg",
+                FileTypeId = 7, // MOTORCYCLE_LICENSE
+                UploadedAt = now.AddDays(i % 15)
+            });
+            loopDocuments.Add(new RescuerApplicationDocument
+            {
+                Id = 16 + (i - 1) * 3,
+                ApplicationId = appId,
+                FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778042023/ky_nang_boi_cuu_ho_cxucxc.jpg",
+                FileTypeId = 2, // WATER_RESCUE_CERT
                 UploadedAt = now.AddDays(i % 15)
             });
         }

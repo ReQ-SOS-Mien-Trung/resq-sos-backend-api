@@ -54,9 +54,12 @@ public sealed partial class DatabaseSeeder
         var standbyRescuers = seed.Rescuers.Skip(deployableRescuers.Count).ToList();
         var standbyRescuerIds = standbyRescuers.Select(r => r.Id).ToHashSet();
 
+        var operationalAssemblyPoints = seed.AssemblyPoints
+            .Where(ap => ap.Status is "Available" or "Unavailable" or "Gathering")
+            .ToList();
         for (var i = 0; i < deployableRescuers.Count; i++)
         {
-            deployableRescuers[i].AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id;
+            deployableRescuers[i].AssemblyPointId = operationalAssemblyPoints[i % operationalAssemblyPoints.Count].Id;
         }
 
         var profiles = seed.Rescuers.Select((user, index) =>
@@ -157,16 +160,43 @@ public sealed partial class DatabaseSeeder
         var documents = new List<RescuerApplicationDocument>();
         foreach (var application in applications)
         {
-            var typeIds = new[] { 9, 5, 1 + application.Id % 4 };
-            foreach (var typeId in typeIds)
+            if (application.Status == "Approved")
             {
                 documents.Add(new RescuerApplicationDocument
                 {
                     ApplicationId = application.Id,
-                    FileTypeId = typeId,
-                    FileUrl = $"https://cdn.resq.vn/docs/application-{application.Id}-{typeId}.pdf",
-                    UploadedAt = application.SubmittedAt?.AddMinutes(typeId * 7)
+                    FileTypeId = 6, // NURSING_PRACTICE_LICENSE
+                    FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/nurse_wpabx6.png",
+                    UploadedAt = application.SubmittedAt?.AddMinutes(7)
                 });
+                documents.Add(new RescuerApplicationDocument
+                {
+                    ApplicationId = application.Id,
+                    FileTypeId = 7, // MOTORCYCLE_LICENSE
+                    FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778041922/giay-phep-lai-xe-a1_jggx81.jpg",
+                    UploadedAt = application.SubmittedAt?.AddMinutes(14)
+                });
+                documents.Add(new RescuerApplicationDocument
+                {
+                    ApplicationId = application.Id,
+                    FileTypeId = 2, // WATER_RESCUE_CERT
+                    FileUrl = "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778042023/ky_nang_boi_cuu_ho_cxucxc.jpg",
+                    UploadedAt = application.SubmittedAt?.AddMinutes(21)
+                });
+            }
+            else
+            {
+                var typeIds = new[] { 9, 5, 1 + application.Id % 4 };
+                foreach (var typeId in typeIds)
+                {
+                    documents.Add(new RescuerApplicationDocument
+                    {
+                        ApplicationId = application.Id,
+                        FileTypeId = typeId,
+                        FileUrl = $"https://cdn.resq.vn/docs/application-{application.Id}-{typeId}.pdf",
+                        UploadedAt = application.SubmittedAt?.AddMinutes(typeId * 7)
+                    });
+                }
             }
         }
 
@@ -230,6 +260,9 @@ public sealed partial class DatabaseSeeder
             }
         }
 
+        var operationalAssemblyPoints = seed.AssemblyPoints
+            .Where(ap => ap.Status is "Available" or "Unavailable" or "Gathering")
+            .ToList();
         for (var i = 0; i < 44; i++)
         {
             var plannedAssemblyDate = RandomEventUtc(seed, i).AddHours(6 + i % 3);
@@ -243,7 +276,7 @@ public sealed partial class DatabaseSeeder
             var checkInDeadline = assemblyDate.AddMinutes(45);
             events.Add(new AssemblyEvent
             {
-                AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id,
+                AssemblyPointId = operationalAssemblyPoints[i % operationalAssemblyPoints.Count].Id,
                 AssemblyDate = assemblyDate,
                 Status = status,
                 CreatedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
@@ -326,11 +359,14 @@ public sealed partial class DatabaseSeeder
         };
         var types = new[] { "Mixed", "Rescue", "Medical", "Transportation" };
 
+        var operationalAssemblyPoints = seed.AssemblyPoints
+            .Where(ap => ap.Status is "Available" or "Unavailable" or "Gathering")
+            .ToList();
         for (var i = 0; i < 20; i++)
         {
             seed.RescueTeams.Add(new RescueTeam
             {
-                AssemblyPointId = seed.AssemblyPoints[i % seed.AssemblyPoints.Count].Id,
+                AssemblyPointId = operationalAssemblyPoints[i % operationalAssemblyPoints.Count].Id,
                 ManagedBy = seed.Coordinators[i % seed.Coordinators.Count].Id,
                 Code = $"RT-{Area(i).Code}-{i + 1:00}",
                 Name = $"Đội {TeamName(i)} {i + 1}",
