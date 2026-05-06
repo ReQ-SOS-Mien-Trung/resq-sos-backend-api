@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Identity.Commands.AdminAddCertificatesForRescuer;
+using RESQ.Application.UseCases.Identity.Commands.AdminReplaceCertificatesForRescuer;
 using RESQ.Application.UseCases.Identity.Commands.ReviewRescuerApplication;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationStatusMetadata;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerApplicationDetail;
@@ -82,6 +83,18 @@ namespace RESQ.Presentation.Controllers.Identity
             [FromBody] AdminAddCertificatesForRescuerRequestDto dto)
         {
             var command = new AdminAddCertificatesForRescuerCommand(userId, dto.Documents);
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>Admin thay thế toàn bộ chứng chỉ của rescuer (xoá cũ, thêm mới).</summary>
+        [HttpPut("{userId:guid}/certificates")]
+        [Authorize(Policy = PermissionConstants.SystemUserManage)]
+        public async Task<IActionResult> ReplaceCertificatesForRescuer(
+            [FromRoute] Guid userId,
+            [FromBody] AdminReplaceCertificatesForRescuerRequestDto dto)
+        {
+            var command = new AdminReplaceCertificatesForRescuerCommand(userId, dto.Documents);
             var result = await _mediator.Send(command);
             return Ok(result);
         }
