@@ -45,7 +45,6 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var bootstrapDatabaseOnStartup = configuration.GetValue<bool>("Database:BootstrapOnStartup");
         services.AddHttpClient();
         services.AddSingleton(TimeProvider.System);
         services.Configure<AiProvidersOptions>(configuration.GetSection("AiProviders"));
@@ -80,17 +79,14 @@ public static class ServiceCollectionExtensions
                 }
             );
 
-            if (!bootstrapDatabaseOnStartup)
+            options.UseSeeding((context, _) =>
             {
-                options.UseSeeding((context, _) =>
-                {
-                    SeedDatabase((ResQDbContext)context);
-                });
-                options.UseAsyncSeeding(async (context, _, cancellationToken) =>
-                {
-                    await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
-                });
-            }
+                SeedDatabase((ResQDbContext)context);
+            });
+            options.UseAsyncSeeding(async (context, _, cancellationToken) =>
+            {
+                await SeedDatabaseAsync((ResQDbContext)context, cancellationToken);
+            });
         });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -250,7 +246,7 @@ public static class ServiceCollectionExtensions
         await seeder.SeedAsync(cancellationToken);
     }
 
-    /// <summary>Gọi seeder độc lập, ngoài EF execution strategy của EnsureCreated/Migrate.</summary>
+    /// <summary>Runs the seeder directly for tests/tools; app startup relies on EF Migrate seeding.</summary>
     public static async Task RunSeedAsync(ResQDbContext context, CancellationToken cancellationToken = default)
     {
         await SeedDatabaseAsync(context, cancellationToken);

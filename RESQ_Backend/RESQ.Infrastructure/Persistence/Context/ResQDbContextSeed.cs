@@ -6,6 +6,6 @@ public partial class ResQDbContext
 {
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
-        // Runtime demo data is seeded by DatabaseSeeder; keep migrations free of API test fixtures.
+        // Demo data is seeded by DatabaseSeeder through EF's migration seeding hook.
     }
 }

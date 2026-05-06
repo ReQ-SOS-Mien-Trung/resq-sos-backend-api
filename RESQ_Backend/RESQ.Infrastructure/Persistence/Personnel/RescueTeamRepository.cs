@@ -136,6 +136,91 @@ public class RescueTeamRepository(IUnitOfWork unitOfWork) : IRescueTeamRepositor
         return topAbility?.Ability?.AbilitySubgroup?.AbilityCategory?.Code;
     }
 
+    public async Task<Dictionary<int, List<Guid>>> GetAcceptedMemberUserIdsByTeamIdsAsync(
+        IReadOnlyCollection<int> teamIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (teamIds.Count == 0)
+        {
+            return [];
+        }
+
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+        var rows = await _unitOfWork.Set<RescueTeamMember>()
+            .Where(m => teamIds.Contains(m.TeamId) && m.Status == acceptedStatus)
+            .Select(m => new { m.TeamId, m.UserId })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(x => x.TeamId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.UserId).Distinct().ToList());
+    }
+
+    public async Task<List<AssemblyPointUnavailableStationedTeamDto>> GetAvailableStationedTeamsByAssemblyPointAsync(
+        int assemblyPointId,
+        CancellationToken cancellationToken = default)
+    {
+        var availableStatus = RescueTeamStatus.Available.ToString();
+        var acceptedStatus = TeamMemberStatus.Accepted.ToString();
+
+        var teams = await _unitOfWork.Set<RescueTeam>()
+            .AsNoTracking()
+            .Where(t => t.AssemblyPointId == assemblyPointId && t.Status == availableStatus)
+            .Include(t => t.RescueTeamMembers)
+            .OrderBy(t => t.Name)
+            .ThenBy(t => t.Id)
+            .ToListAsync(cancellationToken);
+
+        return teams.Select(t => new AssemblyPointUnavailableStationedTeamDto
+        {
+            RescueTeamId = t.Id,
+            RescueTeamCode = t.Code,
+            RescueTeamName = t.Name,
+            RescueTeamStatus = t.Status,
+            MemberUserIds = t.RescueTeamMembers
+                .Where(m => m.Status == acceptedStatus)
+                .Select(m => m.UserId)
+                .Distinct()
+                .ToList()
+        }).ToList();
+    }
+
+    public async Task ReassignAvailableStationedTeamsAsync(
+        int sourceAssemblyPointId,
+        IReadOnlyDictionary<int, int> teamAssignments,
+        CancellationToken cancellationToken = default)
+    {
+        if (teamAssignments.Count == 0)
+        {
+            return;
+        }
+
+        var teamIds = teamAssignments.Keys.ToList();
+        var availableStatus = RescueTeamStatus.Available.ToString();
+        var teams = await _unitOfWork.SetTracked<RescueTeam>()
+            .Where(t => teamIds.Contains(t.Id))
+            .ToListAsync(cancellationToken);
+
+        if (teams.Count != teamIds.Count)
+        {
+            var foundIds = teams.Select(t => t.Id).ToHashSet();
+            var missing = teamIds.Where(id => !foundIds.Contains(id));
+            throw new InvalidOperationException($"Không tìm thấy các đội đóng quân: {string.Join(", ", missing)}.");
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var team in teams)
+        {
+            if (team.AssemblyPointId != sourceAssemblyPointId || team.Status != availableStatus)
+            {
+                throw new InvalidOperationException($"Đội cứu hộ #{team.Id} không còn ở trạng thái Available tại điểm tập kết nguồn.");
+            }
+
+            team.AssemblyPointId = teamAssignments[team.Id];
+            team.UpdatedAt = now;
+        }
+    }
+
     public async Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default)
     {
         var entity = RescueTeamMapper.ToEntity(team);

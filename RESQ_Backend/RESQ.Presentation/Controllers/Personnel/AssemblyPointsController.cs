@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using RESQ.Application.Common.Constants;
 using RESQ.Application.UseCases.Personnel.Commands.ActivateAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailable;
+using RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointUnavailableWithReassignment;
 using RESQ.Application.UseCases.Personnel.Commands.SetAssemblyPointAvailable;
 using RESQ.Application.UseCases.Personnel.Commands.CloseAssemblyPoint;
 using RESQ.Application.UseCases.Personnel.Commands.CreateAssemblyPoint;
@@ -24,6 +25,7 @@ using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointUnavailableImpact;
 using RESQ.Application.UseCases.Personnel.Commands.UpsertAssemblyPointCheckInRadius;
 using RESQ.Application.UseCases.Personnel.Commands.DeleteAssemblyPointCheckInRadius;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointCheckInRadius;
@@ -170,6 +172,36 @@ namespace RESQ.Presentation.Controllers.Personnel
                 return Unauthorized();
 
             var result = await _mediator.Send(new SetAssemblyPointUnavailableCommand(id, changedBy, dto.Reason));
+            return Ok(result);
+        }
+
+        [HttpGet("{id}/set-unavailable/impact")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> GetUnavailableImpact(int id)
+        {
+            var result = await _mediator.Send(new GetAssemblyPointUnavailableImpactQuery(id));
+            return Ok(result);
+        }
+
+        [HttpPost("{id}/set-unavailable/reassign")]
+        [Authorize(Policy = PermissionConstants.PersonnelGlobalManage)]
+        public async Task<IActionResult> SetUnavailableWithReassignment(
+            int id,
+            [FromBody] SetAssemblyPointUnavailableWithReassignmentRequestDto dto)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var changedBy))
+                return Unauthorized();
+
+            var command = new SetAssemblyPointUnavailableWithReassignmentCommand(
+                id,
+                changedBy,
+                dto.Reason,
+                dto.RescuerReassignments,
+                dto.TeamReassignments,
+                dto.MissionActivityReassignments);
+
+            var result = await _mediator.Send(command);
             return Ok(result);
         }
 

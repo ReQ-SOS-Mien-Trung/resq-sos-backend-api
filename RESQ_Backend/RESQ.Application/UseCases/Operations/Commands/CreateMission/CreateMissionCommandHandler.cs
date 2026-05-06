@@ -109,7 +109,8 @@ public class CreateMissionCommandHandler(
                     continue;
                 }
 
-                if (assemblyPoint.Status == AssemblyPointStatus.Unavailable
+                if (assemblyPoint.Status == AssemblyPointStatus.PendingUnavailable
+                    || assemblyPoint.Status == AssemblyPointStatus.Unavailable
                     || assemblyPoint.Status == AssemblyPointStatus.Closed)
                 {
                     assemblyPointErrors.Add($"Không thể điều phối đến điểm tập kết #{assemblyPointId} vì đang đóng hoặc không khả dụng.");

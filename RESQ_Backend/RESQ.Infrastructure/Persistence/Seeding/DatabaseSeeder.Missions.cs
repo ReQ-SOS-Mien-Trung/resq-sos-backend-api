@@ -340,7 +340,7 @@ public sealed partial class DatabaseSeeder
         if (returnActivities.Count < 3)
         {
             throw new InvalidOperationException(
-                $"Runtime demo seed requires at least 3 planned RETURN_SUPPLIES activities for depot #{hueDepot.Id}.");
+                $"Migration demo seed requires at least 3 planned RETURN_SUPPLIES activities for depot #{hueDepot.Id}.");
         }
 
         var reusableUnitGroups = seed.ReusableItems
@@ -359,7 +359,7 @@ public sealed partial class DatabaseSeeder
         if (reusableUnitGroups.Count < 2)
         {
             throw new InvalidOperationException(
-                $"Runtime demo seed requires reusable units for upcoming return fixtures at depot #{hueDepot.Id}.");
+                $"Migration demo seed requires reusable units for upcoming return fixtures at depot #{hueDepot.Id}.");
         }
 
         var reusableOnlyUnits = reusableUnitGroups[0].OrderBy(item => item.Id).Take(2).ToList();
@@ -485,7 +485,7 @@ public sealed partial class DatabaseSeeder
         if (remaining > 0)
         {
             throw new InvalidOperationException(
-                $"Runtime demo seed cannot allocate {quantity} units of '{itemName}' from depot #{depotId} lots.");
+                $"Migration demo seed cannot allocate {quantity} units of '{itemName}' from depot #{depotId} lots.");
         }
 
         return new SupplyToCollectDto
