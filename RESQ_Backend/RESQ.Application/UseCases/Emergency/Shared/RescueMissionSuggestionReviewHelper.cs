@@ -60,8 +60,6 @@ public static class RescueMissionSuggestionReviewHelper
             "Đội tổng thể của nhiệm vụ",
             teamAssignmentErrors);
 
-        var unassignedSteps = new List<int>();
-
         foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
         {
             activity.SuggestedTeam = SanitizeSuggestedTeam(
@@ -71,10 +69,15 @@ public static class RescueMissionSuggestionReviewHelper
                 $"Bước {activity.Step} ({activity.ActivityType})",
                 teamAssignmentErrors);
 
+        }
+
+        BackfillMissingActivityTeams(result.SuggestedActivities, result.SuggestedTeam);
+
+        var unassignedSteps = new List<int>();
+        foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
+        {
             if (activity.SuggestedTeam is null && nearbyTeamLookup.Count > 0)
-            {
                 unassignedSteps.Add(activity.Step);
-            }
         }
 
         if (teamAssignmentErrors.Count > 0)
@@ -100,6 +103,59 @@ public static class RescueMissionSuggestionReviewHelper
 
         result.NeedsManualReview = true;
         result.SpecialNotes = AppendWarnings(result.SpecialNotes, warnings);
+    }
+
+    private static void BackfillMissingActivityTeams(
+        IReadOnlyCollection<SuggestedActivityDto> activities,
+        SuggestedTeamDto? missionSuggestedTeam)
+    {
+        foreach (var group in activities
+            .Where(activity => !string.IsNullOrWhiteSpace(activity.CoordinationGroupKey))
+            .GroupBy(activity => NormalizeLookupKey(activity.CoordinationGroupKey!)))
+        {
+            var groupTeams = group
+                .Select(activity => activity.SuggestedTeam)
+                .Where(team => team is not null && team.TeamId > 0)
+                .GroupBy(team => team!.TeamId)
+                .Select(teamGroup => teamGroup.First()!)
+                .ToList();
+
+            if (groupTeams.Count != 1)
+                continue;
+
+            foreach (var activity in group.Where(activity => activity.SuggestedTeam is null))
+                activity.SuggestedTeam = CloneSuggestedTeam(groupTeams[0]);
+        }
+
+        var remainingMissingActivities = activities
+            .Where(activity => activity.SuggestedTeam is null)
+            .ToList();
+        if (remainingMissingActivities.Count == 0)
+            return;
+
+        var activityTeams = activities
+            .Select(activity => activity.SuggestedTeam)
+            .Where(team => team is not null && team.TeamId > 0)
+            .GroupBy(team => team!.TeamId)
+            .Select(group => group.First()!)
+            .ToList();
+
+        SuggestedTeamDto? fallbackTeam = activityTeams.Count == 1
+            ? activityTeams[0]
+            : null;
+
+        if (fallbackTeam is null
+            && activityTeams.Count == 0
+            && missionSuggestedTeam is { TeamId: > 0 })
+        {
+            fallbackTeam = missionSuggestedTeam;
+        }
+
+        if (fallbackTeam is null)
+            return;
+
+        foreach (var activity in remainingMissingActivities)
+            activity.SuggestedTeam = CloneSuggestedTeam(fallbackTeam);
     }
 
     public static void ApplyNearbyDepotConstraints(
@@ -299,6 +355,22 @@ public static class RescueMissionSuggestionReviewHelper
             Latitude = canonicalTeam.Latitude,
             Longitude = canonicalTeam.Longitude,
             DistanceKm = canonicalTeam.DistanceKm
+        };
+    }
+
+    private static SuggestedTeamDto CloneSuggestedTeam(SuggestedTeamDto team)
+    {
+        return new SuggestedTeamDto
+        {
+            TeamId = team.TeamId,
+            TeamName = team.TeamName,
+            TeamType = team.TeamType,
+            Reason = team.Reason,
+            AssemblyPointId = team.AssemblyPointId,
+            AssemblyPointName = team.AssemblyPointName,
+            Latitude = team.Latitude,
+            Longitude = team.Longitude,
+            DistanceKm = team.DistanceKm
         };
     }
 

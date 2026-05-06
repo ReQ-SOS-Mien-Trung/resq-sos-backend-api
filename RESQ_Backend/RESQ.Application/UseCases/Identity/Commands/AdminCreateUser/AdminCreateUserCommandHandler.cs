@@ -64,6 +64,7 @@ public class AdminCreateUserCommandHandler(
             Longitude = request.Longitude,
             IsEmailVerified = request.IsEmailVerified,
             IsEligibleRescuer = request.IsEligibleRescuer,
+            RescuerStep = request.RoleId == 3 ? 3 : 0,
             IsBanned = false,
             ApprovedBy = request.ApprovedBy,
             ApprovedAt = request.ApprovedAt,

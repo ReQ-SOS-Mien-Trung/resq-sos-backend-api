@@ -94,6 +94,119 @@ public class RescueMissionSuggestionReviewHelperTests
     }
 
     [Fact]
+    public void ApplyNearbyTeamConstraints_BackfillsMissingTeamsWithinCoordinationGroup()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    ExecutionMode = "SingleTeam",
+                    RequiredTeamCount = 1,
+                    CoordinationGroupKey = "rescue-team-alpha",
+                    SuggestedTeam = new SuggestedTeamDto
+                    {
+                        TeamId = 22,
+                        TeamName = "Team 22"
+                    }
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 2,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    ExecutionMode = "SingleTeam",
+                    RequiredTeamCount = 1,
+                    CoordinationGroupKey = "rescue-team-alpha"
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 3,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    ExecutionMode = "SingleTeam",
+                    RequiredTeamCount = 1,
+                    CoordinationGroupKey = "rescue-team-alpha"
+                }
+            ]
+        };
+
+        RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(
+            result,
+            [
+                new AgentTeamInfo
+                {
+                    TeamId = 22,
+                    TeamName = "Team 22",
+                    TeamType = "Rescue",
+                    AssemblyPointId = 1,
+                    AssemblyPointName = "Assembly 1",
+                    DistanceKm = 0.87
+                }
+            ]);
+
+        Assert.All(result.SuggestedActivities, activity =>
+        {
+            Assert.NotNull(activity.SuggestedTeam);
+            Assert.Equal(22, activity.SuggestedTeam!.TeamId);
+            Assert.Equal("Team 22", activity.SuggestedTeam.TeamName);
+        });
+        Assert.False(result.NeedsManualReview, result.SpecialNotes);
+    }
+
+    [Fact]
+    public void ApplyNearbyTeamConstraints_BackfillsMissingTeamsFromSingleAssignedRouteTeam()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SuggestedActivities =
+            [
+                new SuggestedActivityDto
+                {
+                    Step = 1,
+                    ActivityType = "COLLECT_SUPPLIES",
+                    ExecutionMode = "SingleTeam",
+                    RequiredTeamCount = 1,
+                    SuggestedTeam = new SuggestedTeamDto
+                    {
+                        TeamId = 22,
+                        TeamName = "Team 22"
+                    }
+                },
+                new SuggestedActivityDto
+                {
+                    Step = 2,
+                    ActivityType = "DELIVER_SUPPLIES",
+                    ExecutionMode = "SingleTeam",
+                    RequiredTeamCount = 1
+                }
+            ]
+        };
+
+        RescueMissionSuggestionReviewHelper.ApplyNearbyTeamConstraints(
+            result,
+            [
+                new AgentTeamInfo
+                {
+                    TeamId = 22,
+                    TeamName = "Team 22",
+                    TeamType = "Rescue",
+                    AssemblyPointId = 1,
+                    AssemblyPointName = "Assembly 1",
+                    DistanceKm = 0.87
+                }
+            ]);
+
+        Assert.All(result.SuggestedActivities, activity =>
+        {
+            Assert.NotNull(activity.SuggestedTeam);
+            Assert.Equal(22, activity.SuggestedTeam!.TeamId);
+        });
+        Assert.False(result.NeedsManualReview, result.SpecialNotes);
+    }
+
+    [Fact]
     public void ApplyNearbyDepotConstraints_RecoversCanonicalDepotByName_WhenIdIsHallucinated()
     {
         var result = new RescueMissionSuggestionResult
