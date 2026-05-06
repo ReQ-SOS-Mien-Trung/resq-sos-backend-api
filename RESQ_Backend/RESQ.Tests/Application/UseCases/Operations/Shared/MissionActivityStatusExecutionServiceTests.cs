@@ -9,6 +9,7 @@ using RESQ.Application.UseCases.Logistics.Queries.GetDepotInventoryByCategory;
 using RESQ.Application.UseCases.Logistics.Queries.GetLowStockItems;
 using RESQ.Application.UseCases.Logistics.Queries.SearchWarehousesByItems;
 using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyEvents;
+using RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById;
 using RESQ.Application.UseCases.Personnel.Queries.GetCheckedInRescuers;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyAssemblyEvents;
 using RESQ.Application.UseCases.Personnel.Queries.GetMyUpcomingAssemblyEvents;
@@ -278,24 +279,80 @@ public class MissionActivityStatusExecutionServiceTests
         var rescueTeamRepository = new RecordingRescueTeamRepository(rescueTeam);
         var assemblyEventRepository = new RecordingAssemblyEventRepository();
         assemblyEventRepository.SetActiveEvent(assemblyPointId: 9, eventId: 90);
+        var assemblyPointRepository = new RecordingAssemblyPointRepository();
 
         var service = BuildService(
             activityRepository,
             new StubUnitOfWork(),
             missionTeamRepository,
             rescueTeamRepository,
-            assemblyEventRepository);
+            assemblyEventRepository,
+            assemblyPointRepository: assemblyPointRepository);
 
         await service.ApplyAsync(12, 6, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
 
         var checkIn = Assert.Single(assemblyEventRepository.ReturnCheckInCalls);
         Assert.Equal(90, checkIn.EventId);
         Assert.Equal(memberId, checkIn.RescuerId);
+        var assemblyPointUpdate = Assert.Single(assemblyPointRepository.BulkUpdateCalls);
+        Assert.Equal(9, assemblyPointUpdate.AssemblyPointId);
+        Assert.Equal([memberId], assemblyPointUpdate.UserIds);
         Assert.Equal(9, rescueTeamRepository.UpdatedTeam?.AssemblyPointId);
         Assert.Equal(RescueTeamStatus.Available, rescueTeamRepository.UpdatedTeam?.Status);
         Assert.Contains(missionTeamRepository.StatusUpdates, update =>
             update.Id == 30
             && update.Status == MissionTeamExecutionStatus.CompletedWaitingReport.ToString());
+    }
+
+    [Fact]
+    public async Task ApplyAsync_ReturnAssemblyPointSucceed_UpdatesTeamAndRescuers_WhenNoActiveAssemblyEvent()
+    {
+        var memberId = Guid.Parse("bbbbbbbb-3333-3333-3333-333333333333");
+        var activityRepository = CreateActivityRepository(new MissionActivityModel
+        {
+            Id = 16,
+            MissionId = 22,
+            Status = MissionActivityStatus.OnGoing,
+            ActivityType = MissionReturnAssemblyPointStepHelper.ReturnAssemblyPointActivityType,
+            MissionTeamId = 50,
+            AssemblyPointId = 12,
+            AssemblyPointLatitude = 10,
+            AssemblyPointLongitude = 20
+        });
+
+        var missionTeamRepository = new RecordingMissionTeamRepository(new MissionTeamModel
+        {
+            Id = 50,
+            RescuerTeamId = 60,
+            Status = MissionTeamExecutionStatus.InProgress.ToString(),
+            AssemblyPointId = 3,
+            RescueTeamMembers =
+            [
+                new MissionTeamMemberInfo { UserId = memberId, Status = TeamMemberStatus.Accepted.ToString() }
+            ]
+        });
+
+        var rescueTeam = BuildRescueTeam(60, RescueTeamStatus.OnMission, assemblyPointId: 3);
+        var rescueTeamRepository = new RecordingRescueTeamRepository(rescueTeam);
+        var assemblyEventRepository = new RecordingAssemblyEventRepository();
+        var assemblyPointRepository = new RecordingAssemblyPointRepository();
+
+        var service = BuildService(
+            activityRepository,
+            new StubUnitOfWork(),
+            missionTeamRepository,
+            rescueTeamRepository,
+            assemblyEventRepository,
+            assemblyPointRepository: assemblyPointRepository);
+
+        await service.ApplyAsync(22, 16, MissionActivityStatus.Succeed, Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Empty(assemblyEventRepository.ReturnCheckInCalls);
+        Assert.Equal(12, rescueTeamRepository.UpdatedTeam?.AssemblyPointId);
+
+        var assemblyPointUpdate = Assert.Single(assemblyPointRepository.BulkUpdateCalls);
+        Assert.Equal(12, assemblyPointUpdate.AssemblyPointId);
+        Assert.Equal([memberId], assemblyPointUpdate.UserIds);
     }
 
     [Fact]
@@ -424,7 +481,8 @@ public class MissionActivityStatusExecutionServiceTests
         ISosClusterRepository? sosClusterRepository = null,
         ISosRequestUpdateRepository? sosRequestUpdateRepository = null,
         ITeamIncidentRepository? teamIncidentRepository = null,
-        IMissionRepository? missionRepository = null)
+        IMissionRepository? missionRepository = null,
+        IAssemblyPointRepository? assemblyPointRepository = null)
     {
         rescueTeamRepository ??= new RecordingRescueTeamRepository(null);
         missionTeamRepository ??= new RecordingMissionTeamRepository();
@@ -446,6 +504,7 @@ public class MissionActivityStatusExecutionServiceTests
             sosRequestUpdateRepository ?? new NoOpSosRequestUpdateRepository(),
             teamIncidentRepository ?? new NoOpTeamIncidentRepository(),
             rescueTeamRepository,
+            assemblyPointRepository ?? new RecordingAssemblyPointRepository(),
             unitOfWork,
             NullLogger<MissionActivityStatusExecutionService>.Instance,
             assemblyEventRepository ?? new RecordingAssemblyEventRepository(),
@@ -708,6 +767,33 @@ public class MissionActivityStatusExecutionServiceTests
         public Task<List<int>> GetGatheringEventsExpiredAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task CompleteEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<int> AutoMarkAbsentForEventAsync(int eventId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    }
+
+    private sealed class RecordingAssemblyPointRepository : IAssemblyPointRepository
+    {
+        public List<(IReadOnlyList<Guid> UserIds, int? AssemblyPointId)> BulkUpdateCalls { get; } = [];
+
+        public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default)
+        {
+            BulkUpdateCalls.Add((userIds.ToList(), assemblyPointId));
+            return Task.FromResult(userIds.ToList());
+        }
+
+        public Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default, string? statusFilter = null) => throw new NotImplementedException();
+        public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Dictionary<int, List<AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class NoOpPersonnelQueryRepository : IPersonnelQueryRepository
