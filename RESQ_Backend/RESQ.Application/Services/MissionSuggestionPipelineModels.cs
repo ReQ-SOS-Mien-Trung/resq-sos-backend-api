@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RESQ.Application.Services;
 
 public class MissionRequiredSupplyFragment
@@ -55,6 +57,7 @@ public class MissionActivityFragment
     public string Description { get; set; } = string.Empty;
     public List<string>? TargetPersonIds { get; set; }
     public string? TargetVictimSummary { get; set; }
+    [JsonIgnore]
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     public string? ExecutionMode { get; set; }
@@ -125,6 +128,7 @@ public class MissionDraftActivityDto
     public string? Description { get; set; }
     public List<string>? TargetPersonIds { get; set; }
     public string? TargetVictimSummary { get; set; }
+    [JsonIgnore]
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     public string? ExecutionMode { get; set; }

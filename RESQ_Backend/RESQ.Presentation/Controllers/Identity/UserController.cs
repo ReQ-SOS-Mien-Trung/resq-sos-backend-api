@@ -11,6 +11,7 @@ using RESQ.Application.UseCases.Identity.Commands.RescuerConsent;
 using RESQ.Application.UseCases.Identity.Commands.SyncRelativeProfiles;
 using RESQ.Application.UseCases.Identity.Commands.UpdateRelativeProfile;
 using RESQ.Application.UseCases.Identity.Commands.UpdateRescuerProfile;
+using RESQ.Application.UseCases.Identity.Commands.UpdateUserAbilities;
 using RESQ.Application.UseCases.Identity.Queries.GetCurrentUser;
 using RESQ.Application.UseCases.Identity.Queries.GetRelativeProfiles;
 using RESQ.Application.UseCases.Identity.Queries.GetRescuerTypeMetadata;
@@ -92,6 +93,26 @@ namespace RESQ.Presentation.Controllers.Identity
                 dto.Latitude,
                 dto.Longitude,
                 dto.AvatarUrl
+            );
+            var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>Cập nhật abilities của rescuer (rescuer tự update hoặc admin update cho rescuer khác).</summary>
+        [HttpPut("{userId:guid}/abilities")]
+        [Authorize(Policy = PermissionConstants.PolicyUserAbilitiesManage)]
+        public async Task<IActionResult> UpdateUserAbilities(Guid userId, [FromBody] UpdateUserAbilitiesRequestDto dto)
+        {
+            var callerIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(callerIdClaim) || !Guid.TryParse(callerIdClaim, out var callerId))
+            {
+                return Unauthorized();
+            }
+
+            var command = new UpdateUserAbilitiesCommand(
+                callerId,
+                userId,
+                dto.Abilities.Select(a => new AbilityEntry(a.AbilityId, a.Level)).ToList()
             );
             var result = await _mediator.Send(command);
             return Ok(result);

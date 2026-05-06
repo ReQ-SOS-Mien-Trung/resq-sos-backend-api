@@ -1095,7 +1095,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 Description = a.Description ?? string.Empty,
                 TargetPersonIds = NormalizeTargetPersonIds(a.TargetPersonIds),
                 TargetVictimSummary = NormalizeOptionalText(a.TargetVictimSummary),
-                Priority = a.Priority,
                 EstimatedTime = a.EstimatedTime,
                 ExecutionMode = a.ExecutionMode,
                 RequiredTeamCount = a.RequiredTeamCount,
@@ -1201,7 +1200,6 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
                 if (a.TryGetProperty("description", out var d)) dto.Description = d.GetString() ?? string.Empty;
                 dto.TargetPersonIds = ParseTargetPersonIds(a);
                 dto.TargetVictimSummary = GetOptionalString(a, "target_victim_summary");
-                if (a.TryGetProperty("priority", out var p)) dto.Priority = p.GetString();
                 if (a.TryGetProperty("estimated_time", out var et)) dto.EstimatedTime = et.GetString();
                 if (a.TryGetProperty("execution_mode", out var em) && em.ValueKind != JsonValueKind.Null) dto.ExecutionMode = em.GetString();
                 if (a.TryGetProperty("required_team_count", out var rtc) && rtc.ValueKind != JsonValueKind.Null && rtc.TryGetInt32(out var rtcv)) dto.RequiredTeamCount = rtcv;
@@ -6552,6 +6550,7 @@ public partial class RescueMissionSuggestionService : IRescueMissionSuggestionSe
         [JsonPropertyName("target_victim_summary")]
         public string? TargetVictimSummary { get; set; }
 
+        [JsonIgnore]
         [JsonPropertyName("priority")]
         public string? Priority { get; set; }
 

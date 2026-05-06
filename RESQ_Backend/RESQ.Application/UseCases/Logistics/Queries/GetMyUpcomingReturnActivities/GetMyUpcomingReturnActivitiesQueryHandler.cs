@@ -49,7 +49,6 @@ public class GetMyUpcomingReturnActivitiesQueryHandler(
             Step = x.Step,
             ActivityType = x.ActivityType,
             Description = x.Description,
-            Priority = x.Priority,
             EstimatedTime = x.EstimatedTime,
             Status = x.Status,
             AssignedAt = x.AssignedAt,

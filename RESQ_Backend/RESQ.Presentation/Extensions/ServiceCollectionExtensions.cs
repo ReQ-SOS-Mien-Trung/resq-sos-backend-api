@@ -157,6 +157,11 @@ public static class ServiceCollectionExtensions
                     PermissionConstants.MissionTeamUpdate,
                     PermissionConstants.ActivityTeamManage,
                     PermissionConstants.ActivityOwnManage)));
+
+            options.AddPolicy(PermissionConstants.PolicyUserAbilitiesManage, p => p.Requirements.Add(
+                new PermissionRequirement(
+                    PermissionConstants.SystemUserManage,
+                    PermissionConstants.IdentityProfileUpdate)));
         });
 
         return services;

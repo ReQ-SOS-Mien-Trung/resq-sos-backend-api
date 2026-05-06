@@ -66,7 +66,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                 Step = activity.Step,
                 ActivityType = activity.ActivityType,
                 Description = activity.Description,
-                Priority = activity.Priority,
                 EstimatedTime = activity.EstimatedTime,
                 Status = activity.Status,
                 AssignedAt = activity.AssignedAt,
@@ -103,7 +102,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             Step = x.Step,
             ActivityType = x.ActivityType,
             Description = x.Description,
-            Priority = x.Priority,
             EstimatedTime = x.EstimatedTime,
             Status = x.Status,
             AssignedAt = x.AssignedAt,
@@ -181,7 +179,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
                 Step = activity.Step,
                 ActivityType = activity.ActivityType,
                 Description = activity.Description,
-                Priority = activity.Priority,
                 EstimatedTime = activity.EstimatedTime,
                 Status = activity.Status,
                 AssignedAt = activity.AssignedAt,
@@ -223,7 +220,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
             Step = x.Step,
             ActivityType = x.ActivityType,
             Description = x.Description,
-            Priority = x.Priority,
             EstimatedTime = x.EstimatedTime,
             Status = x.Status,
             AssignedAt = x.AssignedAt,
@@ -286,7 +282,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         public int? Step { get; set; }
         public string? ActivityType { get; set; }
         public string? Description { get; set; }
-        public string? Priority { get; set; }
         public int? EstimatedTime { get; set; }
         public string? Status { get; set; }
         public DateTime? AssignedAt { get; set; }
@@ -311,7 +306,6 @@ public class UpcomingPickupActivityRepository(IUnitOfWork unitOfWork) : IUpcomin
         public int? Step { get; set; }
         public string? ActivityType { get; set; }
         public string? Description { get; set; }
-        public string? Priority { get; set; }
         public int? EstimatedTime { get; set; }
         public string? Status { get; set; }
         public DateTime? AssignedAt { get; set; }

@@ -15,7 +15,6 @@ public class UpcomingReturnActivityListItem
     public int? Step { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
-    public string? Priority { get; set; }
     public int? EstimatedTime { get; set; }
     public string? Status { get; set; }
     public DateTime? AssignedAt { get; set; }
@@ -40,7 +39,6 @@ public class ReturnHistoryActivityListItem
     public int? Step { get; set; }
     public string? ActivityType { get; set; }
     public string? Description { get; set; }
-    public string? Priority { get; set; }
     public int? EstimatedTime { get; set; }
     public string? Status { get; set; }
     public DateTime? AssignedAt { get; set; }

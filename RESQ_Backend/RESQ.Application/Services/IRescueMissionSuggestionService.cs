@@ -204,6 +204,7 @@ public class SuggestedActivityDto
     public List<MissionActivityTargetVictimDto> TargetVictims { get; set; } = [];
     [JsonIgnore]
     public List<string>? TargetPersonIds { get; set; }
+    [JsonIgnore]
     public string? Priority { get; set; }
     public string? EstimatedTime { get; set; }
     /// <summary>`SingleTeam` nếu một đội tự hoàn thành được, `SplitAcrossTeams` nếu đây là một nhánh trong kế hoạch nhiều đội.</summary>

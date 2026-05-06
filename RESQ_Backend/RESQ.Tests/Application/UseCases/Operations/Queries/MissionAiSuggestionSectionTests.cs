@@ -8,6 +8,80 @@ namespace RESQ.Tests.Application.UseCases.Operations.Queries;
 
 public class MissionAiSuggestionSectionTests
 {
+    private static readonly JsonSerializerOptions CamelCaseJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    [Fact]
+    public void MissionActivityDto_Serialization_OmitsActivityPriority()
+    {
+        var activity = new MissionActivityDto
+        {
+            Id = 1,
+            Step = 1,
+            ActivityType = "RESCUE",
+            Description = "Rescue activity",
+            Priority = "Medium"
+        };
+
+        var json = JsonSerializer.Serialize(activity, CamelCaseJsonOptions);
+
+        Assert.DoesNotContain("\"priority\"", json);
+        Assert.Contains("\"activityType\"", json);
+    }
+
+    [Fact]
+    public void SuggestedActivityDto_Serialization_OmitsActivityPriority()
+    {
+        var activity = new SuggestedActivityDto
+        {
+            Step = 1,
+            ActivityType = "RESCUE",
+            Description = "Suggested rescue activity",
+            Priority = "Medium"
+        };
+
+        var json = JsonSerializer.Serialize(activity, CamelCaseJsonOptions);
+
+        Assert.DoesNotContain("\"priority\"", json);
+        Assert.Contains("\"activityType\"", json);
+    }
+
+    [Fact]
+    public void From_IgnoresLegacySuggestedActivityPriority()
+    {
+        var model = new MissionAiSuggestionModel
+        {
+            Id = 100,
+            Activities =
+            [
+                new ActivityAiSuggestionModel
+                {
+                    SuggestionPhase = "Validated",
+                    SuggestedActivities = """
+                        [
+                          {
+                            "step": 1,
+                            "activity_type": "RESCUE",
+                            "description": "legacy priority activity",
+                            "priority": "Critical"
+                          }
+                        ]
+                        """
+                }
+            ]
+        };
+
+        var section = InvokeFrom(model);
+
+        var activity = Assert.Single(section!.SuggestedActivities);
+        Assert.Null(activity.Priority);
+
+        var json = JsonSerializer.Serialize(section, CamelCaseJsonOptions);
+        Assert.DoesNotContain("\"priority\"", json);
+    }
+
     [Fact]
     public void From_PrefersValidatedActivitiesOverDraft()
     {
