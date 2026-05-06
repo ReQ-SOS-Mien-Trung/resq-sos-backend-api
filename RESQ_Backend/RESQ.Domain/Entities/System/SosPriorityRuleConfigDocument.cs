@@ -17,7 +17,9 @@ public class SosPriorityRuleConfigDocument
         "BREATHING_DIFFICULTY",
         "CHEST_PAIN_STROKE",
         "DROWNING",
-        "SEVERELY_BLEEDING"
+        "SEVERELY_BLEEDING",
+        "HEAD_INJURY",
+        "CANNOT_MOVE"
     ];
 
     [JsonPropertyName("request_type_scores")]
@@ -66,39 +68,61 @@ public class SosPriorityRuleConfigDocument
 public class SosPriorityScoreConfig
 {
     [JsonPropertyName("formula")]
-    public string Formula { get; set; } = "MIN(100, ROUND(((medical_score * 2) + (relief_score * 1.1) + (request_type_score * 0.15)) * situation_multiplier * relief_pressure_multiplier))";
+    public string Formula { get; set; } = BuildFormula(1.0, 1.1, 0.15);
+
+    [JsonPropertyName("medical_weight")]
+    public double MedicalWeight { get; set; } = 1.0;
+
+    [JsonPropertyName("relief_weight")]
+    public double ReliefWeight { get; set; } = 1.1;
+
+    [JsonPropertyName("request_type_weight")]
+    public double RequestTypeWeight { get; set; } = 0.15;
 
     [JsonPropertyName("use_request_type_score")]
     public bool UseRequestTypeScore { get; set; } = true;
 
     [JsonPropertyName("expression")]
-    public SosExpressionNode Expression { get; set; } = SosExpressionNode.Binary(
-        "MIN",
-        SosExpressionNode.Constant(100),
-        SosExpressionNode.Unary(
-            "ROUND",
-            SosExpressionNode.Binary(
-                "MUL",
+    public SosExpressionNode Expression { get; set; } = BuildExpression();
+
+    public static string BuildFormula(double medicalWeight, double reliefWeight, double requestTypeWeight)
+        => $"MIN(100, ROUND(((medical_score * {FormatWeight(medicalWeight)}) + (relief_score * {FormatWeight(reliefWeight)}) + (request_type_score * {FormatWeight(requestTypeWeight)})) * situation_multiplier * relief_pressure_multiplier))";
+
+    public static SosExpressionNode BuildExpression() => SosExpressionNode.Binary(
+            "MIN",
+            SosExpressionNode.Constant(100),
+            SosExpressionNode.Unary(
+                "ROUND",
                 SosExpressionNode.Binary(
                     "MUL",
                     SosExpressionNode.Binary(
-                        "ADD",
+                        "MUL",
                         SosExpressionNode.Binary(
                             "ADD",
                             SosExpressionNode.Binary(
-                                "MUL",
-                                SosExpressionNode.VarRef("medical_score"),
-                                SosExpressionNode.Constant(2)),
+                                "ADD",
+                                SosExpressionNode.Binary(
+                                    "MUL",
+                                    SosExpressionNode.VarRef("medical_score"),
+                                    SosExpressionNode.VarRef("medical_weight")),
+                                SosExpressionNode.Binary(
+                                    "MUL",
+                                    SosExpressionNode.VarRef("relief_score"),
+                                    SosExpressionNode.VarRef("relief_weight"))),
                             SosExpressionNode.Binary(
                                 "MUL",
-                                SosExpressionNode.VarRef("relief_score"),
-                                SosExpressionNode.Constant(1.1))),
-                        SosExpressionNode.Binary(
-                            "MUL",
-                            SosExpressionNode.VarRef("request_type_score"),
-                            SosExpressionNode.Constant(0.15))),
-                    SosExpressionNode.VarRef("situation_multiplier")),
-                SosExpressionNode.VarRef("relief_pressure_multiplier"))));
+                                SosExpressionNode.VarRef("request_type_score"),
+                                SosExpressionNode.VarRef("request_type_weight"))),
+                        SosExpressionNode.VarRef("situation_multiplier")),
+                    SosExpressionNode.VarRef("relief_pressure_multiplier"))));
+
+    public void SyncFormulaFromWeights()
+    {
+        Formula = BuildFormula(MedicalWeight, ReliefWeight, RequestTypeWeight);
+        Expression = BuildExpression();
+    }
+
+    private static string FormatWeight(double value) => value.ToString("0.####", global::System.Globalization.CultureInfo.InvariantCulture);
 }
 
 public class SosMedicalScoreConfig

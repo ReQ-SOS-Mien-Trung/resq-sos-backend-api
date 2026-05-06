@@ -136,8 +136,8 @@ public sealed partial class DatabaseSeeder
             "victim.demo.374745872",
             5,
             999,
-            "Lê",
-            "Minh Anh",
+            "Huỳnh",
+            "Kim Cương",
             SeedConstants.DemoVictimPinPasswordHash,
             area,
             seed);

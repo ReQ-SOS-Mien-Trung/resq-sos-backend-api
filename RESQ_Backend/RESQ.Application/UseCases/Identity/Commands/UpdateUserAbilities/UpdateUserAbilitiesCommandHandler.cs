@@ -56,12 +56,7 @@ namespace RESQ.Application.UseCases.Identity.Commands.UpdateUserAbilities
 
             await _abilityRepository.SaveUserAbilitiesAsync(request.TargetUserId, abilityModels, cancellationToken);
 
-            var succeedCount = await _unitOfWork.SaveAsync();
-
-            if (succeedCount < 1 && request.Abilities.Count > 0)
-            {
-                throw new CreateFailedException("abilities cho người dùng");
-            }
+            await _unitOfWork.SaveAsync();
 
             var savedAbilities = await _abilityRepository.GetUserAbilitiesAsync(request.TargetUserId, cancellationToken);
 

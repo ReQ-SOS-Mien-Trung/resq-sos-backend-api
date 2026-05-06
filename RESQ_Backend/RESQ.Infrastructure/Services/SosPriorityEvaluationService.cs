@@ -53,6 +53,7 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         var medicalScore = 0d;
         var medicalSevere = false;
         var criticalSeverity = false;
+        var highOrSevereSeverity = false;
 
         foreach (var injuredPerson in injuredPeople)
         {
@@ -78,6 +79,7 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
             victimSeverityScore += severityScore;
             medicalScore += total;
             criticalSeverity = criticalSeverity || normalizedSeverity == "CRITICAL";
+            highOrSevereSeverity = highOrSevereSeverity || normalizedSeverity is "HIGH" or "SEVERE";
             medicalIssueBreakdown.Add(new SosMedicalIssueBreakdownItem
             {
                 PersonType = NormalizePersonType(injuredPerson.PersonType),
@@ -130,11 +132,14 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         var evaluationContext = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
             ["MEDICAL_SCORE"] = medicalScore,
+            ["MEDICAL_WEIGHT"] = config.PriorityScore.MedicalWeight,
             ["REQUEST_TYPE_SCORE"] = requestTypeScore,
+            ["REQUEST_TYPE_WEIGHT"] = config.PriorityScore.RequestTypeWeight,
             ["SUPPLY_URGENCY_SCORE"] = supplyUrgencyScore,
             ["VULNERABILITY_RAW"] = vulnerabilityRaw,
             ["CAP_RATIO"] = config.ReliefScore.VulnerabilityScore.CapRatio,
-            ["SITUATION_MULTIPLIER"] = situationMultiplier
+            ["SITUATION_MULTIPLIER"] = situationMultiplier,
+            ["RELIEF_WEIGHT"] = config.PriorityScore.ReliefWeight
         };
 
         var vulnerabilityScore = SosExpressionEngine.Evaluate(
@@ -165,6 +170,7 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         var (priorityLevel, escalationDecision) = ResolvePriorityEscalation(
             thresholdPriorityLevel,
             criticalSeverity,
+            highOrSevereSeverity,
             medicalSevere,
             dangerousSituation,
             hasVulnerablePeople,
@@ -177,14 +183,17 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         var rawVariables = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
             ["medical_score"] = medicalScore,
+            ["medical_weight"] = config.PriorityScore.MedicalWeight,
             ["medical_issue_score"] = medicalIssueScore,
             ["victim_severity_score"] = victimSeverityScore,
             ["medicine_urgency_score"] = medicineUrgencyScore,
             ["request_type_score"] = requestTypeScore,
+            ["request_type_weight"] = config.PriorityScore.RequestTypeWeight,
             ["supply_urgency_score"] = supplyUrgencyScore,
             ["vulnerability_raw"] = vulnerabilityRaw,
             ["cap_ratio"] = config.ReliefScore.VulnerabilityScore.CapRatio,
             ["situation_multiplier"] = situationMultiplier,
+            ["relief_weight"] = config.PriorityScore.ReliefWeight,
             ["relief_pressure_multiplier"] = reliefPressureMultiplier
         };
 
@@ -739,6 +748,7 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
     private static (SosPriorityLevel PriorityLevel, SosPriorityEscalationDecision Decision) ResolvePriorityEscalation(
         SosPriorityLevel thresholdPriorityLevel,
         bool criticalSeverity,
+        bool highOrSevereSeverity,
         bool medicalSevere,
         bool dangerousSituation,
         bool hasVulnerablePeople,
@@ -777,6 +787,13 @@ public class SosPriorityEvaluationService(ISosPriorityRuleConfigRepository ruleC
         if (criticalSeverity && (dangerousSituation || urgentMedicine || hasVulnerablePeople))
         {
             EscalateTo(SosPriorityLevel.Critical, "critical_severity_with_danger_or_urgent_or_vulnerable_min_CRITICAL");
+        }
+
+        if (highOrSevereSeverity
+            && dangerousSituation
+            && (hasVulnerablePeople || urgentMedicine || hasReliefPressure))
+        {
+            EscalateTo(SosPriorityLevel.Critical, "high_or_severe_severity_danger_with_vulnerable_or_urgent_or_relief_pressure_min_CRITICAL");
         }
 
         if (medicalSevere && dangerousSituation && hasVulnerablePeople && hasReliefPressure)

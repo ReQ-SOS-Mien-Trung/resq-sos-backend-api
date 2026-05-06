@@ -157,7 +157,7 @@ public sealed partial class DatabaseSeeder
                 ActivatedAt = seed.AnchorUtc,
                 ConfigJson = Json(new { levels = new[] { "Low", "Medium", "High", "Critical" } }),
                 IssueWeightsJson = Json(new { unconscious = 5, drowning = 5, breathingDifficulty = 4, fever = 2, trauma = 4 }),
-                MedicalSevereIssuesJson = Json(new[] { "unconscious", "drowning", "breathingDifficulty", "trauma" }),
+                MedicalSevereIssuesJson = Json(new[] { "unconscious", "drowning", "breathingDifficulty", "trauma", "headInjury", "cannotMove" }),
                 AgeWeightsJson = Json(new { child = 1.4, elderly = 1.3, adult = 1.0, pregnant = 1.35 }),
                 RequestTypeScoresJson = Json(new { Rescue = 30, Relief = 18, Both = 40 }),
                 SituationMultipliersJson = Json(new[]
