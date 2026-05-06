@@ -27,6 +27,12 @@ public interface IRescueTeamRepository
     Task<bool> SoftRemoveMemberFromActiveTeamAsync(Guid memberUserId, CancellationToken cancellationToken = default);
     Task<bool> HasRequiredAbilityCategoryAsync(Guid userId, string categoryCode, CancellationToken cancellationToken = default);
     Task<string?> GetTopAbilityCategoryAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<Dictionary<int, List<Guid>>> GetAcceptedMemberUserIdsByTeamIdsAsync(IReadOnlyCollection<int> teamIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<Dictionary<int, List<Guid>>>([]);
+    Task<List<AssemblyPointUnavailableStationedTeamDto>> GetAvailableStationedTeamsByAssemblyPointAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+        => Task.FromResult<List<AssemblyPointUnavailableStationedTeamDto>>([]);
+    Task ReassignAvailableStationedTeamsAsync(int sourceAssemblyPointId, IReadOnlyDictionary<int, int> teamAssignments, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
     Task CreateAsync(RescueTeamModel team, CancellationToken cancellationToken = default);
     Task UpdateAsync(RescueTeamModel team, CancellationToken cancellationToken = default);
 

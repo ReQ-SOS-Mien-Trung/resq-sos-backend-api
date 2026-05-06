@@ -26,7 +26,6 @@ using RESQ.Domain.Enum.Logistics;
 using RESQ.Domain.Enum.Operations;
 using RESQ.Domain.Enum.Personnel;
 using RESQ.Tests.TestDoubles;
-using RESQ.Application.UseCases.Logistics.Queries.GetMyDepotReusableUnits;
 
 namespace RESQ.Tests.Application.UseCases.Operations.Commands;
 

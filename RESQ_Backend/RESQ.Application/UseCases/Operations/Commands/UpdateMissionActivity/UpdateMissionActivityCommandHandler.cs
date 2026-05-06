@@ -131,6 +131,12 @@ public class UpdateMissionActivityCommandHandler(
             var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(request.AssemblyPointId.Value, cancellationToken)
                 ?? throw new BadRequestException($"Không tìm thấy điểm tập kết #{request.AssemblyPointId.Value}.");
 
+            if (assemblyPoint.Status == RESQ.Domain.Enum.Personnel.AssemblyPointStatus.PendingUnavailable)
+                throw new ConflictException($"Điểm tập kết #{request.AssemblyPointId.Value} đang chờ đóng (PendingUnavailable), không thể gán cho hoạt động nhiệm vụ này.");
+
+            if (assemblyPoint.Status != RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Available)
+                throw new BadRequestException($"Điểm tập kết #{request.AssemblyPointId.Value} không ở trạng thái khả dụng, không thể gán cho hoạt động nhiệm vụ này.");
+
             if (assemblyPoint.Location is null)
                 throw new BadRequestException($"Điểm tập kết #{request.AssemblyPointId.Value} chưa có tọa độ hợp lệ.");
 

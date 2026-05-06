@@ -30,6 +30,15 @@ public interface IAssemblyPointRepository
     /// <summary>Lấy danh sách user ID của rescuer được gán vào điểm tập kết (User.AssemblyPointId).</summary>
     Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default);
 
+    Task<List<AssemblyPointUnavailableAlternativeDto>> GetAvailableAlternativesByDistanceAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+        => Task.FromResult<List<AssemblyPointUnavailableAlternativeDto>>([]);
+
+    Task<List<AssemblyPointUnavailableTeamlessRescuerDto>> GetTeamlessCheckedInRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+        => Task.FromResult<List<AssemblyPointUnavailableTeamlessRescuerDto>>([]);
+
+    Task<List<AssemblyPointUnavailableTeamlessRescuerDto>> GetCheckedInRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default)
+        => Task.FromResult<List<AssemblyPointUnavailableTeamlessRescuerDto>>([]);
+
     /// <summary>
     /// Lấy danh sách rescuer tại điểm tập kết mà CHƯA thuộc bất kỳ đội cứu hộ nào đang hoạt động.
     /// Dùng cho luồng triệu tập - chỉ triệu tập rescuer chưa có team để xếp nhóm.
@@ -47,6 +56,9 @@ public interface IAssemblyPointRepository
     /// Trả về danh sách UserId thực sự được cập nhật (tồn tại trong DB và có roleId = 3).
     /// </summary>
     Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default);
+
+    Task BulkUpdateRescuerAssemblyPointMapAsync(IReadOnlyDictionary<Guid, int> assignments, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 
     /// <summary>
     /// Trong tập <paramref name="userIds"/>, trả về các UserId KHÔNG thuộc đội cứu hộ đang hoạt động.

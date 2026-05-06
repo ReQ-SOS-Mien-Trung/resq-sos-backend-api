@@ -44,7 +44,7 @@ public sealed partial class DatabaseSeeder : IDatabaseSeeder
 
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {
-            _logger.LogInformation("Runtime demo seed skipped because marker {MarkerName} already exists.", MarkerName);
+            _logger.LogInformation("Migration demo seed skipped because marker {MarkerName} already exists.", MarkerName);
             return;
         }
 
@@ -54,10 +54,10 @@ public sealed partial class DatabaseSeeder : IDatabaseSeeder
             {
                 MigrationName = MarkerName,
                 AppliedAt = DateTime.UtcNow,
-                Notes = "Runtime demo seed skipped because operational data already existed."
+                Notes = "Migration demo seed skipped because operational data already existed."
             });
             await _db.SaveChangesAsync(cancellationToken);
-            _logger.LogWarning("Runtime demo seed marker was added without seeding because operational data already exists.");
+            _logger.LogWarning("Migration demo seed marker was added without seeding because operational data already exists.");
             return;
         }
 
@@ -92,7 +92,7 @@ public sealed partial class DatabaseSeeder : IDatabaseSeeder
                 var validationErrors = await _validator.ValidateAsync(_db, cancellationToken);
                 if (validationErrors.Count > 0)
                 {
-                    var message = "Runtime demo seed validation failed: " + string.Join(" | ", validationErrors);
+                    var message = "Migration demo seed validation failed: " + string.Join(" | ", validationErrors);
                     if (_options.FailOnValidationError)
                     {
                         throw new InvalidOperationException(message);
@@ -114,7 +114,7 @@ public sealed partial class DatabaseSeeder : IDatabaseSeeder
                     await transaction.CommitAsync(cancellationToken);
                 }
 
-                _logger.LogInformation("Runtime demo seed completed with marker {MarkerName}.", MarkerName);
+                _logger.LogInformation("Migration demo seed completed with marker {MarkerName}.", MarkerName);
             }
             finally
             {

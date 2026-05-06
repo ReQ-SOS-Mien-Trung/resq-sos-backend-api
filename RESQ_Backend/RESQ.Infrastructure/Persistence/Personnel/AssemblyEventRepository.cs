@@ -99,6 +99,20 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 cancellationToken);
     }
 
+    public async Task<bool> HasCheckedInParticipantsByAssemblyPointAsync(
+        int assemblyPointId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _unitOfWork.Set<AssemblyParticipant>()
+            .Where(p => p.IsCheckedIn && !p.IsCheckedOut)
+            .Join(
+                _unitOfWork.Set<AssemblyEvent>().Where(e => e.AssemblyPointId == assemblyPointId),
+                p => p.AssemblyEventId,
+                e => e.Id,
+                (p, e) => p.Id)
+            .AnyAsync(cancellationToken);
+    }
+
     public async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetLatestCheckedInEventForRescuerAtAssemblyPointAsync(
         int assemblyPointId,
         Guid rescuerId,
@@ -557,6 +571,36 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             .Where(p => p.AssemblyEventId == eventId)
             .Select(p => p.RescuerId)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task CheckOutCheckedInParticipantsAsync(
+        int assemblyPointId,
+        IReadOnlyCollection<Guid> rescuerIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (rescuerIds.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var checkedOutStatus = AssemblyParticipantStatus.CheckedOut.ToString();
+
+        var participants = await _unitOfWork.SetTracked<AssemblyParticipant>()
+            .Where(p => rescuerIds.Contains(p.RescuerId)
+                && p.IsCheckedIn
+                && !p.IsCheckedOut
+                && p.AssemblyEvent != null
+                && p.AssemblyEvent.AssemblyPointId == assemblyPointId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var participant in participants)
+        {
+            participant.IsCheckedOut = true;
+            participant.CheckOutTime = now;
+            participant.Status = checkedOutStatus;
+            await MirrorActiveTeamMemberCheckedInAsync(participant.RescuerId, checkedIn: false, cancellationToken);
+        }
     }
 
     public async Task<(int EventId, int AssemblyPointId, string Status, DateTime AssemblyDate, DateTime? CheckInDeadline)?> GetEventByIdAsync(

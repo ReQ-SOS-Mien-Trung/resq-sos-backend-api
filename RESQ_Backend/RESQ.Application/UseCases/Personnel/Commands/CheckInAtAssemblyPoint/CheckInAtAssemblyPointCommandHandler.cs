@@ -45,6 +45,9 @@ public class CheckInAtAssemblyPointCommandHandler(
         var assemblyPoint = await assemblyPointRepository.GetByIdAsync(evt.AssemblyPointId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {evt.AssemblyPointId}");
 
+        if (assemblyPoint.Status == AssemblyPointStatus.PendingUnavailable)
+            throw new ConflictException($"Điểm tập kết {assemblyPoint.Name} đang chờ đóng (PendingUnavailable), không thể nhận check-in.");
+
         if (assemblyPoint.Status == AssemblyPointStatus.Unavailable || assemblyPoint.Status == AssemblyPointStatus.Closed)
             throw new BadRequestException($"Điểm tập kết {assemblyPoint.Name} đang bảo trì hoặc đã đóng ({assemblyPoint.Status}), không thể check-in lúc này.");
 

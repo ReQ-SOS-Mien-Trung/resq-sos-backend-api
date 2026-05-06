@@ -28,6 +28,9 @@ public class CreateRescueTeamCommandHandler(
         var ap = await assemblyPointRepository.GetByIdAsync(request.AssemblyPointId, ct)
             ?? throw new NotFoundException($"Không tìm thấy điểm tập kết id = {request.AssemblyPointId}");
 
+        if (ap.Status == AssemblyPointStatus.PendingUnavailable)
+            throw new ConflictException($"Điểm tập kết {ap.Name} đang chờ đóng (PendingUnavailable), không thể tạo đội cứu hộ mới tại đây.");
+
         if (ap.Status == AssemblyPointStatus.Unavailable || ap.Status == AssemblyPointStatus.Closed)
             throw new BadRequestException($"Điểm tập kết {ap.Name} đang ({ap.Status}), không thể tạo đội mới tại đây.");
 

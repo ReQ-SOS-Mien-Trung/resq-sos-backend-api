@@ -5,6 +5,7 @@ using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Base;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.Services;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Application.UseCases.Operations.Shared;
@@ -15,6 +16,7 @@ namespace RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 public class AssignTeamToActivityCommandHandler(
     IMissionActivityRepository activityRepository,
     IMissionTeamRepository missionTeamRepository,
+    IAssemblyPointRepository assemblyPointRepository,
     ISosRequestRepository sosRequestRepository,
     ISosClusterRepository sosClusterRepository,
     ISosRequestUpdateRepository sosRequestUpdateRepository,
@@ -31,6 +33,17 @@ public class AssignTeamToActivityCommandHandler(
 
         var activity = await activityRepository.GetByIdAsync(request.ActivityId, cancellationToken)
             ?? throw new NotFoundException($"Không tìm thấy activity với ID: {request.ActivityId}");
+        if (activity.AssemblyPointId.HasValue)
+        {
+            var assemblyPoint = await assemblyPointRepository.GetByIdAsync(activity.AssemblyPointId.Value, cancellationToken)
+                ?? throw new NotFoundException($"Không tìm thấy điểm tập kết #{activity.AssemblyPointId.Value}.");
+
+            if (assemblyPoint.Status == RESQ.Domain.Enum.Personnel.AssemblyPointStatus.PendingUnavailable)
+                throw new ConflictException($"Điểm tập kết #{activity.AssemblyPointId.Value} đang chờ đóng (PendingUnavailable), không thể gán đội vào hoạt động nhiệm vụ này.");
+
+            if (assemblyPoint.Status != RESQ.Domain.Enum.Personnel.AssemblyPointStatus.Available)
+                throw new BadRequestException($"Điểm tập kết #{activity.AssemblyPointId.Value} không ở trạng thái khả dụng, không thể gán đội vào hoạt động nhiệm vụ này.");
+        }
 
         // Look up existing MissionTeam record for this mission + rescue team
         var missionTeam = await missionTeamRepository.GetByMissionAndTeamAsync(request.MissionId, request.RescueTeamId, cancellationToken);

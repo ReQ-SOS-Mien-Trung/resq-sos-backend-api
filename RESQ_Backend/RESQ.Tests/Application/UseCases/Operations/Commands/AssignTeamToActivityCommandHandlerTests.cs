@@ -1,11 +1,14 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using RESQ.Application.Common.Models;
 using RESQ.Application.Exceptions;
 using RESQ.Application.Repositories.Emergency;
 using RESQ.Application.Repositories.Operations;
+using RESQ.Application.Repositories.Personnel;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToActivity;
 using RESQ.Application.UseCases.Operations.Commands.AssignTeamToMission;
 using RESQ.Domain.Entities.Emergency;
 using RESQ.Domain.Entities.Operations;
+using RESQ.Domain.Entities.Personnel;
 using RESQ.Domain.Enum.Emergency;
 using RESQ.Tests.TestDoubles;
 
@@ -144,6 +147,7 @@ public class AssignTeamToActivityCommandHandlerTests
         return new AssignTeamToActivityCommandHandler(
             activityRepo ?? new StubActivityRepo(BuildActivity()),
             missionTeamRepo ?? new StubMissionTeamRepo(new MissionTeamModel { Id = 5, MissionId = 10, RescuerTeamId = 3 }),
+            new StubAssemblyPointRepo(),
             sosRequestRepo ?? new StubSosRequestRepo(),
             sosClusterRepo ?? new StubSosClusterRepo(),
             new StubSosRequestUpdateRepo(),
@@ -155,6 +159,26 @@ public class AssignTeamToActivityCommandHandlerTests
     }
 
     // ─── Stubs ────────────────────────────────────────────────────
+
+    private sealed class StubAssemblyPointRepo : IAssemblyPointRepository
+    {
+        public Task<AssemblyPointModel?> GetByIdAsync(int id, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByNameAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task<AssemblyPointModel?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) => Task.FromResult<AssemblyPointModel?>(null);
+        public Task CreateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpdateAsync(AssemblyPointModel model, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteAsync(int id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<PagedResult<AssemblyPointModel>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default, string? statusFilter = null) => Task.FromResult(new PagedResult<AssemblyPointModel>([], 0, pageNumber, pageSize));
+        public Task<List<AssemblyPointModel>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<AssemblyPointModel>());
+        public Task<Dictionary<int, List<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById.AssemblyPointTeamDto>>> GetTeamsByAssemblyPointIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => Task.FromResult(new Dictionary<int, List<RESQ.Application.UseCases.Personnel.Queries.GetAssemblyPointById.AssemblyPointTeamDto>>());
+        public Task<List<Guid>> GetAssignedRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult(new List<Guid>());
+        public Task<List<Guid>> GetTeamlessRescuerUserIdsAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult(new List<Guid>());
+        public Task<bool> HasActiveTeamAsync(Guid rescuerUserId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task UpdateRescuerAssemblyPointAsync(Guid rescuerUserId, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<List<Guid>> BulkUpdateRescuerAssemblyPointAsync(IReadOnlyList<Guid> userIds, int? assemblyPointId, CancellationToken cancellationToken = default) => Task.FromResult(new List<Guid>());
+        public Task<List<Guid>> FilterUsersWithoutActiveTeamAsync(IReadOnlyList<Guid> userIds, CancellationToken cancellationToken = default) => Task.FromResult(new List<Guid>());
+        public Task UnassignAllRescuersAsync(int assemblyPointId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
     private sealed class StubActivityRepo(MissionActivityModel? activity) : IMissionActivityRepository
     {

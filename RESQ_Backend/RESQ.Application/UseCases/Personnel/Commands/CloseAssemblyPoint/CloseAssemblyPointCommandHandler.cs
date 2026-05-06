@@ -35,6 +35,16 @@ public class CloseAssemblyPointCommandHandler(
         var assemblyPoint = await _assemblyPointRepository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException("Không tìm thấy điểm tập kết");
 
+        var hasCheckedInRescuers = await _assemblyEventRepository.HasCheckedInParticipantsByAssemblyPointAsync(
+            request.Id,
+            cancellationToken);
+        if (hasCheckedInRescuers)
+        {
+            throw new ConflictException(
+                "Không thể đóng điểm tập kết khi vẫn còn cứu hộ viên đã check-in và chưa check-out. " +
+                "Vui lòng điều phối hoặc check-out toàn bộ cứu hộ viên trước khi đóng.");
+        }
+
         // Kiểm tra còn đội cứu hộ nào đang hoạt động tại điểm tập kết này không
         var activeTeamCount = await _rescueTeamRepository.CountActiveTeamsByAssemblyPointAsync(
             request.Id,
