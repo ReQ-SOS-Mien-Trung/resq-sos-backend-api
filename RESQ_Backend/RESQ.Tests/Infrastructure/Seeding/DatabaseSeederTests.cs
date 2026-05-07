@@ -6,6 +6,7 @@ using RESQ.Infrastructure.Entities.Emergency;
 using RESQ.Infrastructure.Entities.Identity;
 using RESQ.Infrastructure.Entities.Logistics;
 using RESQ.Infrastructure.Entities.Operations;
+using RESQ.Infrastructure.Entities.System;
 using RESQ.Infrastructure.Persistence.Context;
 using RESQ.Infrastructure.Persistence.Seeding;
 using RESQ.Application.Services;
@@ -646,6 +647,82 @@ public class DatabaseSeederTests
     }
 
     [Fact]
+    public async Task SeedAsync_ReconcilesDemoVictimRelativeProfilesWhenMarkerAlreadyExists()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        var demoVictimId = Guid.NewGuid();
+        var now = new DateTime(2026, 5, 7, 5, 46, 49, DateTimeKind.Utc);
+        context.Users.Add(new User
+        {
+            Id = demoVictimId,
+            RoleId = 5,
+            FirstName = "Kim Cương",
+            LastName = "Huỳnh",
+            Username = "victim.demo.374745872",
+            Phone = "+84374745872",
+            Password = "seed",
+            Email = "victim.demo.374745872@resq.vn",
+            IsEmailVerified = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        context.SystemMigrationAudits.Add(new SystemMigrationAudit
+        {
+            MigrationName = "demo-seed-v6-2026-04-29",
+            AppliedAt = now,
+            Notes = "Pre-existing demo marker from an older bootstrap."
+        });
+        context.UserRelativeProfiles.AddRange(
+            LegacyRelativeProfile(demoVictimId, "An", "ADULT", "FEMALE", "+84908112233", "Sức khỏe ổn định, có tiền sử hen nhẹ khi lạnh.", now),
+            LegacyRelativeProfile(demoVictimId, "Châu", "ELDERLY", "FEMALE", "+84972513978", "Mẹ 72 tuổi, huyết áp cao, hay đau khớp gối.", now),
+            LegacyRelativeProfile(demoVictimId, "Khoa", "ADULT", null, "+84972513978", "", now),
+            LegacyRelativeProfile(demoVictimId, "Thảo", "ADULT", "FEMALE", "+84933668120", "Chị gái sống gần nhà, có thể hỗ trợ chăm sóc người già.", now));
+        await context.SaveChangesAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var demoVictimRelatives = await context.UserRelativeProfiles
+            .Where(profile => profile.UserId == demoVictimId)
+            .OrderBy(profile => profile.DisplayName)
+            .ToListAsync();
+        Assert.Equal(3, demoVictimRelatives.Count);
+        Assert.Equal(
+            ["Châu", "Huỳnh Kim Cương", "Khoa"],
+            demoVictimRelatives.Select(profile => profile.DisplayName).ToArray());
+        Assert.DoesNotContain(demoVictimRelatives, profile => profile.DisplayName is "An" or "Thảo");
+
+        var selfProfile = demoVictimRelatives.Single(profile => profile.DisplayName == "Huỳnh Kim Cương");
+        Assert.Equal("ADULT", selfProfile.PersonType);
+        Assert.Equal("MALE", selfProfile.Gender);
+        Assert.Equal("+84374745872", selfProfile.PhoneNumber);
+
+        var khoaProfile = demoVictimRelatives.Single(profile => profile.DisplayName == "Khoa");
+        Assert.Equal("ELDERLY", khoaProfile.PersonType);
+        Assert.Equal("MALE", khoaProfile.Gender);
+        using (var khoaMedicalProfile = JsonDocument.Parse(khoaProfile.MedicalProfileJson))
+        {
+            Assert.Contains(
+                "HYPERTENSION",
+                khoaMedicalProfile.RootElement.GetProperty("chronicConditions").EnumerateArray().Select(condition => condition.GetString()));
+            Assert.Equal("LIMITED_WALKING", khoaMedicalProfile.RootElement.GetProperty("mobilityStatus").GetString());
+            Assert.Contains(
+                "Thuốc điều trị tăng huyết áp",
+                khoaMedicalProfile.RootElement.GetProperty("longTermMedications").EnumerateArray()
+                    .Select(medication => medication.GetProperty("name").GetString()));
+        }
+
+        var chauProfile = demoVictimRelatives.Single(profile => profile.DisplayName == "Châu");
+        Assert.Equal("CHILD", chauProfile.PersonType);
+        Assert.Equal("FEMALE", chauProfile.Gender);
+        using (var chauMedicalProfile = JsonDocument.Parse(chauProfile.MedicalProfileJson))
+        {
+            Assert.True(chauMedicalProfile.RootElement.GetProperty("specialSituation").GetProperty("isYoungChild").GetBoolean());
+        }
+    }
+
+    [Fact]
     public async Task SeedAsync_ProducesStableSosCoordinatesAcrossFreshContexts()
     {
         await using var firstContext = CreateContext();
@@ -1196,6 +1273,35 @@ public class DatabaseSeederTests
             .Options;
 
         return new ResQDbContext(options);
+    }
+
+    private static UserRelativeProfile LegacyRelativeProfile(
+        Guid userId,
+        string displayName,
+        string personType,
+        string? gender,
+        string phoneNumber,
+        string? medicalBaselineNote,
+        DateTime now)
+    {
+        return new UserRelativeProfile
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            DisplayName = displayName,
+            PhoneNumber = phoneNumber,
+            PersonType = personType,
+            RelationGroup = "gia_dinh",
+            Gender = gender,
+            TagsJson = "[]",
+            MedicalBaselineNote = medicalBaselineNote,
+            SpecialNeedsNote = null,
+            SpecialDietNote = null,
+            MedicalProfileJson = "{}",
+            ProfileUpdatedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
     }
 
     private static async Task<SeedCounts> CountsAsync(ResQDbContext context)

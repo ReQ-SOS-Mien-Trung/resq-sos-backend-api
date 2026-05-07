@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RESQ.Application.Common.Constants;
 using RESQ.Infrastructure.Entities.Identity;
@@ -8,6 +9,7 @@ public sealed partial class DatabaseSeeder
 {
     private const int TotalRescuerCount = 200;
     private const int RecentRescuerCount = 20;
+    private const string DemoVictimPhone = "+84374745872";
 
     private async Task SeedIdentityAsync(DemoSeedContext seed, CancellationToken cancellationToken)
     {
@@ -70,7 +72,7 @@ public sealed partial class DatabaseSeeder
         seed.Rescuers.AddRange(users.Where(u => u.RoleId == 3));
         seed.Victims.AddRange(users.Where(u => u.RoleId == 5));
 
-        _db.UserRelativeProfiles.AddRange(CreateDemoVictimRelativeProfiles(demoVictim.Id, seed));
+        _db.UserRelativeProfiles.AddRange(CreateDemoVictimRelativeProfiles(demoVictim.Id));
         await _db.SaveChangesAsync(cancellationToken);
 
         var abilities = await _db.Abilities.OrderBy(a => a.Id).ToListAsync(cancellationToken);
@@ -142,7 +144,7 @@ public sealed partial class DatabaseSeeder
             area,
             seed);
 
-        user.Phone = "+84374745872";
+        user.Phone = DemoVictimPhone;
         user.Email = "victim.demo.374745872@resq.vn";
         user.Address = "32 Nguyễn Huệ, phường Phú Hội, Huế";
         user.Ward = "Phú Hội";
@@ -155,7 +157,161 @@ public sealed partial class DatabaseSeeder
         return user;
     }
 
-    private static IEnumerable<UserRelativeProfile> CreateDemoVictimRelativeProfiles(Guid userId, DemoSeedContext seed)
+    private async Task ApplyDemoVictimRelativeProfileCorrectionsAsync(CancellationToken cancellationToken)
+    {
+        var demoVictim = await _db.Users
+            .SingleOrDefaultAsync(user => user.Phone == DemoVictimPhone, cancellationToken);
+        if (demoVictim is null)
+        {
+            return;
+        }
+
+        var desiredProfiles = CreateDemoVictimRelativeProfiles(demoVictim.Id).ToList();
+        var existingProfiles = await _db.UserRelativeProfiles
+            .Where(profile => profile.UserId == demoVictim.Id)
+            .ToListAsync(cancellationToken);
+
+        if (DemoVictimRelativeProfilesMatch(existingProfiles, desiredProfiles))
+        {
+            return;
+        }
+
+        if (existingProfiles.Count > 0)
+        {
+            _db.UserRelativeProfiles.RemoveRange(existingProfiles);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        StampDemoVictimRelativeProfileCorrection(desiredProfiles);
+        _db.UserRelativeProfiles.AddRange(desiredProfiles);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void StampDemoVictimRelativeProfileCorrection(IReadOnlyList<UserRelativeProfile> profiles)
+    {
+        var now = DateTime.UtcNow;
+        for (var i = 0; i < profiles.Count; i++)
+        {
+            profiles[i].ProfileUpdatedAt = now.AddSeconds(i);
+            profiles[i].UpdatedAt = now.AddSeconds(i);
+        }
+    }
+
+    private static bool DemoVictimRelativeProfilesMatch(
+        IReadOnlyCollection<UserRelativeProfile> existingProfiles,
+        IReadOnlyCollection<UserRelativeProfile> desiredProfiles)
+    {
+        if (existingProfiles.Count != desiredProfiles.Count)
+        {
+            return false;
+        }
+
+        var existingById = existingProfiles.ToDictionary(profile => profile.Id);
+        foreach (var desiredProfile in desiredProfiles)
+        {
+            if (!existingById.TryGetValue(desiredProfile.Id, out var existingProfile)
+                || !DemoVictimRelativeProfileMatches(existingProfile, desiredProfile))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool DemoVictimRelativeProfileMatches(
+        UserRelativeProfile existingProfile,
+        UserRelativeProfile desiredProfile)
+    {
+        return existingProfile.DisplayName == desiredProfile.DisplayName
+            && existingProfile.PhoneNumber == desiredProfile.PhoneNumber
+            && existingProfile.PersonType == desiredProfile.PersonType
+            && existingProfile.RelationGroup == desiredProfile.RelationGroup
+            && existingProfile.Gender == desiredProfile.Gender
+            && existingProfile.MedicalBaselineNote == desiredProfile.MedicalBaselineNote
+            && existingProfile.SpecialNeedsNote == desiredProfile.SpecialNeedsNote
+            && existingProfile.SpecialDietNote == desiredProfile.SpecialDietNote
+            && JsonEquivalent(existingProfile.TagsJson, desiredProfile.TagsJson)
+            && JsonEquivalent(existingProfile.MedicalProfileJson, desiredProfile.MedicalProfileJson);
+    }
+
+    private static bool JsonEquivalent(string? left, string? right)
+    {
+        try
+        {
+            using var leftJson = JsonDocument.Parse(string.IsNullOrWhiteSpace(left) ? "null" : left);
+            using var rightJson = JsonDocument.Parse(string.IsNullOrWhiteSpace(right) ? "null" : right);
+            return JsonElementEquivalent(leftJson.RootElement, rightJson.RootElement);
+        }
+        catch (JsonException)
+        {
+            return string.Equals(left, right, StringComparison.Ordinal);
+        }
+    }
+
+    private static bool JsonElementEquivalent(JsonElement left, JsonElement right)
+    {
+        if (left.ValueKind != right.ValueKind)
+        {
+            return false;
+        }
+
+        return left.ValueKind switch
+        {
+            JsonValueKind.Object => JsonObjectEquivalent(left, right),
+            JsonValueKind.Array => JsonArrayEquivalent(left, right),
+            JsonValueKind.String => left.GetString() == right.GetString(),
+            JsonValueKind.Number => left.GetRawText() == right.GetRawText(),
+            JsonValueKind.True or JsonValueKind.False or JsonValueKind.Null => true,
+            _ => left.GetRawText() == right.GetRawText()
+        };
+    }
+
+    private static bool JsonObjectEquivalent(JsonElement left, JsonElement right)
+    {
+        var leftProperties = left.EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
+        var rightProperties = right.EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
+
+        if (leftProperties.Count != rightProperties.Count)
+        {
+            return false;
+        }
+
+        foreach (var (name, leftValue) in leftProperties)
+        {
+            if (!rightProperties.TryGetValue(name, out var rightValue)
+                || !JsonElementEquivalent(leftValue, rightValue))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool JsonArrayEquivalent(JsonElement left, JsonElement right)
+    {
+        var leftValues = left.EnumerateArray().ToArray();
+        var rightValues = right.EnumerateArray().ToArray();
+        if (leftValues.Length != rightValues.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < leftValues.Length; i++)
+        {
+            if (!JsonElementEquivalent(leftValues[i], rightValues[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static IEnumerable<UserRelativeProfile> CreateDemoVictimRelativeProfiles(Guid userId)
     {
         var createdAt = new DateTime(2026, 4, 18, 10, 53, 8, DateTimeKind.Utc);
         var relatives = new[]
