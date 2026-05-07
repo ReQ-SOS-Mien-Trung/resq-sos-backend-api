@@ -104,6 +104,10 @@ public class ImportPurchasedInventoryCommandHandler(
                 throw new ForbiddenException("Quỹ này không thuộc kho của bạn.");
             }
         }
+        else
+        {
+            selectedDepotFund = await ResolveDepotFundForPurchaseImportAsync(depotId.Value, cancellationToken);
+        }
 
         var seenInvoices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var successfulInvoiceCharges = new List<(int VatInvoiceId, decimal Amount, string? InvoiceSerial, string? InvoiceNumber)>();
@@ -258,18 +262,6 @@ public class ImportPurchasedInventoryCommandHandler(
 
                     validItems = validItems.OrderBy(x => x.dto.Row).ToList();
 
-                    CampaignDisbursementModel? linkedDisbursement = null;
-                    if (group.CampaignDisbursementId.HasValue)
-                    {
-                        linkedDisbursement = await _disbursementRepo.GetByIdAsync(group.CampaignDisbursementId.Value, cancellationToken)
-                            ?? throw new NotFoundException($"Không tìm thấy giải ngân #{group.CampaignDisbursementId.Value}.");
-
-                        if (linkedDisbursement.DepotId != depotId.Value)
-                        {
-                            throw new ForbiddenException("Giải ngân này không thuộc kho của bạn.");
-                        }
-                    }
-
                     var stagedVatInvoice = await _purchasedInventoryRepository.CreateVatInvoiceAsync(
                         VatInvoiceModel.Create(
                             vat.InvoiceSerial,
@@ -319,31 +311,7 @@ public class ImportPurchasedInventoryCommandHandler(
                         purchasedModels.Add((purchasedModel, dto.UnitPrice, resolvedItemModel.ItemType));
                     }
 
-                    await _purchasedInventoryRepository.AddPurchasedInventoryItemsBulkAsync(purchasedModels, cancellationToken);
-
-                    if (linkedDisbursement != null)
-                    {
-                        var disbursementItems = validItems.Select(x =>
-                        {
-                            var resolvedName = !string.IsNullOrWhiteSpace(x.dto.ItemName) ? x.dto.ItemName.Trim() : x.itemModel.Name;
-                            var resolvedUnit = !string.IsNullOrWhiteSpace(x.dto.Unit) ? x.dto.Unit.Trim() : x.itemModel.Unit;
-
-                            return new DisbursementItemModel
-                            {
-                                CampaignDisbursementId = linkedDisbursement.Id,
-                                ItemName = resolvedName,
-                                Unit = resolvedUnit,
-                                Quantity = x.dto.Quantity,
-                                UnitPrice = x.dto.UnitPrice ?? 0m,
-                                TotalPrice = (x.dto.UnitPrice ?? 0m) * x.dto.Quantity,
-                                Note = batchNote,
-                                CreatedAt = DateTime.UtcNow
-                            };
-                        }).ToList();
-
-                        await _disbursementRepo.AddItemsAsync(linkedDisbursement.Id, disbursementItems, cancellationToken);
-                        groupResult.DisbursementItemsLogged = disbursementItems.Count;
-                    }
+                    await _purchasedInventoryRepository.AddPurchasedInventoryItemsBulkAsync(purchasedModels, selectedDepotFund.Id, cancellationToken);
 
                     // Flush để persist toàn bộ inventory/lot/reusable/log của nhóm trước khi sang nhóm tiếp theo.
                     await _unitOfWork.SaveAsync();
@@ -368,8 +336,7 @@ public class ImportPurchasedInventoryCommandHandler(
                 totalChargedAmount = successfulInvoiceCharges.Sum(charge => charge.Amount);
                 if (totalChargedAmount > 0)
                 {
-                    var depotFund = selectedDepotFund
-                        ?? await ResolveDepotFundForPurchaseImportAsync(depotId.Value, cancellationToken);
+                    var depotFund = selectedDepotFund;
 
                     depotFund.Debit(totalChargedAmount);
                     chargedDepotFundId = depotFund.Id;

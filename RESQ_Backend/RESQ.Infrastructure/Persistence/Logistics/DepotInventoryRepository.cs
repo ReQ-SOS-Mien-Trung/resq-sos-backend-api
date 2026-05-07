@@ -4206,6 +4206,122 @@ public class DepotInventoryRepository(IUnitOfWork unitOfWork, IInventoryQuerySer
 
         return candidates;
     }
+
+    public async Task<List<CampaignFundPurchasedItemDto>> GetPurchasedItemsByDepotFundIdsAsync(
+        IEnumerable<int> depotFundIds,
+        CancellationToken cancellationToken = default)
+    {
+        var fundIdList = depotFundIds.ToList();
+        if (fundIdList.Count == 0) return [];
+
+        var depotFundSource = InventorySourceType.DepotFund.ToString();
+        var importAction = InventoryActionType.Import.ToString();
+
+        // Consumables store the campaign-backed depot fund on the lot. The matching import log
+        // carries VAT invoice metadata for the same lot.
+        var consumables = await (
+            from lot in _unitOfWork.Set<SupplyInventoryLot>()
+            where lot.SourceType == depotFundSource
+                  && lot.SourceId.HasValue && fundIdList.Contains(lot.SourceId.Value)
+            join si in _unitOfWork.Set<SupplyInventory>() on lot.SupplyInventoryId equals si.Id
+            where si.DepotId.HasValue
+            join im in _unitOfWork.Set<ItemModel>() on si.ItemModelId equals im.Id
+            join depot in _unitOfWork.Set<Depot>() on si.DepotId equals depot.Id
+            join logCandidate in _unitOfWork.Set<InventoryLog>()
+                    .Where(x => x.ActionType == importAction && x.SupplyInventoryLotId.HasValue)
+                on lot.Id equals logCandidate.SupplyInventoryLotId into logGroup
+            from log in logGroup.DefaultIfEmpty()
+            join vatCandidate in _unitOfWork.Set<VatInvoice>()
+                on log.VatInvoiceId equals vatCandidate.Id into vatGroup
+            from vat in vatGroup.DefaultIfEmpty()
+            join invoiceItemCandidate in _unitOfWork.Set<VatInvoiceItem>()
+                on new { VatInvoiceId = log.VatInvoiceId, ItemModelId = si.ItemModelId }
+                equals new { invoiceItemCandidate.VatInvoiceId, invoiceItemCandidate.ItemModelId } into invoiceItemGroup
+            from invoiceItem in invoiceItemGroup.DefaultIfEmpty()
+            select new CampaignFundPurchasedItemDto
+            {
+                DepotFundId = lot.SourceId.GetValueOrDefault(),
+                DepotId = depot.Id,
+                DepotName = depot.Name,
+                VatInvoiceId = log.VatInvoiceId,
+                InvoiceSerial = vat.InvoiceSerial,
+                InvoiceNumber = vat.InvoiceNumber,
+                SupplierName = vat.SupplierName,
+                InvoiceDate = vat.InvoiceDate,
+                InvoiceTotalAmount = vat.TotalAmount,
+                ImportedAt = log.CreatedAt ?? lot.CreatedAt,
+                ItemName = im.Name ?? string.Empty,
+                Unit = im.Unit,
+                Quantity = lot.Quantity,
+                UnitPrice = invoiceItem.UnitPrice ?? 0m,
+                TotalPrice = (invoiceItem.UnitPrice ?? 0m) * lot.Quantity,
+                ReceivedDate = lot.ReceivedDate,
+                ExpiredDate = lot.ExpiredDate,
+                ItemType = "Consumable"
+            }
+        ).ToListAsync(cancellationToken);
+
+        // Reusables store one import log per physical unit, so group logs back into item rows.
+        var reusables = await (
+            from log in _unitOfWork.Set<InventoryLog>()
+            where log.SourceType == depotFundSource
+                  && log.SourceId.HasValue && fundIdList.Contains(log.SourceId.Value)
+                  && log.ActionType == importAction && log.ReusableItemId != null
+                  && log.DepotSupplyInventoryId != null
+            join si in _unitOfWork.Set<SupplyInventory>() on log.DepotSupplyInventoryId equals si.Id
+            where si.DepotId.HasValue
+            join im in _unitOfWork.Set<ItemModel>() on log.ItemModelId equals im.Id
+            join depot in _unitOfWork.Set<Depot>() on si.DepotId equals depot.Id
+            join vatCandidate in _unitOfWork.Set<VatInvoice>()
+                on log.VatInvoiceId equals vatCandidate.Id into vatGroup
+            from vat in vatGroup.DefaultIfEmpty()
+            join invoiceItemCandidate in _unitOfWork.Set<VatInvoiceItem>()
+                on new { log.VatInvoiceId, log.ItemModelId }
+                equals new { invoiceItemCandidate.VatInvoiceId, invoiceItemCandidate.ItemModelId } into invoiceItemGroup
+            from invoiceItem in invoiceItemGroup.DefaultIfEmpty()
+            group log by new
+            {
+                DepotFundId = log.SourceId.GetValueOrDefault(),
+                DepotId = depot.Id,
+                DepotName = depot.Name,
+                log.VatInvoiceId,
+                vat.InvoiceSerial,
+                vat.InvoiceNumber,
+                vat.SupplierName,
+                vat.InvoiceDate,
+                InvoiceTotalAmount = vat.TotalAmount,
+                log.CreatedAt,
+                ItemName = im.Name,
+                im.Unit,
+                UnitPrice = invoiceItem.UnitPrice,
+                log.ReceivedDate,
+                log.ExpiredDate
+            } into g
+            select new CampaignFundPurchasedItemDto
+            {
+                DepotFundId = g.Key.DepotFundId,
+                DepotId = g.Key.DepotId,
+                DepotName = g.Key.DepotName,
+                VatInvoiceId = g.Key.VatInvoiceId,
+                InvoiceSerial = g.Key.InvoiceSerial,
+                InvoiceNumber = g.Key.InvoiceNumber,
+                SupplierName = g.Key.SupplierName,
+                InvoiceDate = g.Key.InvoiceDate,
+                InvoiceTotalAmount = g.Key.InvoiceTotalAmount,
+                ImportedAt = g.Key.CreatedAt,
+                ItemName = g.Key.ItemName ?? string.Empty,
+                Unit = g.Key.Unit,
+                Quantity = g.Count(),
+                UnitPrice = g.Key.UnitPrice ?? 0m,
+                TotalPrice = (g.Key.UnitPrice ?? 0m) * g.Count(),
+                ReceivedDate = g.Key.ReceivedDate,
+                ExpiredDate = g.Key.ExpiredDate,
+                ItemType = "Reusable"
+            }
+        ).ToListAsync(cancellationToken);
+
+        return [.. consumables, .. reusables];
+    }
 }
 
 

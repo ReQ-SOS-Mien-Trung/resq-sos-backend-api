@@ -160,6 +160,7 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
 
     public async Task AddPurchasedInventoryItemsBulkAsync(
         List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)> items,
+        int? depotFundId = null,
         CancellationToken cancellationToken = default)
     {
         if (items.Count == 0)
@@ -259,8 +260,10 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                     RemainingQuantity = model.Quantity,
                     ReceivedDate = model.ReceivedDate,
                     ExpiredDate = model.ExpiredDate,
-                    SourceType = InventorySourceType.Purchase.ToString(),
-                    SourceId = model.VatInvoiceId,
+                    SourceType = depotFundId.HasValue
+                        ? InventorySourceType.DepotFund.ToString()
+                        : InventorySourceType.Purchase.ToString(),
+                    SourceId = depotFundId ?? model.VatInvoiceId,
                     CreatedAt = batchLoggedAt
                 };
                 lotEntities.Add(lot);
@@ -307,9 +310,11 @@ public class PurchasedInventoryRepository(IUnitOfWork unitOfWork) : IPurchasedIn
                     ItemModelId = model.ItemModelId,
                     VatInvoiceId = model.VatInvoiceId,
                     ActionType = InventoryActionType.Import.ToString(),
-                    SourceType = InventorySourceType.Purchase.ToString(),
+                    SourceType = depotFundId.HasValue
+                        ? InventorySourceType.DepotFund.ToString()
+                        : InventorySourceType.Purchase.ToString(),
                     QuantityChange = 1,
-                    SourceId = null,
+                    SourceId = depotFundId,
                     PerformedBy = model.ReceivedBy,
                     Note = model.Notes,
                     ReceivedDate = model.ReceivedDate,

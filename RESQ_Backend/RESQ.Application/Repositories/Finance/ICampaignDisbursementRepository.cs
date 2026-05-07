@@ -17,6 +17,11 @@ public interface ICampaignDisbursementRepository
         int campaignId, int pageNumber, int pageSize,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Lấy toàn bộ disbursement công khai của campaign để gom thống kê theo kho.</summary>
+    Task<List<CampaignDisbursementModel>> GetPublicByCampaignAsync(
+        int campaignId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Tính tổng số tiền đã giải ngân từ campaign.</summary>
     Task<decimal> GetTotalDisbursedByCampaignAsync(int campaignId, CancellationToken cancellationToken = default);
 
@@ -25,4 +30,10 @@ public interface ICampaignDisbursementRepository
 
     /// <summary>Thêm danh sách vật phẩm đã mua vào disbursement (cho donor xem).</summary>
     Task AddItemsAsync(int disbursementId, List<DisbursementItemModel> items, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tìm disbursement mới nhất của một chiến dịch cho một kho cụ thể.
+    /// Dùng để tự động liên kết vật phẩm nhập kho với disbursement khi quỹ chọn là Campaign.
+    /// </summary>
+    Task<CampaignDisbursementModel?> GetLatestByCampaignAndDepotAsync(int campaignId, int depotId, CancellationToken cancellationToken = default);
 }

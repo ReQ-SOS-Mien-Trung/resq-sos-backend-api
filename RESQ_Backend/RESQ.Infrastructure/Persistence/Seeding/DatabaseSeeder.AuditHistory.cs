@@ -419,6 +419,7 @@ public sealed partial class DatabaseSeeder
                 {
                     DepotSupplyInventoryId = plan.Inventory.Id,
                     SupplyInventoryLot = supplementalLot,
+                    VatInvoiceId = ResolveVatInvoiceId(vatInvoiceIds, supplementalSourceType, supplementalSourceId),
                     ActionType = InventoryActionType.Import.ToString(),
                     QuantityChange = supplementalLot.Quantity,
                     SourceType = supplementalSourceType,

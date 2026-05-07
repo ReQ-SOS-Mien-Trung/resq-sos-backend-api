@@ -9,6 +9,6 @@ namespace RESQ.Application.UseCases.Finance.Queries.GetPublicCampaignSpending;
 /// </summary>
 public record GetPublicCampaignSpendingQuery(
     int CampaignId,
-    int PageNumber,
-    int PageSize
+    int PageNumber = 1,
+    int PageSize = 10
 ) : IRequest<PublicCampaignSpendingDto>;

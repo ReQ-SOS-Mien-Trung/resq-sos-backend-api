@@ -3,6 +3,7 @@ namespace RESQ.Domain.Enum.Logistics;
 public enum InventorySourceType
 {
     Purchase,
+    DepotFund,
     Donation,
     Mission,
     MissionActivity,
