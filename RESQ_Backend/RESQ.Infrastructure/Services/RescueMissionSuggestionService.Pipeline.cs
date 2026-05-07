@@ -18,6 +18,8 @@ namespace RESQ.Infrastructure.Services;
 public partial class RescueMissionSuggestionService
 {
     private const int MaxPipelineToolTurns = 8;
+    private const int PipelineSingleStageMaxTokens = 8192;
+    private const int PipelineToolStageMaxTokens = 16384;
     private const string DraftSuggestionPhase = "Draft";
     private const string ValidatedSuggestionPhase = "Validated";
 
@@ -361,7 +363,7 @@ public partial class RescueMissionSuggestionService
                     prompt.SystemPrompt,
                     BuildPipelineStageAppendix(promptType, systemAppendix)),
                 Temperature = settings.Temperature,
-                MaxTokens = Math.Max(settings.MaxTokens, 8192),
+                MaxTokens = PipelineSingleStageMaxTokens,
                 Timeout = TimeSpan.FromSeconds(120),
                 Messages = [AiChatMessage.User(BuildStageUserMessage(prompt.UserPromptTemplate, new Dictionary<string, string>(), userMessage))]
             },
@@ -412,7 +414,7 @@ public partial class RescueMissionSuggestionService
                         prompt.SystemPrompt,
                         BuildPipelineStageAppendix(promptType, systemAppendix)),
                     Temperature = settings.Temperature,
-                    MaxTokens = Math.Max(settings.MaxTokens, 16384),
+                    MaxTokens = PipelineToolStageMaxTokens,
                     Timeout = TimeSpan.FromSeconds(120),
                     Messages = messages,
                     Tools = tools
@@ -516,6 +518,10 @@ public partial class RescueMissionSuggestionService
             throw new InvalidOperationException(
                 $"AI returned HTTP {(response.HttpStatusCode ?? 0)} for stage '{promptType}'. {response.ErrorBody}");
 
+        if (IsTruncatedFinishReason(response.FinishReason))
+            throw new InvalidOperationException(
+                $"AI response for stage '{promptType}' was truncated by provider finish reason '{response.FinishReason}'. The JSON payload may be incomplete; reduce prompt/context size or split the SOS cluster.");
+
         if (!string.IsNullOrWhiteSpace(response.BlockReason)
             && !string.Equals(response.BlockReason, "BLOCK_REASON_UNSPECIFIED", StringComparison.OrdinalIgnoreCase))
         {
@@ -534,6 +540,11 @@ public partial class RescueMissionSuggestionService
         if (string.IsNullOrWhiteSpace(response.Text))
             throw new InvalidOperationException($"AI returned empty content for stage '{promptType}'.");
     }
+
+    private static bool IsTruncatedFinishReason(string? finishReason) =>
+        !string.IsNullOrWhiteSpace(finishReason)
+        && (string.Equals(finishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(finishReason, "LENGTH", StringComparison.OrdinalIgnoreCase));
 
     private static string BuildStageUserMessage(
         string? template,
