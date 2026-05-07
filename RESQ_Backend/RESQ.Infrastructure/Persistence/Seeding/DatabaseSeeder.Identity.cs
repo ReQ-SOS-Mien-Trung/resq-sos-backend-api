@@ -161,79 +161,17 @@ public sealed partial class DatabaseSeeder
         var relatives = new[]
         {
             new RelativeProfileSeed(
-                "Châu",
-                "+84972513978",
-                "ELDERLY",
-                "FEMALE",
-                ["me_gia", "can_diu", "uu_tien_so_tan"],
-                "Mẹ 72 tuổi, huyết áp cao, hay đau khớp gối.",
-                "Cần người dìu khi đi bộ xa hoặc leo cầu thang.",
-                "Ăn mềm, hạn chế muối và đường.",
+                "Huỳnh Kim Cương",
+                "+84374745872",
+                "ADULT",
+                "MALE",
+                ["ban_than", "khoe_manh", "di_chuyen_duoc"],
+                "Người lớn khỏe mạnh, không ghi nhận bệnh nền quan trọng.",
+                "Có thể tự di chuyển và hỗ trợ người thân trong tình huống khẩn cấp.",
+                null,
                 Json(new
                 {
                     bloodType = "UNKNOWN",
-                    allergyDetails = "Dị ứng nhẹ với một số thuốc giảm đau nhóm NSAID.",
-                    allergyOptions = new[] { "MEDICATION" },
-                    medicalDevices = new[] { "WALKING_CANE" },
-                    medicalHistory = new[] { "BONE_FRACTURE", "JOINT_PAIN" },
-                    mobilityStatus = "NEEDS_ASSISTANCE",
-                    specialSituation = new
-                    {
-                        isSenior = true,
-                        isPregnant = false,
-                        isYoungChild = false,
-                        hasDisability = false
-                    },
-                    chronicConditions = new[] { "HYPERTENSION", "DIABETES" },
-                    otherMedicalDevice = "",
-                    longTermMedications = new[] { "Thuốc huyết áp buổi sáng", "Thuốc tiểu đường sau ăn" },
-                    hasLongTermMedication = true,
-                    medicalHistoryDetails = "Từng gãy xương cổ tay phải, đi lại chậm khi trời mưa.",
-                    otherChronicCondition = ""
-                })),
-            new RelativeProfileSeed(
-                "An",
-                "+84908112233",
-                "ADULT",
-                "FEMALE",
-                ["vo", "lien_he_chinh", "di_chuyen_duoc"],
-                "Sức khỏe ổn định, có tiền sử hen nhẹ khi lạnh.",
-                "Cần mang theo thuốc xịt hen dự phòng.",
-                "Không ăn hải sản sống.",
-                Json(new
-                {
-                    bloodType = "O",
-                    allergyDetails = "Dị ứng hải sản sống.",
-                    allergyOptions = new[] { "FOOD" },
-                    medicalDevices = Array.Empty<string>(),
-                    medicalHistory = new[] { "ASTHMA" },
-                    mobilityStatus = "NORMAL",
-                    specialSituation = new
-                    {
-                        isSenior = false,
-                        isPregnant = false,
-                        isYoungChild = false,
-                        hasDisability = false
-                    },
-                    chronicConditions = Array.Empty<string>(),
-                    otherMedicalDevice = "",
-                    longTermMedications = new[] { "Thuốc xịt hen dự phòng" },
-                    hasLongTermMedication = true,
-                    medicalHistoryDetails = "Hen nhẹ, thường xuất hiện khi thời tiết lạnh hoặc ẩm.",
-                    otherChronicCondition = ""
-                })),
-            new RelativeProfileSeed(
-                "Thảo",
-                "+84933668120",
-                "ADULT",
-                "FEMALE",
-                ["chi_gai", "biet_so_cuu", "co_the_ho_tro"],
-                "Chị gái sống gần nhà, có thể hỗ trợ chăm sóc người già.",
-                null,
-                "Không ăn cay.",
-                Json(new
-                {
-                    bloodType = "B",
                     allergyDetails = "",
                     allergyOptions = Array.Empty<string>(),
                     medicalDevices = Array.Empty<string>(),
@@ -256,32 +194,72 @@ public sealed partial class DatabaseSeeder
             new RelativeProfileSeed(
                 "Khoa",
                 "+84911224567",
-                "ADULT",
+                "ELDERLY",
                 "MALE",
-                ["em_trai", "can_lien_lac", "di_chuyen_duoc"],
-                "Em trai thường đi làm xa, cần báo sớm khi có sơ tán.",
-                "Cần hỗ trợ định vị nếu mất sóng điện thoại.",
-                null,
+                ["cha_gia", "tang_huyet_ap", "can_thuoc_dinh_ky"],
+                "Cha lớn tuổi, có bệnh nền tăng huyết áp cần theo dõi đều.",
+                "Đi lại chậm, cần người dìu khi sơ tán hoặc di chuyển trong vùng ngập.",
+                "Ăn nhạt, hạn chế muối.",
                 Json(new
                 {
-                    bloodType = "A",
+                    bloodType = "UNKNOWN",
                     allergyDetails = "",
-                    allergyOptions = new[] { "DUST" },
+                    allergyOptions = Array.Empty<string>(),
                     medicalDevices = Array.Empty<string>(),
-                    medicalHistory = new[] { "MIGRAINE" },
+                    medicalHistory = Array.Empty<string>(),
+                    mobilityStatus = "LIMITED_WALKING",
+                    specialSituation = new
+                    {
+                        isSenior = true,
+                        isPregnant = false,
+                        isYoungChild = false,
+                        hasDisability = false
+                    },
+                    chronicConditions = new[] { "HYPERTENSION" },
+                    otherMedicalDevice = "",
+                    longTermMedications = new[]
+                    {
+                        new
+                        {
+                            id = "khoa-blood-pressure-medicine",
+                            name = "Thuốc điều trị tăng huyết áp",
+                            frequency = "Uống hằng ngày",
+                            note = "Cần duy trì khi bị cô lập trong vùng ngập."
+                        }
+                    },
+                    hasLongTermMedication = true,
+                    medicalHistoryDetails = "",
+                    otherChronicCondition = ""
+                })),
+            new RelativeProfileSeed(
+                "Châu",
+                "+84972513978",
+                "CHILD",
+                "FEMALE",
+                ["con_nho", "sot_cao", "uu_tien_y_te"],
+                "Bé nhỏ trong gia đình, từng sốt cao khi mắc kẹt trong vùng ngập.",
+                "Cần được giữ ấm, theo dõi thân nhiệt và đưa tới nơi an toàn để can thiệp y tế khi sốt cao.",
+                "Ưu tiên thức ăn mềm, dễ tiêu và đủ nước.",
+                Json(new
+                {
+                    bloodType = "UNKNOWN",
+                    allergyDetails = "",
+                    allergyOptions = Array.Empty<string>(),
+                    medicalDevices = Array.Empty<string>(),
+                    medicalHistory = Array.Empty<string>(),
                     mobilityStatus = "NORMAL",
                     specialSituation = new
                     {
                         isSenior = false,
                         isPregnant = false,
-                        isYoungChild = false,
+                        isYoungChild = true,
                         hasDisability = false
                     },
                     chronicConditions = Array.Empty<string>(),
                     otherMedicalDevice = "",
                     longTermMedications = Array.Empty<string>(),
                     hasLongTermMedication = false,
-                    medicalHistoryDetails = "Đôi khi đau nửa đầu khi thiếu ngủ.",
+                    medicalHistoryDetails = "",
                     otherChronicCondition = ""
                 }))
         };
