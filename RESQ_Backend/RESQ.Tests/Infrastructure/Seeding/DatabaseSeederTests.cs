@@ -40,9 +40,9 @@ public class DatabaseSeederTests
                 MissionActivities: 48,
                 Conversations: 140,
                 Messages: 1900,
-                SupplyInventories: 657,
+                SupplyInventories: 660,
                 SupplyRequests: 95,
-                InventoryLogs: 2129),
+                InventoryLogs: 2132),
             firstCounts);
         Assert.Equal(1, await context.SystemMigrationAudits.CountAsync(a => a.MigrationName == "demo-seed-v6-2026-04-29"));
         Assert.All(new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" }, action =>
@@ -585,11 +585,51 @@ public class DatabaseSeederTests
             .Where(profile => profile.UserId == demoVictim.Id)
             .OrderBy(profile => profile.DisplayName)
             .ToListAsync();
-        Assert.Equal(4, demoVictimRelatives.Count);
-        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Châu" && profile.PersonType == "ELDERLY" && profile.RelationGroup == "gia_dinh");
-        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "An" && profile.PersonType == "ADULT" && profile.Gender == "FEMALE");
-        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Thảo" && profile.TagsJson.Contains("biet_so_cuu", StringComparison.Ordinal));
-        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Khoa" && profile.PhoneNumber == "+84911224567");
+        Assert.Equal(3, demoVictimRelatives.Count);
+        Assert.Equal(
+            ["Châu", "Huỳnh Kim Cương", "Khoa"],
+            demoVictimRelatives.Select(profile => profile.DisplayName).ToArray());
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Huỳnh Kim Cương"
+            && profile.PersonType == "ADULT"
+            && profile.Gender == "MALE"
+            && profile.PhoneNumber == "+84374745872");
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Châu"
+            && profile.PersonType == "CHILD"
+            && profile.Gender == "FEMALE"
+            && profile.RelationGroup == "gia_dinh");
+        Assert.Contains(demoVictimRelatives, profile => profile.DisplayName == "Khoa"
+            && profile.PersonType == "ELDERLY"
+            && profile.Gender == "MALE"
+            && profile.PhoneNumber == "+84911224567");
+
+        var selfProfile = demoVictimRelatives.Single(profile => profile.DisplayName == "Huỳnh Kim Cương");
+        using (var selfMedicalProfile = JsonDocument.Parse(selfProfile.MedicalProfileJson))
+        {
+            Assert.Empty(selfMedicalProfile.RootElement.GetProperty("chronicConditions").EnumerateArray());
+            Assert.False(selfMedicalProfile.RootElement.GetProperty("hasLongTermMedication").GetBoolean());
+            Assert.Equal("NORMAL", selfMedicalProfile.RootElement.GetProperty("mobilityStatus").GetString());
+        }
+
+        var khoaProfile = demoVictimRelatives.Single(profile => profile.DisplayName == "Khoa");
+        using (var khoaMedicalProfile = JsonDocument.Parse(khoaProfile.MedicalProfileJson))
+        {
+            Assert.Contains(
+                "HYPERTENSION",
+                khoaMedicalProfile.RootElement.GetProperty("chronicConditions").EnumerateArray().Select(condition => condition.GetString()));
+            Assert.Equal("LIMITED_WALKING", khoaMedicalProfile.RootElement.GetProperty("mobilityStatus").GetString());
+            Assert.Contains(
+                "Thuốc điều trị tăng huyết áp",
+                khoaMedicalProfile.RootElement.GetProperty("longTermMedications").EnumerateArray()
+                    .Select(medication => medication.GetProperty("name").GetString()));
+        }
+
+        var chauProfile = demoVictimRelatives.Single(profile => profile.DisplayName == "Châu");
+        using (var chauMedicalProfile = JsonDocument.Parse(chauProfile.MedicalProfileJson))
+        {
+            Assert.True(chauMedicalProfile.RootElement.GetProperty("specialSituation").GetProperty("isYoungChild").GetBoolean());
+            Assert.Equal("NORMAL", chauMedicalProfile.RootElement.GetProperty("mobilityStatus").GetString());
+        }
+
         Assert.All(demoVictimRelatives, profile =>
         {
             Assert.False(string.IsNullOrWhiteSpace(profile.MedicalProfileJson));
@@ -857,6 +897,31 @@ public class DatabaseSeederTests
             Assert.Equal(expected.ReceivedDate, importLog.ReceivedDate);
             Assert.Equal(expected.ExpiredDate, importLog.ExpiredDate);
         }
+
+        var hypertensionMedicine = await context.ItemModels
+            .Include(item => item.Category)
+            .Include(item => item.TargetGroups)
+            .SingleAsync(item => item.Name == "Thuốc điều trị tăng huyết áp");
+
+        Assert.Equal("Medical", hypertensionMedicine.Category?.Code);
+        Assert.Equal("Consumable", hypertensionMedicine.ItemType);
+        Assert.Equal("viên", hypertensionMedicine.Unit);
+        Assert.Contains(hypertensionMedicine.TargetGroups, group => group.Name == "Adult");
+        Assert.Contains(hypertensionMedicine.TargetGroups, group => group.Name == "Elderly");
+
+        var hypertensionInventory = await context.SupplyInventories
+            .Include(item => item.Lots)
+            .Include(item => item.InventoryLogs)
+            .SingleAsync(item =>
+                item.DepotId == 1
+                && item.ItemModelId == hypertensionMedicine.Id);
+
+        Assert.Equal(3000, hypertensionInventory.Quantity);
+        Assert.Equal(3000, hypertensionInventory.Lots.Sum(lot => lot.RemainingQuantity));
+        Assert.Contains(hypertensionInventory.InventoryLogs, log =>
+            log.ActionType == "Import"
+            && log.QuantityChange == 3000
+            && log.SourceType == "Donation");
 
         var boxedMilkInventory = await context.SupplyInventories
             .Include(item => item.ItemModel)

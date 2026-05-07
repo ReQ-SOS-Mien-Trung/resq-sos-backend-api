@@ -434,7 +434,7 @@ public sealed partial class DatabaseSeeder
         if (hueDepot is null)
             return;
 
-        // 14 new medicines added for flood relief
+        // 15 new medicines added for flood relief
         var newMedicineNames = new[]
         {
             "Thuốc tiêu chảy Loperamide",
@@ -450,10 +450,11 @@ public sealed partial class DatabaseSeeder
             "Thuốc nhỏ mắt (viêm kết mạc)",
             "Thuốc nhỏ mũi (nghẹt mũi do lạnh)",
             "Vitamin C liều cao",
-            "Thuốc chống say nước"
+            "Thuốc chống say nước",
+            "Thuốc điều trị tăng huyết áp"
         };
 
-        var quantities = new[] { 5000, 3000, 2000, 4000, 3000, 2500, 3500, 1500, 1500, 4000, 2000, 2000, 5000, 1000 };
+        var quantities = new[] { 5000, 3000, 2000, 4000, 3000, 2500, 3500, 1500, 1500, 4000, 2000, 2000, 5000, 1000, 3000 };
 
         for (var i = 0; i < newMedicineNames.Length; i++)
         {
@@ -1064,7 +1065,8 @@ public sealed partial class DatabaseSeeder
             new("Others", "Sổ tay và bút ghi chép", "Bộ sổ tay và bút bi dùng ghi chép thông tin hiện trường", "bộ", "Consumable", 0.3m, 0.18m),
             new("Others", "Bộ đèn pin đội đầu", "Đèn pin LED đội đầu rọi sáng rảnh tay", "bộ", "Reusable", 0.5m, 0.15m),
             new("Others", "Áo phản quang an toàn", "Áo ghi lê phản quang tăng nhận diện trong đêm", "chiếc", "Reusable", 1.5m, 0.2m),
-            new("Others", "Pháo sáng khẩn cấp", "Pháo sáng phát tín hiệu cầu cứu khẩn cấp", "chiếc", "Consumable", 0.25m, 0.15m)
+            new("Others", "Pháo sáng khẩn cấp", "Pháo sáng phát tín hiệu cầu cứu khẩn cấp", "chiếc", "Consumable", 0.25m, 0.15m),
+            new("Medical", "Thuốc điều trị tăng huyết áp", "Thuốc điều trị duy trì cho người bệnh tăng huyết áp trong cứu trợ khẩn cấp", "viên", "Consumable", 0.005m, 0.002m)
         ];
     }
 
@@ -1082,7 +1084,8 @@ public sealed partial class DatabaseSeeder
             4, 21, 23, 24, 31, 73, 74, 75, 76, 77, 78, 79, 80, 81,
             6, 82, 83, 84, 85, 86, 87, 88, 89, 90,
             101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
-            91, 92, 93, 94, 95, 96, 97, 98, 99, 100
+            91, 92, 93, 94, 95, 96, 97, 98, 99, 100,
+            125
         ];
     }
 
@@ -1246,6 +1249,11 @@ public sealed partial class DatabaseSeeder
         if (HasAny(template.Name, "người cao tuổi"))
         {
             Add("Elderly");
+        }
+
+        if (HasAny(template.Name, "tăng huyết áp"))
+        {
+            Add("Adult", "Elderly");
         }
 
         if (HasAny(template.Name, "Băng vệ sinh", "Sắt & Vitamin"))
