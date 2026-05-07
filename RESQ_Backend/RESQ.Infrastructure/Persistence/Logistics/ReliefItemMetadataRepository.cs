@@ -157,6 +157,36 @@ public class ItemModelMetadataRepository(IUnitOfWork unitOfWork) : IItemModelMet
         return result;
     }
 
+    public async Task<List<global::RESQ.Application.UseCases.Logistics.Queries.GetItemModels.ItemModelDetailDto>> GetAllDetailAsync(CancellationToken cancellationToken = default)
+    {
+        var items = await _unitOfWork.GetRepository<ItemModel>()
+            .AsQueryable()
+            .AsNoTracking()
+            .Include(im => im.TargetGroups)
+            .Include(im => im.Category)
+            .OrderBy(im => im.CategoryId)
+            .ThenBy(im => im.Name)
+            .ToListAsync(cancellationToken);
+
+        return items.Select(im => new global::RESQ.Application.UseCases.Logistics.Queries.GetItemModels.ItemModelDetailDto
+        {
+            Id             = im.Id,
+            Name           = im.Name ?? string.Empty,
+            Description    = im.Description,
+            Unit           = im.Unit ?? string.Empty,
+            ItemType       = im.ItemType ?? string.Empty,
+            VolumePerUnit  = im.VolumePerUnit ?? 0,
+            WeightPerUnit  = im.WeightPerUnit ?? 0,
+            ImageUrl       = im.ImageUrl,
+            TargetGroups   = im.TargetGroups.Select(tg => tg.Name).ToList(),
+            CategoryId     = im.CategoryId,
+            CategoryName   = im.Category?.Name,
+            CategoryCode   = im.Category?.Code,
+            CreatedAt      = im.CreatedAt,
+            UpdatedAt      = im.UpdatedAt
+        }).ToList();
+    }
+
     public async Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken = default)
     {
         return await _unitOfWork.GetRepository<Category>()

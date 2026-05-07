@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RESQ.Domain.Enum.Finance;
 using RESQ.Domain.Enum.Logistics;
 using RESQ.Infrastructure.Entities.Logistics;
 
@@ -41,6 +42,401 @@ public sealed partial class DatabaseSeeder
                 .Replace("sữa bột trẻ em", "sữa hộp trẻ em", StringComparison.OrdinalIgnoreCase)
                 .Replace("sữa bột", "sữa hộp", StringComparison.OrdinalIgnoreCase);
             hasChanges = true;
+        }
+
+        if (hasChanges)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        await ReconcileCampaignPurchaseInventoryAsync(cancellationToken);
+        await EnsureCampaignPurchaseInvoiceItemsAsync(cancellationToken);
+    }
+
+    private async Task RetagPurchaseInventoryToCampaignDepotFundsAsync(CancellationToken cancellationToken)
+    {
+        var campaignFunds = await _db.DepotFunds
+            .Where(fund => fund.FundSourceType == FundSourceType.Campaign.ToString()
+                && fund.FundSourceId.HasValue)
+            .OrderBy(fund => fund.DepotId)
+            .ThenBy(fund => fund.FundSourceId)
+            .ThenBy(fund => fund.Id)
+            .ToListAsync(cancellationToken);
+
+        var campaignFundByDepotId = campaignFunds
+            .GroupBy(fund => fund.DepotId)
+            .ToDictionary(group => group.Key, group => group.First().Id);
+
+        if (campaignFundByDepotId.Count == 0)
+        {
+            return;
+        }
+
+        // Load total campaign allocation per depot to cap spending at the allocated amount
+        var allocationByDepotId = await _db.CampaignDisbursements
+            .GroupBy(d => d.DepotId)
+            .Select(g => new { DepotId = g.Key, Total = g.Sum(d => d.Amount) })
+            .ToDictionaryAsync(x => x.DepotId, x => x.Total, cancellationToken);
+
+        var purchaseSource = InventorySourceType.Purchase.ToString();
+        var depotFundSource = InventorySourceType.DepotFund.ToString();
+        var hasChanges = false;
+
+        // Track which lots were retagged (lotId → depotFundId) to sync logs below
+        var retaggedLotDepotFund = new Dictionary<int, int>();
+        var budgetUsedByDepot = new Dictionary<int, decimal>();
+
+        var purchaseLots = await _db.SupplyInventoryLots
+            .Include(lot => lot.SupplyInventory)
+                .ThenInclude(si => si!.ItemModel)
+                    .ThenInclude(im => im!.Category)
+            .Where(lot => lot.SourceType == purchaseSource)
+            .OrderBy(lot => lot.CreatedAt)
+            .ThenBy(lot => lot.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var lot in purchaseLots)
+        {
+            var depotId = lot.SupplyInventory?.DepotId;
+            if (!depotId.HasValue || !campaignFundByDepotId.TryGetValue(depotId.Value, out var depotFundId))
+            {
+                continue;
+            }
+
+            var allocation = allocationByDepotId.GetValueOrDefault(depotId.Value);
+            if (allocation <= 0)
+            {
+                continue;
+            }
+
+            var lotValue = EstimateLotValue(lot);
+            var used = budgetUsedByDepot.GetValueOrDefault(depotId.Value);
+            if (used + lotValue > allocation)
+            {
+                continue; // tagging this lot would exceed the depot's campaign allocation
+            }
+
+            lot.SourceType = depotFundSource;
+            lot.SourceId = depotFundId;
+            retaggedLotDepotFund[lot.Id] = depotFundId;
+            budgetUsedByDepot[depotId.Value] = used + lotValue;
+            hasChanges = true;
+        }
+
+        var purchaseLogs = await _db.InventoryLogs
+            .Include(log => log.SupplyInventory)
+            .Include(log => log.ReusableItem)
+            .Where(log => log.SourceType == purchaseSource
+                && log.ActionType == InventoryActionType.Import.ToString())
+            .ToListAsync(cancellationToken);
+
+        foreach (var log in purchaseLogs)
+        {
+            // Only retag a log if its corresponding lot was retagged to a campaign fund
+            if (!log.SupplyInventoryLotId.HasValue
+                || !retaggedLotDepotFund.TryGetValue(log.SupplyInventoryLotId.Value, out var depotFundId))
+            {
+                continue;
+            }
+
+            log.SourceType = depotFundSource;
+            log.SourceId = depotFundId;
+            hasChanges = true;
+        }
+
+        if (hasChanges)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private async Task ReconcileCampaignPurchaseInventoryAsync(CancellationToken cancellationToken)
+    {
+        var campaignFunds = await _db.DepotFunds
+            .Where(fund => fund.FundSourceType == FundSourceType.Campaign.ToString()
+                && fund.FundSourceId.HasValue)
+            .OrderBy(fund => fund.DepotId)
+            .ThenBy(fund => fund.FundSourceId)
+            .ThenBy(fund => fund.Id)
+            .ToListAsync(cancellationToken);
+
+        if (campaignFunds.Count == 0)
+        {
+            return;
+        }
+
+        var allocationRows = await _db.CampaignDisbursements
+            .GroupBy(d => new { d.DepotId, d.FundCampaignId })
+            .Select(g => new
+            {
+                g.Key.DepotId,
+                g.Key.FundCampaignId,
+                Total = g.Sum(d => d.Amount)
+            })
+            .ToListAsync(cancellationToken);
+        var allocationByDepotCampaign = allocationRows.ToDictionary(
+            x => (x.DepotId, x.FundCampaignId),
+            x => x.Total);
+        var allocationByFundId = campaignFunds.ToDictionary(
+            fund => fund.Id,
+            fund => allocationByDepotCampaign.GetValueOrDefault((fund.DepotId, fund.FundSourceId!.Value)));
+        var fundIdsByDepotId = campaignFunds
+            .GroupBy(fund => fund.DepotId)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderBy(fund => fund.FundSourceId)
+                    .ThenBy(fund => fund.Id)
+                    .Select(fund => fund.Id)
+                    .ToList());
+        var campaignFundIds = campaignFunds.Select(fund => fund.Id).ToHashSet();
+
+        var purchaseSource = InventorySourceType.Purchase.ToString();
+        var depotFundSource = InventorySourceType.DepotFund.ToString();
+        var importAction = InventoryActionType.Import.ToString();
+        var hasChanges = false;
+
+        var candidateLots = await _db.SupplyInventoryLots
+            .Include(lot => lot.SupplyInventory)
+                .ThenInclude(si => si!.ItemModel)
+                    .ThenInclude(im => im!.Category)
+            .Where(lot => lot.SourceType == purchaseSource
+                || (lot.SourceType == depotFundSource
+                    && lot.SourceId.HasValue
+                    && campaignFundIds.Contains(lot.SourceId.Value)))
+            .OrderByDescending(lot => lot.CreatedAt)
+            .ThenByDescending(lot => lot.Id)
+            .ToListAsync(cancellationToken);
+
+        var candidateLotIds = candidateLots.Select(lot => lot.Id).ToList();
+        var importLogs = await _db.InventoryLogs
+            .Where(log => log.ActionType == importAction
+                && log.SupplyInventoryLotId.HasValue
+                && candidateLotIds.Contains(log.SupplyInventoryLotId.Value))
+            .ToListAsync(cancellationToken);
+        var importLogByLotId = importLogs
+            .GroupBy(log => log.SupplyInventoryLotId!.Value)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var selectedFundByLotId = new Dictionary<int, int>();
+        var usedByFundId = new Dictionary<int, decimal>();
+        foreach (var lot in candidateLots)
+        {
+            var depotId = lot.SupplyInventory?.DepotId;
+            if (!depotId.HasValue || !fundIdsByDepotId.TryGetValue(depotId.Value, out var fundIds))
+            {
+                continue;
+            }
+
+            var lotValue = EstimateLotValue(lot);
+            if (lotValue <= 0)
+            {
+                continue;
+            }
+
+            foreach (var fundId in fundIds)
+            {
+                var allocation = allocationByFundId.GetValueOrDefault(fundId);
+                var used = usedByFundId.GetValueOrDefault(fundId);
+                if (allocation <= 0 || used + lotValue > allocation)
+                {
+                    continue;
+                }
+
+                selectedFundByLotId[lot.Id] = fundId;
+                usedByFundId[fundId] = used + lotValue;
+                break;
+            }
+        }
+
+        foreach (var lot in candidateLots)
+        {
+            var log = importLogByLotId.GetValueOrDefault(lot.Id);
+            if (selectedFundByLotId.TryGetValue(lot.Id, out var depotFundId))
+            {
+                if (lot.SourceType != depotFundSource || lot.SourceId != depotFundId)
+                {
+                    lot.SourceType = depotFundSource;
+                    lot.SourceId = depotFundId;
+                    hasChanges = true;
+                }
+
+                continue;
+            }
+
+            var purchaseSourceId = log?.VatInvoiceId
+                ?? (lot.SourceType == purchaseSource ? lot.SourceId : null);
+            if (lot.SourceType != purchaseSource || lot.SourceId != purchaseSourceId)
+            {
+                lot.SourceType = purchaseSource;
+                lot.SourceId = purchaseSourceId;
+                hasChanges = true;
+            }
+        }
+
+        foreach (var log in importLogs)
+        {
+            if (selectedFundByLotId.TryGetValue(log.SupplyInventoryLotId!.Value, out var depotFundId))
+            {
+                if (log.SourceType != depotFundSource || log.SourceId != depotFundId)
+                {
+                    log.SourceType = depotFundSource;
+                    log.SourceId = depotFundId;
+                    hasChanges = true;
+                }
+
+                continue;
+            }
+
+            var purchaseSourceId = log.VatInvoiceId
+                ?? (log.SourceType == purchaseSource ? log.SourceId : null);
+            if (log.SourceType != purchaseSource || log.SourceId != purchaseSourceId)
+            {
+                log.SourceType = purchaseSource;
+                log.SourceId = purchaseSourceId;
+                hasChanges = true;
+            }
+        }
+
+        var reusableCampaignLogs = await _db.InventoryLogs
+            .Where(log => log.SourceType == depotFundSource
+                && log.SourceId.HasValue
+                && campaignFundIds.Contains(log.SourceId.Value)
+                && log.ActionType == importAction
+                && log.ReusableItemId.HasValue
+                && !log.SupplyInventoryLotId.HasValue)
+            .ToListAsync(cancellationToken);
+
+        foreach (var log in reusableCampaignLogs)
+        {
+            log.SourceType = purchaseSource;
+            log.SourceId = log.VatInvoiceId;
+            hasChanges = true;
+        }
+
+        if (hasChanges)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private static decimal EstimateLotValue(SupplyInventoryLot lot)
+    {
+        var qty = lot.Quantity;
+        if (qty <= 0) return 0m;
+        var itemModel = lot.SupplyInventory?.ItemModel;
+        if (itemModel is null) return qty * 25_000m;
+        return SeedVatInvoiceItemUnitPrice(itemModel) * qty;
+    }
+
+    private async Task EnsureCampaignPurchaseInvoiceItemsAsync(CancellationToken cancellationToken)
+    {
+        var invoices = await _db.VatInvoices
+            .OrderBy(invoice => invoice.Id)
+            .ToListAsync(cancellationToken);
+        if (invoices.Count == 0)
+        {
+            return;
+        }
+
+        var depotFundSource = InventorySourceType.DepotFund.ToString();
+        var importAction = InventoryActionType.Import.ToString();
+        var importLogs = await _db.InventoryLogs
+            .Include(log => log.SupplyInventory)
+                .ThenInclude(inventory => inventory!.ItemModel)
+                    .ThenInclude(item => item!.Category)
+            .Include(log => log.ReusableItem)
+                .ThenInclude(item => item!.ItemModel)
+                    .ThenInclude(item => item!.Category)
+            .Where(log => log.SourceType == depotFundSource
+                && log.ActionType == importAction
+                && (log.DepotSupplyInventoryId.HasValue || log.ReusableItemId.HasValue))
+            .ToListAsync(cancellationToken);
+
+        if (importLogs.Count == 0)
+        {
+            return;
+        }
+
+        var invoiceItems = await _db.VatInvoiceItems
+            .Where(item => item.VatInvoiceId.HasValue && item.ItemModelId.HasValue)
+            .ToListAsync(cancellationToken);
+        var invoiceItemByPair = invoiceItems
+            .GroupBy(item => (VatInvoiceId: item.VatInvoiceId!.Value, ItemModelId: item.ItemModelId!.Value))
+            .ToDictionary(group => group.Key, group => group.First());
+
+        // Build lookup of which invoice IDs already carry each item model, so we can assign
+        // each import log to an invoice that actually lists that item – keeping supplier consistent.
+        var invoiceIdsByItemModelId = invoiceItems
+            .Where(i => i.VatInvoiceId.HasValue && i.ItemModelId.HasValue)
+            .ToLookup(i => i.ItemModelId!.Value, i => i.VatInvoiceId!.Value);
+
+        var touchedInvoiceIds = new HashSet<int>();
+        var hasChanges = false;
+        foreach (var log in importLogs)
+        {
+            var itemModel = log.SupplyInventory?.ItemModel ?? log.ReusableItem?.ItemModel;
+            if (itemModel is null)
+            {
+                continue;
+            }
+
+            if (!log.VatInvoiceId.HasValue)
+            {
+                log.VatInvoiceId = PickSeedVatInvoiceId(invoices, log, itemModel.Id, invoiceIdsByItemModelId);
+                hasChanges = true;
+            }
+
+            var invoiceItemKey = (VatInvoiceId: log.VatInvoiceId.Value, ItemModelId: itemModel.Id);
+            touchedInvoiceIds.Add(invoiceItemKey.VatInvoiceId);
+            var quantity = Math.Max(1, Math.Abs(log.QuantityChange.GetValueOrDefault(1)));
+            var unitPrice = SeedVatInvoiceItemUnitPrice(itemModel);
+
+            if (!invoiceItemByPair.TryGetValue(invoiceItemKey, out var invoiceItem))
+            {
+                invoiceItem = new VatInvoiceItem
+                {
+                    VatInvoiceId = invoiceItemKey.VatInvoiceId,
+                    ItemModelId = invoiceItemKey.ItemModelId,
+                    Quantity = quantity,
+                    UnitPrice = unitPrice,
+                    CreatedAt = log.CreatedAt
+                };
+                _db.VatInvoiceItems.Add(invoiceItem);
+                invoiceItems.Add(invoiceItem);
+                invoiceItemByPair[invoiceItemKey] = invoiceItem;
+                hasChanges = true;
+                continue;
+            }
+
+            if (!invoiceItem.Quantity.HasValue || invoiceItem.Quantity.Value <= 0)
+            {
+                invoiceItem.Quantity = quantity;
+                hasChanges = true;
+            }
+
+            if (!invoiceItem.UnitPrice.HasValue || invoiceItem.UnitPrice.Value <= 0)
+            {
+                invoiceItem.UnitPrice = unitPrice;
+                hasChanges = true;
+            }
+        }
+
+        var totalByInvoiceId = invoiceItems
+            .Where(item => item.VatInvoiceId.HasValue && touchedInvoiceIds.Contains(item.VatInvoiceId.Value))
+            .GroupBy(item => item.VatInvoiceId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Sum(item => (item.UnitPrice ?? 0m) * (item.Quantity ?? 0)));
+
+        foreach (var invoice in invoices.Where(invoice => totalByInvoiceId.ContainsKey(invoice.Id)))
+        {
+            var totalAmount = totalByInvoiceId[invoice.Id];
+            if (invoice.TotalAmount != totalAmount)
+            {
+                invoice.TotalAmount = totalAmount;
+                hasChanges = true;
+            }
         }
 
         if (hasChanges)
@@ -935,6 +1331,55 @@ public sealed partial class DatabaseSeeder
         }
 
         return vatInvoiceIds[Math.Abs((sourceId ?? 1) - 1) % vatInvoiceIds.Count];
+    }
+
+    private static int PickSeedVatInvoiceId(
+        IReadOnlyList<VatInvoice> invoices,
+        InventoryLog log,
+        int itemModelId,
+        ILookup<int, int>? invoiceIdsByItemModelId = null)
+    {
+        var hashSeed = (log.Id == 0 ? itemModelId : log.Id) + itemModelId * 17;
+
+        // Prefer an invoice whose VatInvoiceItems already includes this item model.
+        // This keeps the supplier name on the invoice consistent with the items being imported.
+        if (invoiceIdsByItemModelId != null)
+        {
+            var matchingInvoiceIds = invoiceIdsByItemModelId[itemModelId].Distinct().ToList();
+            if (matchingInvoiceIds.Count > 0)
+            {
+                var matchingInvoices = invoices
+                    .Where(v => matchingInvoiceIds.Contains(v.Id))
+                    .ToList();
+                if (matchingInvoices.Count > 0)
+                    return matchingInvoices[Math.Abs(hashSeed) % matchingInvoices.Count].Id;
+            }
+        }
+
+        return invoices[Math.Abs(hashSeed) % invoices.Count].Id;
+    }
+
+    private static decimal SeedVatInvoiceItemUnitPrice(ItemModel itemModel)
+    {
+        if (string.Equals(itemModel.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+        {
+            return 450_000m + itemModel.Id % 5 * 75_000m;
+        }
+
+        return itemModel.Category?.Code switch
+        {
+            "Food" => 25_000m,
+            "Water" => 10_000m,
+            "Medical" => 18_000m,
+            "Hygiene" => 12_000m,
+            "Clothing" => 85_000m,
+            "Shelter" => 150_000m,
+            "RepairTools" => 95_000m,
+            "RescueEquipment" => 450_000m,
+            "Heating" => 120_000m,
+            "Vehicle" => 1_500_000m,
+            _ => 30_000m
+        };
     }
 
 

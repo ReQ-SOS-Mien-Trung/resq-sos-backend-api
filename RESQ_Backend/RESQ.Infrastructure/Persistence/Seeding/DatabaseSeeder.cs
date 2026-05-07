@@ -88,6 +88,8 @@ public sealed partial class DatabaseSeeder : IDatabaseSeeder
                 await SeedSupplyRequestsAsync(seed, cancellationToken);
                 await SeedFinanceAsync(seed, cancellationToken);
                 await SeedAuditAndHistoryAsync(seed, cancellationToken);
+                await ReconcileCampaignPurchaseInventoryAsync(cancellationToken);
+                await EnsureCampaignPurchaseInvoiceItemsAsync(cancellationToken);
 
                 var validationErrors = await _validator.ValidateAsync(_db, cancellationToken);
                 if (validationErrors.Count > 0)

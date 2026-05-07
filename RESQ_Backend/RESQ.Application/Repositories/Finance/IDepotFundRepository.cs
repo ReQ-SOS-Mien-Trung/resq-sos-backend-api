@@ -86,4 +86,11 @@ public interface IDepotFundRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy tất cả depot funds thuộc một chiến dịch (dùng cho API minh bạch chi tiêu công khai).
+    /// </summary>
+    Task<List<(int FundId, int DepotId, string? DepotName)>> GetFundsByCampaignAsync(
+        int campaignId,
+        CancellationToken cancellationToken = default);
 }

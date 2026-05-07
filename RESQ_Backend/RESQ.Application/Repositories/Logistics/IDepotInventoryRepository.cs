@@ -468,6 +468,15 @@ public interface IDepotInventoryRepository
         int depotId,
         CancellationToken cancellationToken = default)
         => Task.FromResult(new List<MaintenanceItemModelAlertRawDto>());
+
+    /// <summary>
+    /// Lấy tất cả vật phẩm (consumable + reusable) đã nhập kho từ các quỹ kho chỉ định.
+    /// Dùng cho API minh bạch chi tiêu công khai.
+    /// </summary>
+    Task<List<CampaignFundPurchasedItemDto>> GetPurchasedItemsByDepotFundIdsAsync(
+        IEnumerable<int> depotFundIds,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<CampaignFundPurchasedItemDto>());
 }
 
 public class DepotClosureTransferItemMoveDto

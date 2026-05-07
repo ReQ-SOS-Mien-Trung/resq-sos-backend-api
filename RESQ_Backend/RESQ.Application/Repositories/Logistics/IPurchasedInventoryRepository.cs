@@ -31,5 +31,5 @@ public interface IPurchasedInventoryRepository
     /// - Reusable: tạo N bản ghi ReusableItem với serial number do hệ thống sinh tự động.
     /// Tạo InventoryLog (SourceType = Purchase), VatInvoiceItem, và cộng dồn Category.Quantity.
     /// </summary>
-    Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)> items, CancellationToken cancellationToken = default);
+    Task AddPurchasedInventoryItemsBulkAsync(List<(PurchasedInventoryItemModel model, decimal? unitPrice, string itemType)> items, int? depotFundId = null, CancellationToken cancellationToken = default);
 }
