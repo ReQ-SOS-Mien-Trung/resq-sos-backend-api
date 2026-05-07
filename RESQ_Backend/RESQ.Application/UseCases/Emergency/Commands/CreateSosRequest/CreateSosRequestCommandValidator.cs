@@ -11,7 +11,7 @@ public class CreateSosRequestCommandValidator : AbstractValidator<CreateSosReque
         ISosPriorityRuleConfigRepository sosPriorityRuleConfigRepository)
     {
         RuleFor(x => x.UserId).NotEmpty();
-        RuleFor(x => x.RawMessage).NotEmpty().MaximumLength(1000);
+        RuleFor(x => x.RawMessage).NotEmpty().MaximumLength(10000);
         RuleFor(x => x.Location.Latitude).InclusiveBetween(-90, 90);
         RuleFor(x => x.Location.Longitude).InclusiveBetween(-180, 180);
 
