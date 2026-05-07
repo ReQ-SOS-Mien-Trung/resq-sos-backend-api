@@ -26,6 +26,7 @@ public class MissionActivityStatusExecutionService(
     ISosRequestUpdateRepository sosRequestUpdateRepository,
     ITeamIncidentRepository teamIncidentRepository,
     IRescueTeamRepository rescueTeamRepository,
+    IAssemblyPointRepository assemblyPointRepository,
     IUnitOfWork unitOfWork,
     ILogger<MissionActivityStatusExecutionService> logger,
     IAssemblyEventRepository assemblyEventRepository,
@@ -44,6 +45,7 @@ public class MissionActivityStatusExecutionService(
     private readonly ISosRequestUpdateRepository _sosRequestUpdateRepository = sosRequestUpdateRepository;
     private readonly ITeamIncidentRepository _teamIncidentRepository = teamIncidentRepository;
     private readonly IRescueTeamRepository _rescueTeamRepository = rescueTeamRepository;
+    private readonly IAssemblyPointRepository _assemblyPointRepository = assemblyPointRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ILogger<MissionActivityStatusExecutionService> _logger = logger;
     private readonly IAssemblyEventRepository _assemblyEventRepository = assemblyEventRepository;
@@ -471,13 +473,44 @@ public class MissionActivityStatusExecutionService(
 
             var assemblyPointId = activity.AssemblyPointId.Value;
             var shouldSave = await MoveRescueTeamToAssemblyPointAsync(team, assemblyPointId, cancellationToken);
+            var acceptedMemberIds = team.RescueTeamMembers
+                .Where(m => string.Equals(m.Status, TeamMemberStatus.Accepted.ToString(), StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.UserId)
+                .ToList();
+
+            if (acceptedMemberIds.Count > 0)
+            {
+                try
+                {
+                    var updatedRescuerIds = await _assemblyPointRepository.BulkUpdateRescuerAssemblyPointAsync(
+                        acceptedMemberIds,
+                        assemblyPointId,
+                        cancellationToken);
+
+                    shouldSave |= updatedRescuerIds.Count > 0;
+
+                    _logger.LogInformation(
+                        "AutoReturnCheckIn MissionTeamId={TeamId}: {Count} rescuer(s) assigned to AssemblyPointId={AssemblyPointId}",
+                        team.Id,
+                        updatedRescuerIds.Count,
+                        assemblyPointId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "AutoReturnCheckIn failed to assign rescuers to AssemblyPointId={AssemblyPointId} for MissionTeamId={TeamId}.",
+                        assemblyPointId,
+                        team.Id);
+                }
+            }
+
             var activeEvent = await _assemblyEventRepository.GetActiveEventByAssemblyPointAsync(
                 assemblyPointId, cancellationToken);
 
             if (activeEvent is null)
             {
                 _logger.LogInformation(
-                    "AutoReturnCheckIn: no active assembly event at AssemblyPointId={AssemblyPointId} for MissionTeamId={TeamId}. Skipping.",
+                    "AutoReturnCheckIn: no active assembly event at AssemblyPointId={AssemblyPointId} for MissionTeamId={TeamId}. Skipping check-in.",
                     assemblyPointId, team.Id);
                 if (shouldSave)
                 {
@@ -487,11 +520,6 @@ public class MissionActivityStatusExecutionService(
             }
 
             var eventId = activeEvent.Value.EventId;
-
-            var acceptedMemberIds = team.RescueTeamMembers
-                .Where(m => string.Equals(m.Status, TeamMemberStatus.Accepted.ToString(), StringComparison.OrdinalIgnoreCase))
-                .Select(m => m.UserId)
-                .ToList();
 
             if (acceptedMemberIds.Count > 0)
             {
