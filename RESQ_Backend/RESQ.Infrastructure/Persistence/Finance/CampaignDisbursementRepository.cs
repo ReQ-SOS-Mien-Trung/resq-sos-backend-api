@@ -82,6 +82,20 @@ public class CampaignDisbursementRepository(IUnitOfWork unitOfWork) : ICampaignD
         return new PagedResult<CampaignDisbursementModel>(models, totalCount, pageNumber, pageSize);
     }
 
+    public async Task<List<CampaignDisbursementModel>> GetPublicByCampaignAsync(
+        int campaignId,
+        CancellationToken cancellationToken = default)
+    {
+        var entities = await _unitOfWork.Set<CampaignDisbursement>()
+            .Include(x => x.DisbursementItems)
+            .Include(x => x.Depot)
+            .Where(x => x.FundCampaignId == campaignId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return entities.Select(CampaignDisbursementMapper.ToModel).ToList();
+    }
+
     public async Task<decimal> GetTotalDisbursedByCampaignAsync(int campaignId, CancellationToken cancellationToken = default)
     {
         return await _unitOfWork.Set<CampaignDisbursement>()
@@ -99,6 +113,18 @@ public class CampaignDisbursementRepository(IUnitOfWork unitOfWork) : ICampaignD
         return new TrackedFinanceEntityReference<CampaignDisbursementModel>(
             CampaignDisbursementMapper.ToModel(entity),
             () => entity.Id);
+    }
+
+    public async Task<CampaignDisbursementModel?> GetLatestByCampaignAndDepotAsync(int campaignId, int depotId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _unitOfWork.Set<CampaignDisbursement>()
+            .Include(x => x.DisbursementItems)
+            .Include(x => x.Depot)
+            .Where(x => x.FundCampaignId == campaignId && x.DepotId == depotId)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return entity == null ? null : CampaignDisbursementMapper.ToModel(entity);
     }
 
     public async Task AddItemsAsync(int disbursementId, List<DisbursementItemModel> items, CancellationToken cancellationToken = default)

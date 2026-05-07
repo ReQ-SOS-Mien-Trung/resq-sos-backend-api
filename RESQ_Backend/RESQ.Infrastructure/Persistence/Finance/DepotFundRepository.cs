@@ -183,11 +183,11 @@ public class DepotFundRepository : IDepotFundRepository
         int pageSize,
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
         DateOnly? fromDate = null,
-        DateOnly? toDate   = null,
+        DateOnly? toDate = null,
         decimal? minAmount = null,
         decimal? maxAmount = null,
         IReadOnlyCollection<DepotFundReferenceType>? referenceTypes = null,
-        string? search     = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<DepotFundTransaction>()
@@ -244,11 +244,11 @@ public class DepotFundRepository : IDepotFundRepository
         int pageSize,
         IReadOnlyCollection<DepotFundTransactionType>? transactionTypes = null,
         DateOnly? fromDate = null,
-        DateOnly? toDate   = null,
+        DateOnly? toDate = null,
         decimal? minAmount = null,
         decimal? maxAmount = null,
         IReadOnlyCollection<DepotFundReferenceType>? referenceTypes = null,
-        string? search     = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         var query = _unitOfWork.Set<DepotFundTransaction>()
@@ -299,7 +299,7 @@ public class DepotFundRepository : IDepotFundRepository
         return new PagedResult<DepotFundTransactionModel>(models, totalCount, pageNumber, pageSize);
     }
 
-    
+
     public async Task<PagedResult<ContributorDebtModel>> GetPagedAdvancersByDepotIdAsync(
         int depotId,
         int pageNumber,
@@ -514,7 +514,7 @@ public class DepotFundRepository : IDepotFundRepository
             .ToListAsync(cancellationToken))
             .Select(x => new
             {
-                Date            = DateOnly.FromDateTime(x.CreatedAt),
+                Date = DateOnly.FromDateTime(x.CreatedAt),
                 x.TransactionType,
                 x.Amount
             })
@@ -544,7 +544,7 @@ public class DepotFundRepository : IDepotFundRepository
                 foreach (var r in rows)
                 {
                     if (IsFundIn(r.TransactionType))
-                        point.TotalIn  += r.Amount;
+                        point.TotalIn += r.Amount;
                     else if (IsFundOut(r.TransactionType))
                         point.TotalOut += r.Amount;
                 }
@@ -666,5 +666,17 @@ public class DepotFundRepository : IDepotFundRepository
         }
 
         return result;
+    }
+
+    public async Task<List<(int FundId, int DepotId, string? DepotName)>> GetFundsByCampaignAsync(
+        int campaignId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _unitOfWork.Set<DepotFund>()
+            .Include(x => x.Depot)
+            .Where(x => x.FundSourceType == "Campaign" && x.FundSourceId == campaignId)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(x => (x.Id, x.DepotId, x.Depot?.Name)).ToList();
     }
 }

@@ -186,6 +186,37 @@ public class RescueMissionSuggestionServicePreviewTests
     }
 
     [Fact]
+    public async Task PreviewSuggestionAsync_PipelineUsesStageTokenBudgets_WhenAiConfigIsHigher()
+    {
+        var suggestionRepository = new RecordingMissionAiSuggestionRepository();
+        var promptRepository = CreatePipelinePromptRepository();
+        var aiClient = new PipelineStubAiProviderClient();
+        var service = new RescueMissionSuggestionService(
+            new StubAiProviderClientFactory(aiClient),
+            new AiPromptExecutionSettingsResolver(),
+            new RecordingAiConfigRepository(BuildAiConfig()),
+            promptRepository,
+            suggestionRepository,
+            ThrowingProxy<IDepotInventoryRepository>.Create(),
+            ThrowingProxy<IItemModelMetadataRepository>.Create(),
+            new EmptyAssemblyPointRepository(),
+            NullLogger<RescueMissionSuggestionService>.Instance);
+
+        var result = await service.PreviewSuggestionAsync(
+            [BuildValidSosRequest(rawMessage: "Need supplies")],
+            [],
+            [],
+            isMultiDepotRecommended: false,
+            clusterId: 7,
+            promptOverride: BuildStagePrompt(99, PromptType.MissionRequirementsAssessment, "active-requirements", isActive: false),
+            aiConfigOverride: BuildAiConfig(maxTokens: 50000),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal([8192, 16384, 16384, 8192], aiClient.RequestedMaxTokens);
+    }
+
+    [Fact]
     public async Task GenerateSuggestionAsync_PipelineResultMissingSosCoverage_MarksManualReview()
     {
         var suggestionRepository = new RecordingMissionAiSuggestionRepository();
@@ -1186,7 +1217,7 @@ public class RescueMissionSuggestionServicePreviewTests
             BuildStagePrompt(8, PromptType.MissionPlanning, "legacy-should-not-run")
         ]);
 
-    private static AiConfigModel BuildAiConfig(string model = "gemini-2.5-flash") => new()
+    private static AiConfigModel BuildAiConfig(string model = "gemini-2.5-flash", int maxTokens = 4096) => new()
     {
         Id = 7,
         Name = "Preview AI Config",
@@ -1195,7 +1226,7 @@ public class RescueMissionSuggestionServicePreviewTests
         ApiUrl = "https://example.test/{0}/{1}",
         ApiKey = "test-key",
         Temperature = 0.2,
-        MaxTokens = 4096,
+        MaxTokens = maxTokens,
         Version = "v1.0",
         IsActive = true
     };
@@ -1656,6 +1687,7 @@ public class RescueMissionSuggestionServicePreviewTests
 
         public AiProvider Provider => AiProvider.Gemini;
         public List<string> StageMarkers { get; } = [];
+        public List<int> RequestedMaxTokens { get; } = [];
 
         public Task<AiCompletionResponse> CompleteAsync(
             AiCompletionRequest request,
@@ -1663,6 +1695,7 @@ public class RescueMissionSuggestionServicePreviewTests
         {
             var marker = ExtractMarker(request.SystemPrompt);
             StageMarkers.Add(marker);
+            RequestedMaxTokens.Add(request.MaxTokens);
 
             if (string.Equals(marker, _failingStage, StringComparison.Ordinal))
                 throw new InvalidOperationException($"{marker} failed");

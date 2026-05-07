@@ -54,6 +54,12 @@ public interface IItemModelMetadataRepository
     Task<bool> HasInventoryTransactionsAsync(int itemModelId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns all item models with full detail (name, unit, itemType, category, targetGroups, etc.).
+    /// </summary>
+    Task<List<RESQ.Application.UseCases.Logistics.Queries.GetItemModels.ItemModelDetailDto>> GetAllDetailAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<RESQ.Application.UseCases.Logistics.Queries.GetItemModels.ItemModelDetailDto>());
+
+    /// <summary>
     /// Updates an existing item model and its target groups.
     /// Returns false when item model does not exist.
     /// </summary>
