@@ -41,6 +41,7 @@ public sealed partial class DatabaseSeeder : IDatabaseSeeder
         await SeedReferenceDataAsync(cancellationToken);
         await SeedAiSuggestionsAsync(cancellationToken);
         await ApplyLogisticsSeedCorrectionsAsync(cancellationToken);
+        await ApplyDemoVictimRelativeProfileCorrectionsAsync(cancellationToken);
 
         if (await _db.SystemMigrationAudits.AnyAsync(a => a.MigrationName == MarkerName, cancellationToken))
         {

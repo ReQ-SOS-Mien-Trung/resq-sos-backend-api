@@ -251,6 +251,23 @@ public sealed class DemoSeedValidator
                 + ".");
         }
 
+        var reusableModels = await db.ItemModels
+            .Include(model => model.TargetGroups)
+            .Where(model => model.ItemType == "Reusable")
+            .ToListAsync(cancellationToken);
+        var reusableModelsWithInvalidTargetGroups = reusableModels
+            .Where(model => model.TargetGroups.Count != 1 || model.TargetGroups.All(group => group.Name != "Rescuer"))
+            .Select(model => model.Name ?? $"#{model.Id}")
+            .Take(20)
+            .ToList();
+        if (reusableModelsWithInvalidTargetGroups.Count > 0)
+        {
+            errors.Add(
+                "Reusable item models must target Rescuer only: "
+                + string.Join(", ", reusableModelsWithInvalidTargetGroups)
+                + ".");
+        }
+
         var inventoryLogs = await db.InventoryLogs.ToListAsync(cancellationToken);
         var requiredInventoryActions = new[] { "Import", "Export", "TransferOut", "TransferIn", "Adjust", "Return" };
         var missingActions = requiredInventoryActions
