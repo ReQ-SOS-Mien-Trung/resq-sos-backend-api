@@ -647,6 +647,67 @@ public class DatabaseSeederTests
     }
 
     [Fact]
+    public async Task SeedAsync_AssignsReusableItemModelsToRescuerOnly()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var reusableModels = await context.ItemModels
+            .Include(model => model.TargetGroups)
+            .Where(model => model.ItemType == "Reusable")
+            .OrderBy(model => model.Name)
+            .ToListAsync();
+
+        Assert.NotEmpty(reusableModels);
+        Assert.All(reusableModels, model =>
+        {
+            var targetGroups = model.TargetGroups.Select(group => group.Name).OrderBy(name => name).ToList();
+            Assert.Equal(["Rescuer"], targetGroups);
+        });
+    }
+
+    [Fact]
+    public async Task SeedAsync_ReconcilesReusableItemTargetGroupsWhenMarkerAlreadyExists()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+
+        var adultTargetGroup = new TargetGroup { Id = 4, Name = "Adult" };
+        var rescuerTargetGroup = new TargetGroup { Id = 5, Name = "Rescuer" };
+        var reusableModel = new ItemModel
+        {
+            Id = 9001,
+            Name = "Đèn LED dã chiến cũ",
+            ItemType = "Reusable",
+            Unit = "chiếc",
+            CreatedAt = SeedAnchorUtc()
+        };
+        reusableModel.TargetGroups.Add(adultTargetGroup);
+        reusableModel.TargetGroups.Add(rescuerTargetGroup);
+        context.TargetGroups.AddRange(adultTargetGroup, rescuerTargetGroup);
+        context.ItemModels.Add(reusableModel);
+        context.SystemMigrationAudits.Add(new SystemMigrationAudit
+        {
+            MigrationName = "demo-seed-v6-2026-04-29",
+            AppliedAt = SeedAnchorUtc(),
+            Notes = "Pre-existing demo marker with stale reusable target groups."
+        });
+        await context.SaveChangesAsync();
+
+        await CreateSeeder(context).SeedAsync();
+
+        var targetGroups = await context.ItemModels
+            .Include(model => model.TargetGroups)
+            .Where(model => model.Id == reusableModel.Id)
+            .Select(model => model.TargetGroups.Select(group => group.Name).OrderBy(name => name).ToList())
+            .SingleAsync();
+
+        Assert.Equal(["Rescuer"], targetGroups);
+    }
+
+    [Fact]
     public async Task SeedAsync_ReconcilesDemoVictimRelativeProfilesWhenMarkerAlreadyExists()
     {
         await using var context = CreateContext();

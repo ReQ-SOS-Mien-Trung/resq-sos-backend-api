@@ -43,6 +43,28 @@ public sealed partial class DatabaseSeeder
             hasChanges = true;
         }
 
+        var rescuerTargetGroup = await _db.TargetGroups
+            .SingleOrDefaultAsync(group => group.Name == "Rescuer", cancellationToken);
+        if (rescuerTargetGroup is not null)
+        {
+            var reusableModels = await _db.ItemModels
+                .Include(model => model.TargetGroups)
+                .Where(model => model.ItemType == nameof(ItemType.Reusable))
+                .ToListAsync(cancellationToken);
+            foreach (var model in reusableModels)
+            {
+                if (model.TargetGroups.Count == 1
+                    && model.TargetGroups.Any(group => group.Id == rescuerTargetGroup.Id))
+                {
+                    continue;
+                }
+
+                model.TargetGroups.Clear();
+                model.TargetGroups.Add(rescuerTargetGroup);
+                hasChanges = true;
+            }
+        }
+
         if (hasChanges)
         {
             await _db.SaveChangesAsync(cancellationToken);
@@ -1220,6 +1242,11 @@ public sealed partial class DatabaseSeeder
             {
                 groups.Add(name);
             }
+        }
+
+        if (string.Equals(template.ItemType, nameof(ItemType.Reusable), StringComparison.OrdinalIgnoreCase))
+        {
+            return ["Rescuer"];
         }
 
         switch (template.CategoryCode)
