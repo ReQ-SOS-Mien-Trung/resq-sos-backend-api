@@ -162,9 +162,11 @@ public sealed partial class DatabaseSeeder
                 RequestTypeScoresJson = Json(new { Rescue = 30, Relief = 18, Both = 40 }),
                 SituationMultipliersJson = Json(new[]
                 {
-                    new { keys = new[] { "Flooding", "Stranded" }, multiplier = 1.4, severe = true },
-                    new { keys = new[] { "Landslide" }, multiplier = 1.5, severe = true },
-                    new { keys = new[] { "CannotMove", "Medical" }, multiplier = 1.3, severe = true }
+                    new { keys = new[] { "Flooding" }, multiplier = 1.2, severe = true },
+                    new { keys = new[] { "Collapsed", "Landslide" }, multiplier = 1.2, severe = true },
+                    new { keys = new[] { "Trapped", "DangerZone", "Stranded" }, multiplier = 1.15, severe = true },
+                    new { keys = new[] { "CannotMove", "Medical" }, multiplier = 1.1, severe = true },
+                    new { keys = new[] { "Other", "DEFAULT_WHEN_NULL" }, multiplier = 1.05, severe = false }
                 }),
                 PriorityThresholdsJson = Json(new
                 {
