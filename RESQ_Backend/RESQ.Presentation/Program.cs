@@ -207,7 +207,7 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-if (bootstrapDatabaseOnStartup)
+if (bootstrapDatabaseOnStartup && !EF.IsDesignTime)
 {
     using var scope = app.Services.CreateScope();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
