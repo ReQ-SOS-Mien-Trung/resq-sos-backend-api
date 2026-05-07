@@ -1,6 +1,7 @@
 using System.Reflection;
 using RESQ.Application.Common.Models;
 using RESQ.Application.Services;
+using RESQ.Application.Services.Ai;
 using RESQ.Domain.Enum.System;
 using RESQ.Infrastructure.Services;
 
@@ -368,6 +369,27 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.Equal("Medical rescue", team.TeamType);
         Assert.Equal(1, team.Quantity);
         Assert.Equal("fracture first aid", team.Reason);
+    }
+
+    [Theory]
+    [InlineData("MAX_TOKENS")]
+    [InlineData("length")]
+    public void ThrowIfPromptResponseInvalid_TruncatedFinishReason_ThrowsClearMessage(string finishReason)
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            ThrowIfPromptResponseInvalid(new AiCompletionResponse
+            {
+                Text = """
+                {
+                  "sos_requirements": [
+                    { "sos_request_id": 1 },
+                """,
+                HttpStatusCode = 200,
+                FinishReason = finishReason
+            }));
+
+        Assert.Contains("truncated", exception.Message);
+        Assert.Contains(finishReason, exception.Message);
     }
 
     [Fact]
@@ -2120,6 +2142,24 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.NotNull(method);
         var generic = method!.MakeGenericMethod(typeof(T));
         return (T)generic.Invoke(null, [rawResponse])!;
+    }
+
+    private static void ThrowIfPromptResponseInvalid(AiCompletionResponse response)
+    {
+        var method = typeof(RescueMissionSuggestionService).GetMethod(
+            "ThrowIfPromptResponseInvalid",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+
+        try
+        {
+            method!.Invoke(null, [response, PromptType.MissionRequirementsAssessment, false]);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is not null)
+        {
+            throw ex.InnerException;
+        }
     }
 
     private static void InvokeStatic(string typeName, string methodName, params object?[] args)
