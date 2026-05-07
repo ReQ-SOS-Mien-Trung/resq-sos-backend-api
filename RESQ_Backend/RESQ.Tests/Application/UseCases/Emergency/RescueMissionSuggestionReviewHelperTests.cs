@@ -308,7 +308,7 @@ public class RescueMissionSuggestionReviewHelperTests
     }
 
     [Fact]
-    public void ApplyNearbyDepotConstraints_ClearsDepotOutsideScope_AndFlagsManualReview()
+    public void ApplyNearbyDepotConstraints_UsesSingleEligibleDepotWhenAiReferencesOutsideScope()
     {
         var result = new RescueMissionSuggestionResult
         {
@@ -356,17 +356,15 @@ public class RescueMissionSuggestionReviewHelperTests
             ]);
 
         var activity = Assert.Single(result.SuggestedActivities);
-        Assert.Null(activity.DepotId);
-        Assert.Null(activity.DepotName);
-        Assert.Null(activity.DepotAddress);
-        Assert.Null(activity.DestinationName);
-        Assert.Null(activity.DestinationLatitude);
-        Assert.Null(activity.DestinationLongitude);
+        Assert.Equal(1, activity.DepotId);
+        Assert.NotNull(activity.DepotName);
+        Assert.NotNull(activity.DepotAddress);
 
         var shortage = Assert.Single(result.SupplyShortages);
-        Assert.Null(shortage.SelectedDepotId);
-        Assert.Null(shortage.SelectedDepotName);
-        Assert.True(result.NeedsManualReview);
-        Assert.Contains("ngoài pool", result.SpecialNotes);
+        Assert.Equal(1, shortage.SelectedDepotId);
+        Assert.NotNull(shortage.SelectedDepotName);
+        Assert.False(result.NeedsManualReview, result.SpecialNotes);
+        Assert.DoesNotContain("pool", result.SpecialNotes ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("depot_id", result.SpecialNotes ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 }

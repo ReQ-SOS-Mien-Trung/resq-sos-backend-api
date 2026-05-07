@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using RESQ.Application.Common;
 using Microsoft.Extensions.Logging;
 using RESQ.Application.Services;
 using RESQ.Application.Services.Ai;
@@ -125,7 +126,7 @@ public partial class RescueMissionSuggestionService
                         ["single_depot_required"] = bool.TrueString,
                         ["eligible_depot_count"] = (nearbyDepots?.Count ?? 0).ToString()
                     },
-                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If SOS context mentions flooding, isolation, or evacuation, you must also search transportation/rescue inventory before finalizing the depot plan. Use searchInventory item_type as the source of truth: Consumable items may be collected and delivered to SOS requests; Reusable items are collected for team use and later returned, not delivered. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages."),
+                    "Plan depot collection and delivery fragments. Use only inventory lookup results. Choose exactly one depot for the whole mission. Do not split supplies across multiple depots. Search both relief stock and transport or reusable equipment from inventory when the plan needs vehicles or field gear. If SOS context mentions flooding, isolation, or evacuation, you must also search transportation/rescue inventory before finalizing the depot plan. Use searchInventory item_type as the source of truth: Consumable items may be collected and delivered to SOS requests; Reusable items are collected for team use and later returned, not delivered. If the chosen depot lacks stock, keep the one-depot plan and fill needs_additional_depot plus supply_shortages. Do not ask the coordinator to choose another depot manually."),
                 "Only searchInventory is available. It is already scoped to eligible depots for this cluster and returns only decision fields, not image URLs or raw lot/serial data. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): do NOT list Consumable items in COLLECT_SUPPLIES.supplies_to_collect. Every Consumable item must appear ONLY in a DELIVER_SUPPLIES activity with the exact sos_request_id it serves; backend will sum DELIVER items automatically to compute the COLLECT list. COLLECT_SUPPLIES only needs: depot_id, depot_name, and any Reusable equipment found via searchInventory. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES.supplies_to_collect must contain only items whose item_type is Consumable. Never put a Reusable item in DELIVER_SUPPLIES; Reusable items belong only in COLLECT_SUPPLIES and RETURN_SUPPLIES. IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must be covered by a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, unless the selected depot cannot supply it; in that case include a supply_shortages row with the exact sos_request_id. Do not rely on description-only mentions or one generic delivery to cover multiple SOS. If a depot-backed vehicle or reusable item is selected, keep it inside COLLECT_SUPPLIES and RETURN_SUPPLIES with depot and item identifiers; do not demote it to resources[]. When searchInventory returns a matching boat, vehicle, or rescue equipment item, put that real inventory item into supplies_to_collect of COLLECT_SUPPLIES. This stage only suggests the plan and does not reserve inventory. Do not invent depot_id or item_id. Every DELIVER_SUPPLIES that comes from the chosen depot must keep depot_id/depot_name/depot_address and the concrete Consumable supplies_to_collect list. Return JSON only.",
                 BuildAllowedTools("searchInventory"),
                 nearbyDepots,
@@ -279,7 +280,7 @@ public partial class RescueMissionSuggestionService
                         ["mission_draft_body"] = draftJson
                     },
                     "Rewrite the assembled mission draft as the final mission JSON schema. Preserve the single selected depot, needs_additional_depot, and supply_shortages fields. Preserve any inventory-backed Reusable equipment inside COLLECT_SUPPLIES/RETURN_SUPPLIES. Keep the JSON contract unchanged. RESCUE and EVACUATE may target only victims with need_rescue=true; MEDICAL_AID remains independent for medical fields."),
-                "No tools are available. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with exact sos_request_id. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES may include only Consumable supplies intended for handover to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered. IMPORTANT SOS COVERAGE CONTRACT (STRICT): cover SOS entries through the minimal applicable activity types only: DELIVER_SUPPLIES for consumables, MEDICAL_AID for medical fields, and RESCUE/EVACUATE only for victims with need_rescue=true. Do not create RESCUE or EVACUATE for need_rescue=false or missing/null victims. Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage. If the draft misses applicable coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available. Do not invent depot_id, item_id, team_id, or assembly_point_id. Return the full mission JSON only. Do not introduce a second depot. Do not add warnings[] or any new warning schema.",
+                "No tools are available. DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with exact sos_request_id. IMPORTANT ITEM TYPE CONTRACT (STRICT): DELIVER_SUPPLIES may include only Consumable supplies intended for handover to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered. IMPORTANT SOS COVERAGE CONTRACT (STRICT): cover SOS entries through the minimal applicable activity types only: DELIVER_SUPPLIES for consumables, MEDICAL_AID for medical fields, and RESCUE/EVACUATE only for victims with need_rescue=true. Do not create RESCUE or EVACUATE for need_rescue=false or missing/null victims. Do not count COLLECT_SUPPLIES, RETURN_SUPPLIES, RETURN_ASSEMBLY_POINT, or description-only SOS mentions as coverage. If the draft misses applicable coverage, rewrite by adding the minimal concrete activity and keep suggested_team null when no valid team is available. Do not invent depot_id, item_id, team_id, or assembly_point_id. Return the full mission JSON only. Do not introduce a second depot. Do not ask the coordinator to choose another depot manually. For a single SOS request, remove split-cluster notes and solve ordering inside the same mission. Do not add warnings[] or any new warning schema.",
                 aiConfig,
                 options,
                 cancellationToken);
@@ -619,6 +620,17 @@ public partial class RescueMissionSuggestionService
                 - If a victim needs can sua, sua bot, milk, formula, or has INFANT_NEEDS_MILK, add required_supplies item_name "Sua bot tre em" for that exact sos_request_id.
                 - Do not treat generic food or Luong kho as covering this milk/formula need.
 
+                SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT):
+                - If SOS_REQUESTS_DATA has only one SOS request, set split_cluster_recommended=false and split_cluster_reason=null.
+                - Do not write "Tach cluster", "Tách cluster", or any split-cluster recommendation in special_notes for a single SOS.
+                - A single SOS can have rescue, medical, and relief needs; handle them through safe activity ordering in one mission.
+
+                THREE_DAY_RELIEF_PLANNING (CONTEXTUAL):
+                - For consumable relief supplies, estimate quantity so recipients have enough for at least 3 days.
+                - Consider people count, vulnerable groups, isolation duration, current shortage evidence, item type, item unit, special needs, and resupply feasibility.
+                - If isolation is longer than 3 days or resupply is uncertain, increase beyond the 3-day minimum.
+                - Do not use fixed per-person ration examples; reason from SOS context.
+
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Keep duration estimates realistic for nearby urban missions; do not default to 30/45/60 minutes without distance or field-condition evidence.
                 """,
@@ -645,6 +657,17 @@ public partial class RescueMissionSuggestionService
                 - If requirements_fragment contains "Sua bot tre em" or SOS_REQUESTS_DATA has can sua/sua bot/milk/formula, call searchInventory for sua/Sua bot tre em before finalizing depot planning.
                 - If the selected depot has no or insufficient milk/formula stock, add a supply_shortages row with the exact sos_request_id and set needs_additional_depot = true.
                 - Generic food or Luong kho must not replace milk/formula for a child or infant special diet.
+
+                ELIGIBLE_DEPOT_SCOPE (STRICT):
+                - Use only depot_id/depot_name values returned by searchInventory in this stage.
+                - Do not invent or mention depots outside tool results.
+                - Do not ask the coordinator to choose a depot manually; if the selected depot cannot cover a need, keep the one-depot plan and record supply_shortages.
+
+                THREE_DAY_RELIEF_PLANNING (CONTEXTUAL):
+                - DELIVER_SUPPLIES quantities must preserve contextual needs for at least 3 days from requirements_fragment.
+                - Do not reduce needed_quantity to match available stock.
+                - If the selected depot has less than the contextual need, deliver the available Consumable amount and add supply_shortages with contextual needed_quantity, searchInventory available_quantity, and the missing difference.
+                - Do not use fixed per-person ration examples; use SOS context and inventory units.
 
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Do not default to 30/45/60 minutes.
@@ -688,6 +711,15 @@ public partial class RescueMissionSuggestionService
                 - Before RETURN_SUPPLIES, at least one RESCUE, MEDICAL_AID, or EVACUATE activity on the same route must explicitly mention using the collected Reusable equipment by name.
                 - RETURN_SUPPLIES is not a substitute for using the equipment at the scene.
 
+                SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT):
+                - If SOS_REQUESTS_DATA has only one SOS request, remove any "Tach cluster", "Tách cluster", or split-cluster recommendation from special_notes.
+                - Keep the mission executable and solve ordering inside the same mission.
+
+                ELIGIBLE_DEPOT_SCOPE (STRICT):
+                - Keep only depot_id/depot_name values already present in the selected depot or inventory-backed draft.
+                - Do not invent or mention depots outside eligible tool results.
+                - Do not ask the coordinator to choose a depot manually.
+
                 MEDICAL_ITEM_SELECTION (STRICT):
                 - For bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban.
                 - Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
@@ -695,6 +727,12 @@ public partial class RescueMissionSuggestionService
                 SPECIAL_DIET_MILK_SUPPLY (STRICT):
                 - If SOS_REQUESTS_DATA has can sua/sua bot/milk/formula or INFANT_NEEDS_MILK, the final mission must either deliver "Sua bot tre em" to that exact sos_request_id or include a supply_shortages row for it.
                 - Do not let generic food, Luong kho, or description-only notes count as milk/formula coverage.
+
+                THREE_DAY_RELIEF_PLANNING (CONTEXTUAL):
+                - Validate final Consumable relief quantities against the contextual goal that recipients have enough for at least 3 days.
+                - Consider people count, vulnerable groups, isolation duration, current shortage evidence, item type, item unit, special needs, and resupply feasibility.
+                - If a draft quantity is too low, increase it when inventory supports the need; otherwise preserve the deliverable amount and add or update supply_shortages with contextual needed_quantity.
+                - Do not use fixed per-person ration examples.
 
                 REALISTIC_ESTIMATE_TIME (STRICT):
                 - Do not default to 30/45/60 minutes.
@@ -1614,6 +1652,58 @@ public partial class RescueMissionSuggestionService
 
         if (fragment.SplitClusterRecommended && string.IsNullOrWhiteSpace(fragment.SplitClusterReason))
             fragment.SplitClusterReason = "AI recommended cluster split but did not provide a specific reason.";
+
+        SuppressSingleSosClusterSplitRecommendation(fragment, sosRequests);
+    }
+
+    private static void SuppressSingleSosClusterSplitRecommendation(
+        MissionRequirementsFragment fragment,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        if (sosRequests.Count != 1)
+            return;
+
+        fragment.SplitClusterRecommended = false;
+        fragment.SplitClusterReason = null;
+        fragment.SpecialNotes = RemoveSingleSosClusterSplitNotes(fragment.SpecialNotes);
+    }
+
+    private static void SuppressSingleSosClusterSplitNotes(
+        RescueMissionSuggestionResult result,
+        IReadOnlyCollection<SosRequestSummary> sosRequests)
+    {
+        if (sosRequests.Count != 1)
+            return;
+
+        result.SpecialNotes = RemoveSingleSosClusterSplitNotes(result.SpecialNotes);
+        result.MixedRescueReliefWarning = RemoveSingleSosClusterSplitNotes(result.MixedRescueReliefWarning) ?? string.Empty;
+    }
+
+    private static string? RemoveSingleSosClusterSplitNotes(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return notes;
+
+        var keptSegments = Regex.Split(notes.Trim(), @"\r?\n|\s*\|\s*")
+            .Select(segment => segment.Trim())
+            .Where(segment => !string.IsNullOrWhiteSpace(segment))
+            .Where(segment => !LooksLikeClusterSplitNote(segment))
+            .ToList();
+
+        return keptSegments.Count == 0
+            ? null
+            : string.Join(Environment.NewLine, keptSegments);
+    }
+
+    private static bool LooksLikeClusterSplitNote(string text)
+    {
+        var normalized = SosPriorityRuleConfigSupport.NormalizeKey(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return normalized.Contains("CLUSTER", StringComparison.Ordinal)
+            && (normalized.Contains("TACH", StringComparison.Ordinal)
+                || normalized.Contains("SPLIT", StringComparison.Ordinal));
     }
 
     private static void AugmentRequirementsFromStructuredData(
@@ -2217,6 +2307,7 @@ public partial class RescueMissionSuggestionService
         EnrichVictimTargets(result.SuggestedActivities, sosLookup);
         ApplyMixedRescueReliefSafetyNote(result);
         NormalizeMixedRescueReliefWarning(result, allowFallbackFromSpecialNotes: !string.IsNullOrWhiteSpace(result.MixedRescueReliefWarning));
+        SuppressSingleSosClusterSplitNotes(result, sosRequests);
         NormalizeEstimatedDurations(result);
         ApplySosCoverageReview(result, sosRequests);
 

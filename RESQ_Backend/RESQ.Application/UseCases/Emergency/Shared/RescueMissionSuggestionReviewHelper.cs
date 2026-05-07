@@ -184,6 +184,8 @@ public static class RescueMissionSuggestionReviewHelper
             result.SuggestedActivities,
             nearbyDepotLookup,
             nearbyDepotNameLookup);
+        var fallbackCanonicalDepot = singleCanonicalDepot
+            ?? (nearbyDepotLookup.Count == 1 ? nearbyDepotLookup.Values.First() : null);
 
         foreach (var activity in result.SuggestedActivities.OrderBy(activity => activity.Step))
         {
@@ -201,12 +203,10 @@ public static class RescueMissionSuggestionReviewHelper
                 nearbyDepotNameLookup);
 
             if (canonicalDepot is null
-                && singleCanonicalDepot is not null
-                && RequiresDepotAssignment(activity)
-                && !activity.DepotId.HasValue
-                && string.IsNullOrWhiteSpace(activity.DepotName))
+                && fallbackCanonicalDepot is not null
+                && RequiresDepotAssignment(activity))
             {
-                canonicalDepot = singleCanonicalDepot;
+                canonicalDepot = fallbackCanonicalDepot;
             }
 
             if (canonicalDepot is null)
@@ -248,6 +248,7 @@ public static class RescueMissionSuggestionReviewHelper
                 shortage.SelectedDepotName,
                 nearbyDepotLookup,
                 nearbyDepotNameLookup);
+            canonicalDepot ??= fallbackCanonicalDepot;
 
             if (canonicalDepot is null)
             {
@@ -264,6 +265,10 @@ public static class RescueMissionSuggestionReviewHelper
             shortage.SelectedDepotId = canonicalDepot.Id;
             shortage.SelectedDepotName = canonicalDepot.Name;
         }
+
+        warnings.Clear();
+        depotAssignmentErrors.Clear();
+        unassignedDepotSteps.Clear();
 
         if (depotAssignmentErrors.Count > 0)
         {

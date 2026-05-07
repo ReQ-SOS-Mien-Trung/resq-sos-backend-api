@@ -371,6 +371,70 @@ public class RescueMissionSuggestionServiceInternalTests
         Assert.Equal("fracture first aid", team.Reason);
     }
 
+    [Fact]
+    public void ValidateRequirementsFragment_SingleSosSuppressesSplitClusterRecommendation()
+    {
+        var fragment = new MissionRequirementsFragment
+        {
+            SplitClusterRecommended = true,
+            SplitClusterReason = "Tach cluster vi can uu tien cuu ho.",
+            SpecialNotes = "Tach cluster: uu tien so tan y te truoc.\nGiu lai ghi chu van hanh.",
+            SosRequirements =
+            [
+                new MissionSosRequirementFragment
+                {
+                    SosRequestId = 42,
+                    RequiredSupplies = [],
+                    RequiredTeams = []
+                }
+            ]
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "ValidateRequirementsFragment",
+            fragment,
+            new List<SosRequestSummary>
+            {
+                new()
+                {
+                    Id = 42,
+                    RawMessage = "Mot SOS vua can cuu ho vua can hang cuu tro."
+                }
+            });
+
+        Assert.False(fragment.SplitClusterRecommended);
+        Assert.Null(fragment.SplitClusterReason);
+        Assert.DoesNotContain("Tach cluster", fragment.SpecialNotes ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Giu lai ghi chu van hanh.", fragment.SpecialNotes);
+    }
+
+    [Fact]
+    public void SuppressSingleSosClusterSplitNotes_RemovesSplitClusterNotesOnly()
+    {
+        var result = new RescueMissionSuggestionResult
+        {
+            SpecialNotes = "Tach cluster: uu tien so tan y te truoc.\nCan kiem tra duong vao hien truong.",
+            MixedRescueReliefWarning = "Tach cluster: tach cuu ho va cuu tro."
+        };
+
+        InvokeStatic(
+            nameof(RescueMissionSuggestionService),
+            "SuppressSingleSosClusterSplitNotes",
+            result,
+            new List<SosRequestSummary>
+            {
+                new()
+                {
+                    Id = 42,
+                    RawMessage = "Mot SOS duy nhat."
+                }
+            });
+
+        Assert.Equal("Can kiem tra duong vao hien truong.", result.SpecialNotes);
+        Assert.Equal(string.Empty, result.MixedRescueReliefWarning);
+    }
+
     [Theory]
     [InlineData("MAX_TOKENS")]
     [InlineData("length")]
@@ -1945,6 +2009,8 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionRequirementsAssessment, "NEED_RESCUE_ACTIVITY_CONTRACT (STRICT)")]
     [InlineData(PromptType.MissionRequirementsAssessment, "Bo so cuu co ban")]
     [InlineData(PromptType.MissionRequirementsAssessment, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionRequirementsAssessment, "THREE_DAY_RELIEF_PLANNING (CONTEXTUAL)")]
+    [InlineData(PromptType.MissionRequirementsAssessment, "SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "Do NOT list Consumable items in COLLECT_SUPPLIES")]
     [InlineData(PromptType.MissionDepotPlanning, "Backend will automatically sum up DELIVER_SUPPLIES items")]
@@ -1953,6 +2019,8 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionDepotPlanning, "MEDICAL_ITEM_SELECTION (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionDepotPlanning, "THREE_DAY_RELIEF_PLANNING (CONTEXTUAL)")]
+    [InlineData(PromptType.MissionDepotPlanning, "ELIGIBLE_DEPOT_SCOPE (STRICT)")]
     [InlineData(PromptType.MissionDepotPlanning, "5-15 minutes for collect/deliver/return")]
     [InlineData(PromptType.MissionDepotPlanning, "15-35 minutes for rescue/medical/evacuate")]
     [InlineData(PromptType.MissionTeamPlanning, "REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT)")]
@@ -1970,6 +2038,9 @@ public class RescueMissionSuggestionServiceInternalTests
     [InlineData(PromptType.MissionPlanValidation, "MEDICAL_ITEM_SELECTION (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "SPECIAL_DIET_MILK_SUPPLY (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "REALISTIC_ESTIMATE_TIME (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "THREE_DAY_RELIEF_PLANNING (CONTEXTUAL)")]
+    [InlineData(PromptType.MissionPlanValidation, "SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT)")]
+    [InlineData(PromptType.MissionPlanValidation, "ELIGIBLE_DEPOT_SCOPE (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "TARGET_VICTIM_SELECTION_FOR_MEDICAL_AID (STRICT)")]
     [InlineData(PromptType.MissionPlanValidation, "target_person_ids")]
     public void BuildPipelineStageAppendix_ContainsExpectedGuardrailRule(PromptType promptType, string expectedRule)

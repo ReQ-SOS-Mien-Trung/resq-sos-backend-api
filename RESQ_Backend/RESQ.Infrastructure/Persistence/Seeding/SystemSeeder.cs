@@ -394,6 +394,7 @@ Schema đầu ra:
 
 Quy tắc một kho:
 - Tất cả mảnh COLLECT_SUPPLIES và DELIVER_SUPPLIES phải dùng cùng một depot_id.
+- ELIGIBLE_DEPOT_SCOPE (STRICT): chỉ dùng depot_id/depot_name do searchInventory trả về trong lượt chạy hiện tại. Không tự bịa hoặc tham chiếu kho ngoài kết quả tool, không ghi note yêu cầu chọn kho thủ công. Nếu kho đã chọn không đủ, giữ plan một kho, giao phần có sẵn và ghi phần thiếu vào supply_shortages.
 - Nếu kho đã chọn chỉ có một phần tồn kho, chỉ tạo activity cho số lượng có thể đáp ứng và đưa phần thiếu vào supply_shortages.
 - Nếu không có kho hợp lệ hoặc không có tồn kho dùng được, trả activities = [], needs_additional_depot = true, và mỗi vật tư thiếu có một dòng trong supply_shortages. selected_depot_id/name có thể null khi không chọn được kho.
 - Các dòng supply_shortages phải dùng: sos_request_id, item_id, item_name, unit, selected_depot_id, selected_depot_name, needed_quantity, available_quantity, missing_quantity, notes.
@@ -404,13 +405,14 @@ Quy tắc một kho:
 - NEED_RESCUE_ACTIVITY_CONTRACT (STRICT): search transportation or rescue reusable equipment only when SOS_REQUESTS_DATA has at least one victim with `need_rescue=true` or the route already has a valid RESCUE/EVACUATE branch. Do not infer rescue equipment from `medical_issues` alone.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
 - SPECIAL_DIET_MILK_SUPPLY (STRICT): if requirements_fragment contains ""Sua bot tre em"" or SOS_REQUESTS_DATA has can sua/sua bot/milk/formula, call searchInventory for sua/Sua bot tre em. If the selected depot has no or insufficient milk/formula stock, add a supply_shortages row with exact sos_request_id and set needs_additional_depot = true. Generic food or Luong kho must not replace milk/formula.
+- THREE_DAY_RELIEF_PLANNING (CONTEXTUAL): DELIVER_SUPPLIES quantities must preserve the contextual needs for at least 3 days from requirements_fragment. Do not reduce needed_quantity to match available stock. If the selected depot has less than the contextual need, deliver the available Consumable amount and add supply_shortages where needed_quantity is the contextual need, available_quantity is the amount found through searchInventory, and missing_quantity is the difference. Do not use fixed per-person ration examples; use SOS context and inventory units.
 - IMPORTANT SOS COVERAGE CONTRACT (STRICT): every SOS with consumable required_supplies must have a direct DELIVER_SUPPLIES activity whose sos_request_id exactly matches that SOS, or a supply_shortages row with that exact sos_request_id when the chosen depot cannot supply it.
 - Do not rely on description-only SOS mentions or one generic delivery to cover multiple SOS.
 - REALISTIC_ESTIMATE_TIME (STRICT): compute estimated_time as an integer-minute duration, then output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in the final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2. Use distance_km from tool/context when available; otherwise estimate cautiously from coordinates/address evidence. Add +5-15 minutes for heavy/many supplies, blocked access, flood/night/bad weather, complex rescue/evacuation, or field setup. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if the SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Round to the nearest 5 minutes, minimum 5 minutes.
 - activity_key phải ổn định và duy nhất vì giai đoạn Team sẽ gán đội theo khóa này.
 - estimated_time phải dùng dạng ""X phút"" hoặc ""Y giờ Z phút"" với số nguyên phút parse được để lưu DB; không trả placeholder trong JSON thật.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA, REQUIREMENTS_FRAGMENT, SINGLE_DEPOT_REQUIRED và ELIGIBLE_DEPOT_COUNT do backend cung cấp bên dưới. Chỉ dùng kết quả từ tool searchInventory. Chỉ trả về JSON object MissionDepotFragment đúng schema trong system prompt.",
-                Version = "v1.4",
+                Version = "v1.6",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -866,7 +868,7 @@ Chỉ trả về JSON đúng schema. Các field mô tả phải bằng tiếng V
                 Id = 10,
                 Name = "Prompt đánh giá nhu cầu nhiệm vụ v2",
                 PromptType = "MissionRequirementsAssessment",
-                Purpose = "Giai đoạn 1 của pipeline: phân tích nhu cầu mission từ SOS và phát hiện mixed cluster cần tách.",
+                Purpose = "Giai đoạn 1 của pipeline: phân tích nhu cầu mission từ SOS và chỉ phát hiện tách cluster khi có nhiều SOS không tương thích.",
                 SystemPrompt = @"Bạn là tác nhân đánh giá nhu cầu trong pipeline mission RESQ.
 
 Chỉ đọc SOS request. Không lập kế hoạch kho, đội, tuyến đường hoặc activity cuối cùng.
@@ -908,7 +910,8 @@ Schema đầu ra:
 
 Quy tắc bắt buộc:
 - Mọi SOS trong input phải xuất hiện trong `sos_requirements`.
-- Nếu trong cùng cluster có nhánh cứu trợ và có bất kỳ SOS rescue nào với `ai_analysis.needs_immediate_safe_transfer = true` hoặc `ai_analysis.can_wait_for_combined_mission = false`, phải đặt `split_cluster_recommended = true` và ghi `split_cluster_reason` thật cụ thể.
+- SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT): nếu input chỉ có một SOS request, luôn đặt `split_cluster_recommended = false`, `split_cluster_reason = null`, và không ghi ""Tách cluster"" hoặc khuyến nghị tách cluster trong `special_notes`. Một SOS vừa cần cứu hộ/y tế vừa cần cứu trợ thì xử lý bằng thứ tự activity an toàn trong cùng mission, không phải tách cluster.
+- Chỉ đặt `split_cluster_recommended = true` khi có ít nhất hai SOS request khác nhau và nhánh rescue khẩn cấp của một SOS không tương thích với nhánh cứu trợ/cấp phát của SOS khác. Khi đó `split_cluster_reason` phải thật cụ thể.
 - Với SOS rescue khẩn cấp như trên, tuyệt đối không coi là waitable.
 - Nếu `ai_analysis.has_ai_analysis = false`, hãy suy luận thận trọng từ tin nhắn/raw_message; khi cluster đang mixed rescue + relief thì nêu rõ cần manual review trong `special_notes`.
 - Thực phẩm, nước, thuốc, sữa, quần áo, chăn màn, vật tư trú ẩn phải nằm trong `required_supplies`, không đưa vào `suggested_resources`.
@@ -916,6 +919,7 @@ Quy tắc bắt buộc:
 - NEED_RESCUE_ACTIVITY_CONTRACT (STRICT): read `danh_sach_nan_nhan[].need_rescue` and `du_lieu_chi_tiet.victims[].need_rescue`. Only victims with `need_rescue=true` may create rescue, evacuation, safe-transfer, transportation, or rescue-equipment requirements. `need_rescue=false` or missing/null must not drive RESCUE or EVACUATE. Medical fields remain independent and may still create medical requirements.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence. Do not add unrelated medicine just because the request is medical.
 - SPECIAL_DIET_MILK_SUPPLY (STRICT): inspect `danh_sach_nan_nhan[].che_do_an_dac_biet` and `du_lieu_chi_tiet.victims[].personal_needs.diet`. If a victim needs can sua, sua bot, milk, formula, or has INFANT_NEEDS_MILK, add `required_supplies` item_name ""Sua bot tre em"" for that exact sos_request_id. Do not treat generic food or Luong kho as covering this milk/formula need.
+- THREE_DAY_RELIEF_PLANNING (CONTEXTUAL): for consumable relief supplies, estimate required_supplies quantity so recipients have enough for at least 3 days. Use contextual judgment from people counts, victim groups, children, elderly people, pregnant people, patients, isolation duration, already-mentioned shortages, resupply feasibility, item type, item unit, and special needs. If SOS evidence says isolation is longer than 3 days or resupply is uncertain, increase beyond the 3-day minimum. Do not use fixed per-person ration examples; reason from the SOS context.
 - REALISTIC_ESTIMATE_TIME (STRICT): compute duration as integer minutes and format it as ""X phút"" or ""Y giờ Z phút"" only, so backend can parse it to the DB integer minutes column. Do not default to 30/45/60 minutes and never output placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Use base_minutes by likely activity need: RESCUE=10, MEDICAL_AID=15, EVACUATE=10, supply collect/deliver/return=5-10. Add travel_minutes = distance_km * 2 when distance evidence exists. Add +5-15 minutes for first aid/medical handling in a rescue depending on severity, and another +5-15 minutes when one SOS has multiple victims needing help. Add field-condition adjustment for blocked access, flood/night/bad weather, heavy supplies, or complex rescue. Round to nearest 5 minutes, minimum 5 minutes.
 - `suggested_resources` chỉ dành cho năng lực đội, phương tiện, thuyền/xuồng hoặc thiết bị không tiêu hao.
 - Chỉ trả về JSON object hợp lệ, không markdown.
@@ -952,7 +956,7 @@ IMPORTANT JSON RULES FOR sos_requirements (STRICT):
 - Invalid required_teams examples: [""Medical""], [1], [{""quantity"":""one""}], [{""team_type"":{""name"":""Medical""}}]
 - For unknown numeric values, use a safe integer estimate. Never output non-integer numeric fields in these arrays.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh do backend cung cấp bên dưới. Chỉ trả về JSON object MissionRequirementsFragment đúng schema trong system prompt.",
-                Version = "v2.2",
+                Version = "v2.4",
                 IsActive = true,
                 CreatedAt = now
             },
@@ -1112,20 +1116,23 @@ Nhiệm vụ:
 - Không tự bịa item_id, depot_id, team_id hoặc assembly_point_id.
 
 Quy tắc mixed mission bắt buộc:
-1. Nếu cùng một team đang làm mission mixed waitable, chỉ áp thứ tự `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước `RESCUE/MEDICAL_AID/EVACUATE` cho nhánh cấp phát `Consumable` thật sự. Nếu chỉ là thiết bị `Reusable` cho đội, route là `COLLECT_SUPPLIES -> RESCUE/MEDICAL_AID/EVACUATE -> RETURN_SUPPLIES`.
-2. Nếu draft có tình huống cứu hộ xong rồi team đó còn tiếp tục `DELIVER_SUPPLIES` cho SOS khác, phải rewrite lại cho an toàn hoặc loại bỏ kế hoạch đó khỏi route của team đó.
-3. Nếu draft vẫn đang ghép rescue khẩn cấp cần đưa về nơi an toàn ngay với nhánh cứu trợ khác, phải giữ cảnh báo tách cluster trong `special_notes`.
-4. Không được tạo route khiến nạn nhân đã cứu bị chở đi khắp nơi làm nhiệm vụ cứu trợ.
-5. `RETURN_ASSEMBLY_POINT` là bước hậu xử lý deterministic của backend; nếu draft chưa có thì không cần tự bịa thêm, nhưng route phải kết thúc theo logic có thể append an toàn.
-6. Không được trả `activities = []` chỉ vì có warning tách cluster hoặc cần manual review. Khi trả mission JSON, `activities` phải là execution plan cụ thể.
-7. Nếu draft mixed đang thiếu route an toàn, phải rewrite lại route đó thay vì xoá toàn bộ activities.
+1. SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT): nếu SOS_REQUESTS_DATA chỉ có một SOS request, không giữ hoặc tạo ghi chú ""Tách cluster"", không khuyến nghị tách cluster trong `special_notes`; hãy xử lý thứ tự cứu hộ/y tế/cứu trợ an toàn trong cùng mission.
+2. Nếu cùng một team đang làm mission mixed waitable, chỉ áp thứ tự `COLLECT_SUPPLIES -> DELIVER_SUPPLIES` trước `RESCUE/MEDICAL_AID/EVACUATE` cho nhánh cấp phát `Consumable` thật sự. Nếu chỉ là thiết bị `Reusable` cho đội, route là `COLLECT_SUPPLIES -> RESCUE/MEDICAL_AID/EVACUATE -> RETURN_SUPPLIES`.
+3. Nếu draft có tình huống cứu hộ xong rồi team đó còn tiếp tục `DELIVER_SUPPLIES` cho SOS khác, phải rewrite lại cho an toàn hoặc loại bỏ kế hoạch đó khỏi route của team đó.
+4. Nếu draft vẫn đang ghép rescue khẩn cấp cần đưa về nơi an toàn ngay với nhánh cứu trợ của SOS khác trong cluster nhiều SOS, phải giữ cảnh báo tách cluster trong `special_notes`.
+5. Không được tạo route khiến nạn nhân đã cứu bị chở đi khắp nơi làm nhiệm vụ cứu trợ.
+6. `RETURN_ASSEMBLY_POINT` là bước hậu xử lý deterministic của backend; nếu draft chưa có thì không cần tự bịa thêm, nhưng route phải kết thúc theo logic có thể append an toàn.
+7. Không được trả `activities = []` chỉ vì có warning tách cluster hoặc cần manual review. Khi trả mission JSON, `activities` phải là execution plan cụ thể.
+8. Nếu draft mixed đang thiếu route an toàn, phải rewrite lại route đó thay vì xoá toàn bộ activities.
 
 IMPORTANT ITEM TYPE CONTRACT (STRICT):
 - DELIVER_SUPPLIES may include only Consumable supplies intended for handover/cap phat to SOS requests. Reusable equipment must remain in COLLECT_SUPPLIES/RETURN_SUPPLIES and be used by RESCUE/MEDICAL_AID/EVACUATE activities, not delivered.
 - DELIVER_ONLY_CONSUMABLES_IN_COLLECT (STRICT): COLLECT_SUPPLIES.supplies_to_collect must only contain Reusable equipment. Do NOT add Consumable items to COLLECT; they are computed by backend from DELIVER items. All Consumable items must appear in DELIVER_SUPPLIES with correct sos_request_id.
 - REUSABLE_FIELD_USE_BEFORE_RETURN (STRICT): before RETURN_SUPPLIES, at least one RESCUE, MEDICAL_AID, or EVACUATE activity on the same route must explicitly mention using the collected Reusable equipment by name. RETURN_SUPPLIES is not a substitute for using the equipment at the scene.
+- ELIGIBLE_DEPOT_SCOPE (STRICT): final JSON may only keep depot_id/depot_name values already present in the selected depot/inventory-backed draft. Do not invent or mention depots outside the eligible tool results, and do not write notes asking the coordinator to choose a depot manually.
 - MEDICAL_ITEM_SELECTION (STRICT): for bleeding, severe bleeding, burns, injured victims, or FIRST_AID needs, prefer first-aid supplies such as Bo so cuu co ban. Add Paracetamol only when there is fever, pain, COMMON_MEDICINE, or explicit common-medicine evidence.
 - SPECIAL_DIET_MILK_SUPPLY (STRICT): if SOS_REQUESTS_DATA has can sua/sua bot/milk/formula or INFANT_NEEDS_MILK, the final mission must either deliver ""Sua bot tre em"" to that exact sos_request_id or include a supply_shortages row for it. Do not let generic food, Luong kho, or description-only notes count as milk/formula coverage.
+- THREE_DAY_RELIEF_PLANNING (CONTEXTUAL): validate final Consumable relief quantities against the contextual goal that recipients have enough for at least 3 days. Consider people count, vulnerable groups, isolation duration, current shortage evidence, item type, item unit, special needs, and resupply feasibility. If a draft quantity is too low, increase it when inventory supports the need; otherwise preserve the deliverable amount and add or update supply_shortages with the contextual needed_quantity. Do not use fixed per-person ration examples.
 - REALISTIC_ESTIMATE_TIME (STRICT): validate or rewrite every estimated_time as integer minutes and output only ""X phút"" or ""Y giờ Z phút"" so backend can parse it to the DB integer minutes column. Never keep placeholders, ranges, decimals, ""khoảng"", or ""vài phút"" in final JSON. Formula: total_minutes = base_minutes + travel_minutes + context_adjustment. Base minutes: COLLECT_SUPPLIES=10, DELIVER_SUPPLIES=10, RETURN_SUPPLIES=5, RETURN_ASSEMBLY_POINT=5, RESCUE=10, MEDICAL_AID=15, EVACUATE=10. travel_minutes = distance_km * 2 using distance evidence from team/depot/SOS context when available. Add +5-15 minutes for heavy/many supplies, blocked access, flood/night/bad weather, equipment setup, complex rescue, or evacuation difficulty. For RESCUE that includes first aid/medical handling, add +5-15 minutes by severity; if one SOS has multiple victims needing help, add another +5-15 minutes by victim count and condition. Round to nearest 5 minutes, minimum 5 minutes. estimated_duration must equal the sequential sum after these corrections.
 
 IMPORTANT TARGET VICTIM CONTRACT FOR MEDICAL_AID (STRICT):
@@ -1146,7 +1153,7 @@ IMPORTANT SOS COVERAGE CONTRACT (STRICT):
 
 Schema đầu ra giữ nguyên schema mission cuối cùng hiện có. Chỉ trả về JSON object hợp lệ, không markdown.",
                 UserPromptTemplate = @"Sử dụng các khối ngữ cảnh SOS_REQUESTS_DATA và MISSION_DRAFT_BODY do backend cung cấp bên dưới. Viết lại draft thành JSON object mission cuối cùng đúng schema trong system prompt.",
-                Version = "v2.4",
+                Version = "v2.6",
                 IsActive = true,
                 CreatedAt = now
             }

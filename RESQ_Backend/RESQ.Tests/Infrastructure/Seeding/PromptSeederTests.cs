@@ -14,12 +14,12 @@ public class PromptSeederTests
     }
 
     [Fact]
-    public void CreatePrompts_MissionRequirementsAssessmentV22_ContainsStrictJsonArrayRules()
+    public void CreatePrompts_MissionRequirementsAssessmentV24_ContainsStrictJsonArrayRules()
     {
         var prompt = SystemSeeder.CreatePrompts().Single(item => item.Id == 10);
 
         Assert.Equal("MissionRequirementsAssessment", prompt.PromptType);
-        Assert.Equal("v2.2", prompt.Version);
+        Assert.Equal("v2.4", prompt.Version);
         Assert.Contains("IMPORTANT JSON RULES FOR suggested_resources (STRICT):", prompt.SystemPrompt);
         Assert.Contains("- suggested_resources MUST be an array of JSON objects only.", prompt.SystemPrompt);
         Assert.Contains("IMPORTANT JSON RULES FOR sos_requirements (STRICT):", prompt.SystemPrompt);
@@ -106,9 +106,9 @@ public class PromptSeederTests
         var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
         var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
 
-        Assert.Equal("v2.2", requirements.Version);
-        Assert.Equal("v1.4", depot.Version);
-        Assert.Equal("v2.4", validation.Version);
+        Assert.Equal("v2.4", requirements.Version);
+        Assert.Equal("v1.6", depot.Version);
+        Assert.Equal("v2.6", validation.Version);
 
         foreach (var prompt in new[] { requirements, depot, validation })
         {
@@ -116,6 +116,52 @@ public class PromptSeederTests
             Assert.Contains("milk/formula", prompt.SystemPrompt);
             Assert.Contains("Luong kho", prompt.SystemPrompt);
         }
+    }
+
+    [Fact]
+    public void CreatePrompts_ActivePipelinePrompts_ContainContextualThreeDayReliefPlanningRule()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var requirements = prompts.Single(item => item.PromptType == "MissionRequirementsAssessment");
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Equal("v2.4", requirements.Version);
+        Assert.Equal("v1.6", depot.Version);
+        Assert.Equal("v2.6", validation.Version);
+
+        foreach (var prompt in new[] { requirements, depot, validation })
+        {
+            var systemPrompt = prompt.SystemPrompt ?? string.Empty;
+
+            Assert.Contains("THREE_DAY_RELIEF_PLANNING (CONTEXTUAL)", systemPrompt);
+            Assert.Contains("at least 3 days", systemPrompt);
+            Assert.Contains("contextual", systemPrompt.ToLowerInvariant());
+            Assert.DoesNotContain("6 chai/người", systemPrompt);
+            Assert.DoesNotContain("6 thanh/người", systemPrompt);
+            Assert.DoesNotContain("3 gói/trẻ", systemPrompt);
+        }
+    }
+
+    [Fact]
+    public void CreatePrompts_ActivePipelinePrompts_ContainSingleSosAndDepotScopeRules()
+    {
+        var prompts = SystemSeeder.CreatePrompts().Where(item => item.IsActive).ToArray();
+        var requirements = prompts.Single(item => item.PromptType == "MissionRequirementsAssessment");
+        var depot = prompts.Single(item => item.PromptType == "MissionDepotPlanning");
+        var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
+
+        Assert.Contains("SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT)", requirements.SystemPrompt);
+        Assert.Contains("split_cluster_recommended = false", requirements.SystemPrompt);
+        Assert.Contains("không ghi", requirements.SystemPrompt);
+
+        Assert.Contains("ELIGIBLE_DEPOT_SCOPE (STRICT)", depot.SystemPrompt);
+        Assert.Contains("không ghi note yêu cầu chọn kho thủ công", depot.SystemPrompt);
+
+        Assert.Contains("SINGLE_SOS_NO_CLUSTER_SPLIT (STRICT)", validation.SystemPrompt);
+        Assert.Contains("ELIGIBLE_DEPOT_SCOPE (STRICT)", validation.SystemPrompt);
+        Assert.Contains("Do not invent or mention depots outside the eligible tool results", validation.SystemPrompt);
+        Assert.Contains("do not write notes asking the coordinator to choose a depot manually", validation.SystemPrompt);
     }
 
     [Fact]
@@ -156,7 +202,7 @@ public class PromptSeederTests
         var validation = prompts.Single(item => item.PromptType == "MissionPlanValidation");
 
         Assert.Equal("v2.2", team.Version);
-        Assert.Equal("v2.4", validation.Version);
+        Assert.Equal("v2.6", validation.Version);
 
         foreach (var prompt in new[] { team, validation })
         {
