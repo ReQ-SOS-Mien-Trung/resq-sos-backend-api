@@ -664,6 +664,7 @@ public sealed partial class DatabaseSeeder
         EnsureClosureTestDepotsFullInventory(seed);
         ExcludeHueDepotItems(seed);
         EnsureHueDepotDepletedBoxedMilk(seed);
+        EnsureHueDepotDepletedCookingOil(seed);
 
         _db.SupplyInventories.AddRange(seed.Inventories);
         await _db.SaveChangesAsync(cancellationToken);
@@ -970,6 +971,20 @@ public sealed partial class DatabaseSeeder
             string.Equals(model.Name, "Sữa hộp trẻ em", StringComparison.OrdinalIgnoreCase));
 
         EnsureDepotInventory(seed, hueDepot.Id, boxedMilkModel.Id, 0, 0);
+    }
+
+    private static void EnsureHueDepotDepletedCookingOil(DemoSeedContext seed)
+    {
+        if (seed.Depots.Count == 0)
+        {
+            return;
+        }
+
+        var hueDepot = seed.Depots[0];
+        var cookingOilModel = seed.ItemModels.Single(model =>
+            string.Equals(model.Name, "Dầu ăn thực vật", StringComparison.OrdinalIgnoreCase));
+
+        EnsureDepotInventory(seed, hueDepot.Id, cookingOilModel.Id, 0, 0);
     }
 
     private static void EnsureEssentialBlanketLots(DemoSeedContext seed, ItemModel blanketModel)
@@ -1566,7 +1581,7 @@ public sealed partial class DatabaseSeeder
             4 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774866312/004-ao-phao-cuu-sinh_ozit6b.jpg",
             5 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865756/005-bang-ve-sinh_yhudge.png",
             6 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865756/006-chan-am-giu-nhiet_ivibn8.png",
-            7 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/007-sua-bot-tre-em_vzydxc.png",
+            7 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778173751/002-sua-hop-tre-em_hwguqf.png",
             8 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/008-luong-kho_xhokm0.png",
             9 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865754/009-dau-gio_rbndq6.jpg",
             10 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865755/010-sat-vitamin-tong-hop_rtdjgu.png",
@@ -1670,6 +1685,7 @@ public sealed partial class DatabaseSeeder
             108 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/108-xe-khach-16-cho_h3tjcc.jpg",
             109 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/109-xe-cau-di-dong_xcphgy.jpg",
             110 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1774865735/110-xe-chuyen-dung-phong-chay_xoomtb.jpg",
+            125 => "https://res.cloudinary.com/dezgwdrfs/image/upload/v1778148062/125-thuoc-dieu-tri-tang-huyet-ap_eb2lo3.jpg",
             _ => null
         };
     }

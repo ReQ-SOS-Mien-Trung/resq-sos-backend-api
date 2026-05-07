@@ -73,7 +73,7 @@ public class SosPriorityEvaluationServiceTests
             ProvidedHighMedicalPayloadJson,
             "BOTH");
 
-        Assert.Equal(88, evaluation.TotalScore);
+        Assert.Equal(78, evaluation.TotalScore);
         Assert.Equal(SosPriorityLevel.Critical, evaluation.PriorityLevel);
 
         var breakdown = JsonSerializer.Deserialize<SosPriorityEvaluationDetails>(evaluation.BreakdownJson!)!;
@@ -85,6 +85,7 @@ public class SosPriorityEvaluationServiceTests
         Assert.Equal(1, breakdown.RawVariables["medical_weight"]);
         Assert.Equal(1.1, breakdown.RawVariables["relief_weight"]);
         Assert.Equal(0.15, breakdown.RawVariables["request_type_weight"]);
+        Assert.Equal(1.15, breakdown.SituationMultiplier);
         Assert.Equal("Critical", breakdown.ThresholdDecision!.PriorityLevel);
     }
 

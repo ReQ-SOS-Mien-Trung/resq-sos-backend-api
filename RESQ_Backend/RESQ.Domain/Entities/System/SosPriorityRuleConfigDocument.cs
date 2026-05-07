@@ -43,13 +43,13 @@ public class SosPriorityRuleConfigDocument
     [JsonPropertyName("situation_multiplier")]
     public Dictionary<string, double> SituationMultiplier { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["FLOODING"] = 1.5,
-        ["COLLAPSED"] = 1.5,
-        ["TRAPPED"] = 1.3,
-        ["DANGER_ZONE"] = 1.3,
-        ["CANNOT_MOVE"] = 1.2,
-        ["OTHER"] = 1.0,
-        ["DEFAULT_WHEN_NULL"] = 1.0
+        ["FLOODING"] = 1.2,
+        ["COLLAPSED"] = 1.2,
+        ["TRAPPED"] = 1.15,
+        ["DANGER_ZONE"] = 1.15,
+        ["CANNOT_MOVE"] = 1.1,
+        ["OTHER"] = 1.05,
+        ["DEFAULT_WHEN_NULL"] = 1.05
     };
 
     [JsonPropertyName("priority_level")]

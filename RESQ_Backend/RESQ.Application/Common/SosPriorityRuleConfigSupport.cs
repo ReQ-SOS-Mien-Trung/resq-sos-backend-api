@@ -8,6 +8,9 @@ namespace RESQ.Application.Common;
 
 public static class SosPriorityRuleConfigSupport
 {
+    private const double SituationMultiplierMin = 1.05d;
+    private const double SituationMultiplierMax = 1.2d;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -186,6 +189,7 @@ public static class SosPriorityRuleConfigSupport
         MergeLabelMap(config.DisplayLabels.AgeGroups, DefaultConfig.DisplayLabels.AgeGroups);
         MergeLabelMap(config.DisplayLabels.RequestTypes, DefaultConfig.DisplayLabels.RequestTypes);
         MergeOptionList(config.MedicalSevereIssues, RequiredSevereMedicalIssues);
+        NormalizeSituationMultipliers(config);
         if (config.PriorityScore.Expression is null
             || IsLegacyDefaultPriorityFormula(config.PriorityScore.Formula))
         {
@@ -274,6 +278,7 @@ public static class SosPriorityRuleConfigSupport
         ValidateNonNegativeDictionary(config.MedicalScore.MedicalIssueSeverity, "medical_score.medical_issue_severity", errors);
         ValidateNonNegativeDictionary(config.RequestTypeScores, "request_type_scores", errors);
         ValidateNonNegativeDictionary(config.SituationMultiplier, "situation_multiplier", errors, requirePositive: true);
+        ValidateSituationMultiplierRange(config.SituationMultiplier, errors);
         ValidateNonNegativeDictionary(config.ReliefScore.SupplyUrgencyScore.WaterUrgencyScore, "relief_score.supply_urgency_score.water_urgency_score", errors);
         ValidateNonNegativeDictionary(config.ReliefScore.SupplyUrgencyScore.FoodUrgencyScore, "relief_score.supply_urgency_score.food_urgency_score", errors);
         if (config.PriorityScore.MedicalWeight < 0)
@@ -593,6 +598,62 @@ public static class SosPriorityRuleConfigSupport
         }
         catch
         {
+        }
+    }
+
+    private static void NormalizeSituationMultipliers(SosPriorityRuleConfigDocument config)
+    {
+        var normalized = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in config.SituationMultiplier ?? new Dictionary<string, double>())
+        {
+            var key = NormalizeKey(pair.Key);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            normalized[key] = NormalizeSituationMultiplierValue(pair.Value, GetDefaultSituationMultiplier(key));
+        }
+
+        foreach (var pair in DefaultConfig.SituationMultiplier)
+        {
+            var key = NormalizeKey(pair.Key);
+            normalized.TryAdd(key, pair.Value);
+        }
+
+        config.SituationMultiplier = normalized;
+    }
+
+    private static double GetDefaultSituationMultiplier(string normalizedKey)
+        => DefaultConfig.SituationMultiplier.TryGetValue(normalizedKey, out var value)
+            ? value
+            : SituationMultiplierMin;
+
+    private static double NormalizeSituationMultiplierValue(double value, double fallback)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value < SituationMultiplierMin || value > SituationMultiplierMax)
+        {
+            return fallback;
+        }
+
+        return value;
+    }
+
+    private static void ValidateSituationMultiplierRange(
+        IDictionary<string, double>? values,
+        List<string> errors)
+    {
+        if (values is null)
+        {
+            return;
+        }
+
+        foreach (var pair in values)
+        {
+            if (pair.Value < SituationMultiplierMin || pair.Value > SituationMultiplierMax)
+            {
+                errors.Add($"situation_multiplier.{pair.Key} phải nằm trong khoảng {SituationMultiplierMin:0.##} đến {SituationMultiplierMax:0.##}.");
+            }
         }
     }
 
