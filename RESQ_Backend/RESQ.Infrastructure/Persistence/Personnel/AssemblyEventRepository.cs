@@ -367,7 +367,6 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
 
         return new PagedResult<CheckedInRescuerDto>(dtos, total, pageNumber, pageSize);
     }
-
     public async Task<PagedResult<CheckedInRescuerDto>> GetCheckedInRescuersByAssemblyPointAsync(
         int assemblyPointId, int pageNumber, int pageSize,
         RESQ.Domain.Enum.Identity.RescuerType? rescuerType = null,
@@ -394,7 +393,7 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
             abilityFilteredUserIds = abilityQuery.Select(ua => ua.UserId).Distinct();
         }
 
-        var joinedQuery = _unitOfWork.Set<AssemblyParticipant>()
+        var eventRowsQuery = _unitOfWork.Set<AssemblyParticipant>()
             .Where(p => p.IsCheckedIn && !p.IsCheckedOut)
             .Join(
                 _unitOfWork.Set<AssemblyEvent>().Where(e => e.AssemblyPointId == assemblyPointId),
@@ -408,13 +407,13 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                 (pe, u) => new { pe.Participant, pe.Event, User = u });
 
         if (rescuerTypeStr != null)
-            joinedQuery = joinedQuery.Where(x => x.User.RescuerProfile != null &&
-                                                 x.User.RescuerProfile.RescuerType == rescuerTypeStr);
+            eventRowsQuery = eventRowsQuery.Where(x => x.User.RescuerProfile != null &&
+                                                       x.User.RescuerProfile.RescuerType == rescuerTypeStr);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
-            joinedQuery = joinedQuery.Where(x =>
+            eventRowsQuery = eventRowsQuery.Where(x =>
                 (x.User.FirstName != null && x.User.FirstName.ToLower().Contains(term)) ||
                 (x.User.LastName  != null && x.User.LastName.ToLower().Contains(term))  ||
                 (x.User.Phone     != null && x.User.Phone.ToLower().Contains(term))     ||
@@ -422,31 +421,92 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
         }
 
         if (abilityFilteredUserIds != null)
-            joinedQuery = joinedQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));
+            eventRowsQuery = eventRowsQuery.Where(x => abilityFilteredUserIds.Contains(x.User.Id));
 
-        var rows = await joinedQuery
+        var eventRows = await eventRowsQuery
             .OrderByDescending(x => x.Participant.CheckInTime)
             .ThenByDescending(x => x.Event.AssemblyDate)
             .ToListAsync(cancellationToken);
 
-        var uniqueRows = rows
+        var eventDtos = eventRows
             .GroupBy(x => x.User.Id)
             .Select(g => g
                 .OrderByDescending(x => x.Participant.CheckInTime ?? DateTime.MinValue)
                 .ThenByDescending(x => x.Event.AssemblyDate)
                 .First())
-            .OrderByDescending(x => x.Participant.CheckInTime ?? DateTime.MinValue)
-            .ThenByDescending(x => x.Event.AssemblyDate)
+            .Select(x => new CheckedInRescuerDto
+            {
+                UserId = x.User.Id,
+                FirstName = x.User.FirstName,
+                LastName = x.User.LastName,
+                Phone = x.User.Phone,
+                Email = x.User.Email,
+                AvatarUrl = x.User.AvatarUrl,
+                RescuerType = x.User.RescuerProfile?.RescuerType,
+                CheckedInAt = (x.Participant.CheckInTime ?? DateTime.MinValue).ToVietnamTime(),
+                IsEarly = x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value < x.Event.AssemblyDate,
+                IsLate = x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value > x.Event.AssemblyDate
+            })
             .ToList();
 
-        var total = uniqueRows.Count;
+        var eventUserIds = eventDtos.Select(x => x.UserId).ToHashSet();
 
-        var items = uniqueRows
+        var assignedUsersQuery = _unitOfWork.Set<User>()
+            .Include(u => u.RescuerProfile)
+            .Where(u => u.AssemblyPointId == assemblyPointId
+                && u.RoleId == 3
+                && !eventUserIds.Contains(u.Id));
+
+        if (rescuerTypeStr != null)
+            assignedUsersQuery = assignedUsersQuery.Where(u => u.RescuerProfile != null &&
+                                                               u.RescuerProfile.RescuerType == rescuerTypeStr);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            assignedUsersQuery = assignedUsersQuery.Where(u =>
+                (u.FirstName != null && u.FirstName.ToLower().Contains(term)) ||
+                (u.LastName  != null && u.LastName.ToLower().Contains(term))  ||
+                (u.Phone     != null && u.Phone.ToLower().Contains(term))     ||
+                (u.Email     != null && u.Email.ToLower().Contains(term)));
+        }
+
+        if (abilityFilteredUserIds != null)
+            assignedUsersQuery = assignedUsersQuery.Where(u => abilityFilteredUserIds.Contains(u.Id));
+
+        var assignedUsers = await assignedUsersQuery
+            .OrderByDescending(u => u.UpdatedAt ?? u.CreatedAt ?? DateTime.MinValue)
+            .ToListAsync(cancellationToken);
+
+        var assignedDtos = assignedUsers.Select(u => new CheckedInRescuerDto
+        {
+            UserId = u.Id,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            Phone = u.Phone,
+            Email = u.Email,
+            AvatarUrl = u.AvatarUrl,
+            RescuerType = u.RescuerProfile?.RescuerType,
+            CheckedInAt = (u.UpdatedAt ?? u.CreatedAt ?? DateTime.UtcNow).ToVietnamTime(),
+            IsEarly = false,
+            IsLate = false
+        }).ToList();
+
+        var allRows = eventDtos
+            .Concat(assignedDtos)
+            .OrderByDescending(x => x.CheckedInAt)
+            .ThenBy(x => x.LastName)
+            .ThenBy(x => x.FirstName)
+            .ToList();
+
+        var total = allRows.Count;
+
+        var items = allRows
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToList();
 
-        var userIds = items.Select(x => x.User.Id).ToList();
+        var userIds = items.Select(x => x.UserId).ToList();
 
         var disbandedStatus = RescueTeamStatus.Disbanded.ToString();
         var acceptedStatus = TeamMemberStatus.Accepted.ToString();
@@ -476,23 +536,13 @@ public class AssemblyEventRepository(IUnitOfWork unitOfWork) : IAssemblyEventRep
                     .ToList()
             );
 
-        var dtos = items.Select(x => new CheckedInRescuerDto
+        foreach (var item in items)
         {
-            UserId = x.User.Id,
-            FirstName = x.User.FirstName,
-            LastName = x.User.LastName,
-            Phone = x.User.Phone,
-            Email = x.User.Email,
-            AvatarUrl = x.User.AvatarUrl,
-            RescuerType = x.User.RescuerProfile?.RescuerType,
-            CheckedInAt = (x.Participant.CheckInTime ?? DateTime.MinValue).ToVietnamTime(),
-            IsInTeam = usersInTeam.Contains(x.User.Id),
-            IsEarly = x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value < x.Event.AssemblyDate,
-            IsLate = x.Participant.CheckInTime.HasValue && x.Participant.CheckInTime.Value > x.Event.AssemblyDate,
-            TopAbilities = abilitiesDict.TryGetValue(x.User.Id, out var abs) ? abs : new()
-        }).ToList();
+            item.IsInTeam = usersInTeam.Contains(item.UserId);
+            item.TopAbilities = abilitiesDict.TryGetValue(item.UserId, out var abs) ? abs : new();
+        }
 
-        return new PagedResult<CheckedInRescuerDto>(dtos, total, pageNumber, pageSize);
+        return new PagedResult<CheckedInRescuerDto>(items, total, pageNumber, pageSize);
     }
 
     public async Task<PagedResult<AssemblyEventListItemDto>> GetEventsByAssemblyPointAsync(
